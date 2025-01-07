@@ -38,7 +38,7 @@ const HotelManagementPage = () => {
   const [hotels, setHotels] = useState<Hotel[]>([
     {
       id: 1,
-      name: "Grand Hotel",
+      name: "Le Point Hotel",
       address: "123 Main St, City",
       rooms: [
         { id: 1, number: "101", type: "Standard", capacity: 2, price: 100, status: 'available' },
@@ -48,7 +48,7 @@ const HotelManagementPage = () => {
     },
     {
       id: 2,
-      name: "Cozy Inn",
+      name: "Rosa Rosa",
       address: "456 Oak Ave, Town",
       rooms: [
         { id: 3, number: "201", type: "Suite", capacity: 4, price: 200, status: 'available' },

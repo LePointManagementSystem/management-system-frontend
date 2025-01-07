@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Outlet } from "react-router-dom";
-import { Bell, ChevronDown, Menu, Search, User } from 'lucide-react'
+import { Bell, Menu, Search, User } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -18,7 +18,7 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+const Layout: React.FC<LayoutProps> = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen)
