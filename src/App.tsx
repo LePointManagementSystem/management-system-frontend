@@ -1,15 +1,24 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { LoginPage } from './pages/login-page';
-
+import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
+import { LoginPage } from "./pages/login-page";
+import DashboardPage from "./pages/dashboard-page";
+import Layout from "./components/Layout";
+import HotelManagementPage from "./pages/hotel-management-page";
+import RestaurantPage from "./pages/restaurant-page";
 
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50">
-        <Routes>
-          <Route path="/" element={<LoginPage />} />
-        </Routes>
-      </div>
+      <Routes>
+        {/* Public Route */}
+        <Route path="/" element={<LoginPage />} />
+
+        {/* Protected Routes */}
+        <Route path="/" element={<Layout><Outlet /></Layout>} >
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/hotel-management" element={<HotelManagementPage />} />
+          <Route path="/restaurant" element={<RestaurantPage />} />
+        </Route>
+      </Routes>
     </Router>
   );
 }
