@@ -65,7 +65,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
     const handleAddRoom = () => {
         const errors = validateRoom(newRoom);
         if (Object.keys(errors).length > 0) {
-            alert(Object.values(errors).join("\n")); // Display error messages
+            alert(Object.values(errors).join("\n"));
             return;
         }
         onAddRoom(newRoom);
@@ -84,7 +84,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
 
             const errors = validateRoom(currentRoom);
             if (Object.keys(errors).length > 0) {
-                alert(Object.values(errors).join("\n")); // Display error messages
+                alert(Object.values(errors).join("\n")); 
                 return;
             }
 

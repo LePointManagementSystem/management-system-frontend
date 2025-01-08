@@ -2,21 +2,38 @@ import { NavLink } from 'react-router-dom'
 import { Home, Utensils, ClipboardList, Users, FileText, Hotel } from 'lucide-react';
 
 
-interface SidenavProps {
-    isSidebarOpen: boolean;
+interface MenuItem {
+    path: string;
+    label: string;
+    icon: JSX.Element;
 }
 
-const Sidenav: React.FC<SidenavProps> = ({ isSidebarOpen }) => {
+const menuItems: MenuItem[] = [
+    { path: '/dashboard', label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
+    { path: '/restaurant', label: 'Restaurant', icon: <Utensils className="h-5 w-5" /> },
+    { path: '/hotel-management', label: 'Hotel Management', icon: <Hotel className="h-5 w-5" /> },
+    { path: '/staff', label: 'Staff Management', icon: <Users className="h-5 w-5" /> },
+];
 
-    const menuItems = [
-        { path: '/dashboard', label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
-        { path: '/restaurant', label: 'Restaurant', icon: <Utensils className="h-5 w-5" /> },
-        { path: '/hotel-management', label: 'Hotel Management', icon: <Hotel className="h-5 w-5" /> },
-        { path: '/staff', label: 'Staff Management', icon: <Users className="h-5 w-5" /> }, 
-        // { path: '#', label: 'Inventory', icon: <ClipboardList className="h-5 w-5" /> },
-        // { path: '#', label: 'Bookings', icon: <Users className="h-5 w-5" /> },
-        // { path: '#', label: 'Reports', icon: <FileText className="h-5 w-5" /> },
-    ];
+
+const adjustedMenuItems = (role: 'admin' | 'staff') => {
+    const adminMenuItems = menuItems.concat([
+        { path: '/inventory', label: 'Inventory', icon: <ClipboardList className="h-5 w-5" /> },
+        { path: '/bookings', label: 'Bookings', icon: <Users className="h-5 w-5" /> },
+        { path: '/reports', label: 'Reports', icon: <FileText className="h-5 w-5" /> },
+    ]);
+
+    return role === 'admin' ? adminMenuItems : menuItems;
+};
+
+interface SidenavProps {
+    isSidebarOpen: boolean;
+    role: 'admin' | 'staff';
+}
+
+const Sidenav: React.FC<SidenavProps> = ({ isSidebarOpen, role }) => {
+
+    const items = adjustedMenuItems(role);
 
     return (
         <aside className={`bg-gray-800 text-white w-64 min-h-screen ${isSidebarOpen ? '' : 'hidden'}`}>
@@ -24,7 +41,7 @@ const Sidenav: React.FC<SidenavProps> = ({ isSidebarOpen }) => {
                 <h1 className="text-2xl font-semibold">Management System</h1>
             </div>
             <nav className="mt-8">
-                {menuItems.map((item, index) => (
+                {items.map((item, index) => (
                     <NavLink
                         key={index}
                         to={item.path}

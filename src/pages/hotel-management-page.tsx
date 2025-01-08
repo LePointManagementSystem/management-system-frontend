@@ -118,10 +118,10 @@ const HotelManagementPage = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="space-y-6">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-2xl font-bold">Hotel Management</CardTitle>
+          <CardTitle className="text-3xl font-bold">Hotel Management</CardTitle>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button><Plus className="mr-2 h-4 w-4" /> Add Hotel</Button>
