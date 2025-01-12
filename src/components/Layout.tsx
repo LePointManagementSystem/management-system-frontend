@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bell, ChevronDown, Menu, Search, User } from 'lucide-react'
+import { Bell, ChevronDown, Menu, Search} from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-import { Link } from 'react-router-dom'
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import Sidenav from './side-nav'
@@ -42,7 +42,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mr-4">
                 <Menu className="h-6 w-6" />
               </Button>
-              <h2 className="text-xl font-semibold">Dashboard</h2>
+              <h2 className="text-xl font-semibold">Le Point 95</h2>
             </div>
             <div className="flex items-center space-x-4">
               <div className="relative">

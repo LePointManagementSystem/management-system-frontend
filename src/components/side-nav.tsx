@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Utensils, ClipboardList, Users, FileText, Hotel } from 'lucide-react';
+import { Home, Utensils, ClipboardList, Users, FileText, Hotel, Briefcase } from 'lucide-react';
 
 
 interface MenuItem {
@@ -12,8 +12,8 @@ const menuItems: MenuItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
     { path: '/restaurant', label: 'Restaurant', icon: <Utensils className="h-5 w-5" /> },
     { path: '/hotel-management', label: 'Hotel Management', icon: <Hotel className="h-5 w-5" /> },
-    { path: '/staff', label: 'Staff Management', icon: <Users className="h-5 w-5" /> },
-    {path: '/clients', label: ' Client Management', icon: <Users className="h-5 w-5" />}
+    { path: '/staff', label: 'Staff Management', icon: <Briefcase className="h-5 w-5" /> },
+    { path: '/clients', label: ' Client Management', icon: <Users className="h-5 w-5" /> }
 ];
 
 
@@ -22,7 +22,7 @@ const adjustedMenuItems = (role: 'admin' | 'staff') => {
         { path: '/inventory', label: 'Inventory', icon: <ClipboardList className="h-5 w-5" /> },
         { path: '/bookings', label: 'Bookings', icon: <Users className="h-5 w-5" /> },
         { path: '/reports', label: 'Reports', icon: <FileText className="h-5 w-5" /> },
-        
+
     ]);
 
     return role === 'admin' ? adminMenuItems : menuItems;
