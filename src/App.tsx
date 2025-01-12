@@ -5,6 +5,8 @@ import Layout from "./components/Layout";
 import HotelManagementPage from "./pages/hotel-management-page";
 import RestaurantPage from "./pages/restaurant-page";
 import StaffPage from "./pages/staff-page";
+import ClientsPage from "./pages/clients-page";
+
 
 function App() {
   return (
@@ -18,6 +20,7 @@ function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/hotel-management" element={<HotelManagementPage />} />
           <Route path="/restaurant" element={<RestaurantPage />} />
+          <Route path="/clients" element={<ClientsPage />} />
           <Route path="/staff" element={<StaffPage />} />
         </Route>
       </Routes>
