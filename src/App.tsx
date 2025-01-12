@@ -6,6 +6,7 @@ import HotelManagementPage from "./pages/hotel-management-page";
 import RestaurantPage from "./pages/restaurant-page";
 import StaffPage from "./pages/staff-page";
 import ClientsPage from "./pages/clients-page";
+import InventoryPage from "./pages/inventory-page";
 
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
           <Route path="/restaurant" element={<RestaurantPage />} />
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/staff" element={<StaffPage />} />
+          <Route path="/inventory" element={<InventoryPage />} />
         </Route>
       </Routes>
     </Router>
