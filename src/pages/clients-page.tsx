@@ -3,201 +3,206 @@ import DataTable, { TableColumn } from 'react-data-table-component';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
 }
 
 const ClientsPage: React.FC = () => {
-  const [clients, setClients] = useState<Client[]>([
-    { id: '1', name: 'John Doe', email: 'john@example.com', phone: '123-456-7890' },
-    { id: '2', name: 'Jane Smith', email: 'jane@example.com', phone: '098-765-4321' },
-    { id: '3', name: 'Alice Johnson', email: 'alice@example.com', phone: '555-555-5555' },
-  ]);
+    const [clients, setClients] = useState<Client[]>([
+        { id: '1', name: 'John Doe', email: 'john@example.com', phone: '123-456-7890' },
+        { id: '2', name: 'Jane Smith', email: 'jane@example.com', phone: '098-765-4321' },
+        { id: '3', name: 'Alice Johnson', email: 'alice@example.com', phone: '555-555-5555' },
+    ]);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [currentClient, setCurrentClient] = useState<Client | null>(null);
-  const [newClient, setNewClient] = useState<Omit<Client, 'id'>>({ name: '', email: '', phone: '' });
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [currentClient, setCurrentClient] = useState<Client | null>(null);
+    const [newClient, setNewClient] = useState<Omit<Client, 'id'>>({ name: '', email: '', phone: '' });
 
-  const filteredClients = clients.filter(
-    (client) =>
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    const filteredClients = clients.filter(
+        (client) =>
+            client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            client.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
-  const handleAddClient = () => {
-    const id = Math.random().toString(36).substr(2, 9);
-    setClients([...clients, { ...newClient, id }]);
-    setNewClient({ name: '', email: '', phone: '' });
-    setIsAddDialogOpen(false);
-  };
+    const handleAddClient = () => {
+        const id = Math.random().toString(36).substr(2, 9);
+        setClients([...clients, { ...newClient, id }]);
+        setNewClient({ name: '', email: '', phone: '' });
+        setIsAddDialogOpen(false);
+    };
 
-  const handleEditClient = () => {
-    if (currentClient) {
-      setClients(clients.map((client) => (client.id === currentClient.id ? currentClient : client)));
-      setIsEditDialogOpen(false);
-    }
-  };
+    const handleEditClient = () => {
+        if (currentClient) {
+            setClients(clients.map((client) => (client.id === currentClient.id ? currentClient : client)));
+            setIsEditDialogOpen(false);
+        }
+    };
 
-  const handleDeleteClient = (id: string) => {
-    setClients(clients.filter((client) => client.id !== id));
-  };
+    const handleDeleteClient = (id: string) => {
+        setClients(clients.filter((client) => client.id !== id));
+    };
 
-  // Define columns for the DataTable
-  const columns: TableColumn<Client>[] = [
-    {
-      name: 'Name',
-      selector: (row) => row.name,
-      sortable: true,
-    },
-    {
-      name: 'Email',
-      selector: (row) => row.email,
-      sortable: true,
-    },
-    {
-      name: 'Phone',
-      selector: (row) => row.phone,
-      sortable: true,
-    },
-    {
-      name: 'Actions',
-      cell: (row) => (
-        <div className="flex space-x-2">
-          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="icon" onClick={() => setCurrentClient(row)}>
-                <Edit className="h-4 w-4" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Edit Client</DialogTitle>
-                <DialogDescription>
-                  Make changes to the client information here. Click save when you're done.
-                </DialogDescription>
-              </DialogHeader>
-              {currentClient && (
-                <div className="grid gap-4 py-4">
-                  <div>
-                    <Label htmlFor="edit-name">Name</Label>
-                    <Input
-                      id="edit-name"
-                      value={currentClient.name}
-                      onChange={(e) => setCurrentClient({ ...currentClient, name: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-email">Email</Label>
-                    <Input
-                      id="edit-email"
-                      type="email"
-                      value={currentClient.email}
-                      onChange={(e) => setCurrentClient({ ...currentClient, email: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-phone">Phone</Label>
-                    <Input
-                      id="edit-phone"
-                      value={currentClient.phone}
-                      onChange={(e) => setCurrentClient({ ...currentClient, phone: e.target.value })}
-                    />
-                  </div>
+    // Define columns for the DataTable
+    const columns: TableColumn<Client>[] = [
+        {
+            name: 'Name',
+            selector: (row) => row.name,
+            sortable: true,
+        },
+        {
+            name: 'Email',
+            selector: (row) => row.email,
+            sortable: true,
+        },
+        {
+            name: 'Phone',
+            selector: (row) => row.phone,
+            sortable: true,
+        },
+        {
+            name: 'Actions',
+            cell: (row) => (
+                <div className="flex space-x-2">
+                    <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" size="icon" onClick={() => setCurrentClient(row)}>
+                                <Edit className="h-4 w-4" />
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px]">
+                            <DialogHeader>
+                                <DialogTitle>Edit Client</DialogTitle>
+                                <DialogDescription>
+                                    Make changes to the client information here. Click save when you're done.
+                                </DialogDescription>
+                            </DialogHeader>
+                            {currentClient && (
+                                <div className="grid gap-4 py-4">
+                                    <div>
+                                        <Label htmlFor="edit-name">Name</Label>
+                                        <Input
+                                            id="edit-name"
+                                            value={currentClient.name}
+                                            onChange={(e) => setCurrentClient({ ...currentClient, name: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="edit-email">Email</Label>
+                                        <Input
+                                            id="edit-email"
+                                            type="email"
+                                            value={currentClient.email}
+                                            onChange={(e) => setCurrentClient({ ...currentClient, email: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="edit-phone">Phone</Label>
+                                        <Input
+                                            id="edit-phone"
+                                            value={currentClient.phone}
+                                            onChange={(e) => setCurrentClient({ ...currentClient, phone: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                            <DialogFooter>
+                                <Button type="submit" onClick={handleEditClient}>
+                                    Save changes
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                    <Button variant="outline" size="icon" onClick={() => handleDeleteClient(row.id)}>
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
                 </div>
-              )}
-              <DialogFooter>
-                <Button type="submit" onClick={handleEditClient}>
-                  Save changes
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          <Button variant="outline" size="icon" onClick={() => handleDeleteClient(row.id)}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
-    },
-  ];
+            ),
+        },
+    ];
 
-  return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Client Management</h1>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Client
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Add New Client</DialogTitle>
-              <DialogDescription>
-                Enter the details of the new client here. Click save when you're done.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div>
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={newClient.name}
-                  onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newClient.email}
-                  onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  value={newClient.phone}
-                  onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
-                />
-              </div>
+    return (
+        <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+                <h1 className="text-2xl font-bold">Client Management</h1>
+                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add Client
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                            <DialogTitle>Add New Client</DialogTitle>
+                            <DialogDescription>
+                                Enter the details of the new client here. Click save when you're done.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <div>
+                                <Label htmlFor="name">Name</Label>
+                                <Input
+                                    id="name"
+                                    value={newClient.name}
+                                    onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="email">Email</Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    value={newClient.email}
+                                    onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="phone">Phone</Label>
+                                <Input
+                                    id="phone"
+                                    value={newClient.phone}
+                                    onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button type="submit" onClick={handleAddClient}>
+                                Add Client
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
-            <DialogFooter>
-              <Button type="submit" onClick={handleAddClient}>
-                Add Client
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-      <Input
+            {/* <Input
         placeholder="Search clients..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         className="mb-4"
-      />
-      <DataTable columns={columns} data={filteredClients} pagination />
-    </div>
-  );
+      /> */}
+            <DataTable
+                columns={columns}
+                data={filteredClients}
+                pagination
+                highlightOnHover
+                selectableRows />
+        </div>
+    );
 };
 
 export default ClientsPage;

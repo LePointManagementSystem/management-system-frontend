@@ -1,3 +1,10 @@
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus } from 'lucide-react';
 import React, { useState } from 'react';
 import DataTable, { TableColumn } from 'react-data-table-component';
 
@@ -20,6 +27,17 @@ const StaffPage: React.FC = () => {
     ];
 
     const [staff, setStaff] = useState<StaffMember[]>(initialStaff);
+
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const [newStaffMember, setNewStaffMember] = useState<Omit<StaffMember, 'id'>>({
+        name: '',
+        role: '',
+        email: '',
+        phone: '',
+        status: 'Active',
+    });
+
 
     const columns: TableColumn<StaffMember>[] = [
         {
@@ -55,13 +73,12 @@ const StaffPage: React.FC = () => {
             selector: (row: StaffMember) => row.status,
             cell: (row: StaffMember) => (
                 <span
-                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        row.status === 'Active'
+                    className={`px-2 py-1 rounded-full text-xs font-semibold ${row.status === 'Active'
                             ? 'bg-green-100 text-green-800'
                             : row.status === 'On Leave'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
-                    }`}
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-red-100 text-red-800'
+                        }`}
                 >
                     {row.status}
                 </span>
@@ -117,20 +134,128 @@ const StaffPage: React.FC = () => {
         },
     };
 
+    const filteredStaff = staff.filter(member =>
+        member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        member.role.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const handleAddStaff = () => {
+        setStaff([...staff, { ...newStaffMember, id: staff.length + 1 }]);
+        setNewStaffMember({ name: '', role: '', email: '', phone: '', status: 'Active' });
+        setIsAddDialogOpen(false);
+    };
+
+
+
     return (
-        <div className="p-4 space-y-6">
-            <h2 className="text-3xl font-bold">Staff Management</h2>
-            <DataTable
-                title="Staff List"
-                columns={columns}
-                data={staff}
-                pagination
-                highlightOnHover
-                selectableRows
-                dense
-                customStyles={customStyles}
-            />
+
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <h2 className="text-3xl font-bold">Staff Management</h2>
+                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button><Plus className="mr-2 h-4 w-4" /> Add Staff</Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                            <DialogTitle>Add New Staff Member</DialogTitle>
+                            <DialogDescription>
+                                Enter the details of the new staff member here. Click save when you're done.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="name" className="text-right">
+                                    Name
+                                </Label>
+                                <Input
+                                    id="name"
+                                    value={newStaffMember.name}
+                                    onChange={(e) => setNewStaffMember({ ...newStaffMember, name: e.target.value })}
+                                    className="col-span-3"
+                                />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="role" className="text-right">
+                                    Role
+                                </Label>
+                                <Input
+                                    id="role"
+                                    value={newStaffMember.role}
+                                    onChange={(e) => setNewStaffMember({ ...newStaffMember, role: e.target.value })}
+                                    className="col-span-3"
+                                />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="email" className="text-right">
+                                    Email
+                                </Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    value={newStaffMember.email}
+                                    onChange={(e) => setNewStaffMember({ ...newStaffMember, email: e.target.value })}
+                                    className="col-span-3"
+                                />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="phone" className="text-right">
+                                    Phone
+                                </Label>
+                                <Input
+                                    id="phone"
+                                    value={newStaffMember.phone}
+                                    onChange={(e) => setNewStaffMember({ ...newStaffMember, phone: e.target.value })}
+                                    className="col-span-3"
+                                />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="status" className="text-right">
+                                    Status
+                                </Label>
+                                <Select
+                                    onValueChange={(value: 'Active' | 'On Leave' | 'Terminated') => setNewStaffMember({ ...newStaffMember, status: value })}
+                                    defaultValue={newStaffMember.status}
+                                >
+                                    <SelectTrigger className="col-span-3">
+                                        <SelectValue placeholder="Select status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Active">Active</SelectItem>
+                                        <SelectItem value="On Leave">On Leave</SelectItem>
+                                        <SelectItem value="Terminated">Terminated</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button type="submit" onClick={handleAddStaff}>Add Staff Member</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            </div>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Staff List</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  
+                        <DataTable
+                            columns={columns}
+                            data={staff}
+                            pagination
+                            highlightOnHover
+                            selectableRows
+                          
+                        />
+            
+                </CardContent>
+            </Card>
         </div>
+
+
+
     );
 };
 
