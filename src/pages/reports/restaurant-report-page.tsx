@@ -96,7 +96,7 @@ const RestaurantReportPage: React.FC = () => {
                   <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">$45,231.89</div>
+                  <div className="text-2xl font-bold">GHT45,231.89</div>
                   <p className="text-xs text-muted-foreground">+20.1% from last month</p>
                 </CardContent>
               </Card>
@@ -105,7 +105,7 @@ const RestaurantReportPage: React.FC = () => {
                   <CardTitle className="text-sm font-medium">Average Order Value</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">$42.50</div>
+                  <div className="text-2xl font-bold">GHT42.50</div>
                   <p className="text-xs text-muted-foreground">+8.2% from last month</p>
                 </CardContent>
               </Card>
@@ -170,7 +170,7 @@ const RestaurantReportPage: React.FC = () => {
                       <TableRow key={dish.name}>
                         <TableCell className="font-medium">{dish.name}</TableCell>
                         <TableCell>{dish.orders}</TableCell>
-                        <TableCell>${dish.revenue}</TableCell>
+                        <TableCell>GHT{dish.revenue}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
