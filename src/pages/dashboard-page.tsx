@@ -1,4 +1,5 @@
-import { DollarSign, Users, ShoppingCart, Utensils, Calendar } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Users, ShoppingCart, Utensils, Calendar, BarChart } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 const DashboardPage = () => {
@@ -8,7 +9,7 @@ const DashboardPage = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          {/* <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -17,7 +18,7 @@ const DashboardPage = () => {
             <p className="text-xs text-muted-foreground">+20.1% from last month</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card> */}
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Bookings</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -45,6 +46,18 @@ const DashboardPage = () => {
           <CardContent>
             <div className="text-2xl font-bold">+573</div>
             <p className="text-xs text-muted-foreground">+201 since last week</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Restaurant Reports</CardTitle>
+            <BarChart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">View</div>
+            <Link to="/restaurant-report" className="text-xs text-blue-500 hover:underline">
+              See detailed reports
+            </Link>
           </CardContent>
         </Card>
       </div>

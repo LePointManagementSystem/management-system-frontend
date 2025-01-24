@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/select";
 import ClientSearch from './client-search'
 
-
 interface Room {
     id: number;
     number: string;
@@ -231,7 +230,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
                             <TableCell>{room.number}</TableCell>
                             <TableCell>{room.type}</TableCell>
                             <TableCell>{room.capacity}</TableCell>
-                            <TableCell>${room.price}</TableCell>
+                            <TableCell>GHT{room.price}</TableCell>
                             <TableCell>{room.status}</TableCell>
                             <TableCell>{room.client ? room.client.name : 'N/A'}</TableCell>
                             <TableCell>
