@@ -131,6 +131,7 @@ const HotelManagementPage = () => {
         responsive
         highlightOnHover
         striped
+        selectableRows
       />
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">

@@ -10,7 +10,7 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
-    { path: '/restaurant', label: 'Restaurant', icon: <Utensils className="h-5 w-5" /> },
+    { path: '/restaurant', label: 'Restaurant Management', icon: <Utensils className="h-5 w-5" /> },
     { path: '/hotel-management', label: 'Hotel Management', icon: <Hotel className="h-5 w-5" /> },
     { path: '/room-booking', label: 'Bookings', icon: <Users className="h-5 w-5" /> },
     { path: '/staff', label: 'Staff Management', icon: <Briefcase className="h-5 w-5" /> },
@@ -25,7 +25,7 @@ const adjustedMenuItems = (role: 'admin' | 'staff') => {
         { path: '/reports/occupancy', label: 'Occupancy Reports', icon: <FileText className="h-5 w-5" /> },
         { path: '/reports/financial', label: 'Financial Reports', icon: <FileText className="h-5 w-5" /> },
     ]);
-    
+
     return role === 'admin' ? adminMenuItems : menuItems;
 };
 

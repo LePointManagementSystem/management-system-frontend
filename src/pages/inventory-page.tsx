@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTrigger } from "@/components/ui/dialog";
-import { Plus } from "lucide-react";
+import { Edit, Plus, Trash2 } from "lucide-react";
 import DataTable, { TableColumn } from 'react-data-table-component';
 import { Badge } from "@/components/ui/badge";
 import { DialogDescription, DialogTitle } from '@radix-ui/react-dialog';
@@ -117,10 +117,10 @@ const InventoryPage: React.FC = () => {
       cell: (row: InventoryItem) => (
         <div className="flex space-x-2">
           <Button variant="outline" size="icon" onClick={() => handleEditItem(row)}>
-            Edit
+            <Edit className='h-4 w-4' />
           </Button>
           <Button variant="outline" size="icon" onClick={() => handleDeleteItem(row.id)}>
-            Delete
+            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       ),
@@ -150,11 +150,10 @@ const InventoryPage: React.FC = () => {
   );
 
   return (
-    <div className="p-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-2xl font-bold">Restaurant Inventory Management</CardTitle>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+    <div className="space-y-6">
+       <div  className="flex justify-between items-center">
+           <h2 className="text-3xl font-bold mb-6">Inventory</h2>    
+           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button><Plus className="mr-2 h-4 w-4" /> Add Item</Button>
             </DialogTrigger>
@@ -252,8 +251,12 @@ const InventoryPage: React.FC = () => {
                 <Button type="submit" onClick={handleAddItem}>Add Item</Button>
               </DialogFooter>
             </DialogContent>
-    
+
           </Dialog>
+          </div>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+         
         </CardHeader>
         <CardContent>
           <div className="flex items-center space-x-2 mb-4">
@@ -266,14 +269,14 @@ const InventoryPage: React.FC = () => {
           </div>
 
           <DataTable
-          
+
             columns={columns}
             data={filteredInventory}
             pagination
             fixedHeader
             highlightOnHover
             subHeader
-          
+            selectableRows
           />
         </CardContent>
       </Card>
