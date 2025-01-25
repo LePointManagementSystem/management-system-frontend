@@ -139,7 +139,7 @@ const RoomBookingPage: React.FC = () => {
                                     <TableRow key={room.id}>
                                         <TableCell>{room.type}</TableCell>
                                         <TableCell>{room.capacity} guests</TableCell>
-                                        <TableCell>GHT{room.price}</TableCell>
+                                        <TableCell>HTG{room.price}</TableCell>
                                         <TableCell>
                                             <Button variant="outline" size="sm" onClick={() => setSelectedRoom(room.id)}>
                                                 Select

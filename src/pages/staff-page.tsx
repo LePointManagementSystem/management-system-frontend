@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus } from 'lucide-react';
+import { Edit, Plus, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
 import DataTable, { TableColumn } from 'react-data-table-component';
 
@@ -88,19 +88,13 @@ const StaffPage: React.FC = () => {
             name: 'Actions',
             cell: (row: StaffMember) => (
                 <div className="flex space-x-2">
-                    <button
-                        onClick={() => handleEdit(row)}
-                        className="text-blue-600 hover:underline"
-                    >
-                        Edit
-                    </button>
-                    <button
-                        onClick={() => handleDelete(row.id)}
-                        className="text-red-600 hover:underline"
-                    >
-                        Delete
-                    </button>
-                </div>
+          <Button variant="outline" size="icon" onClick={() => handleEdit(row)}>
+            <Edit  className='h-4 w-4' />
+          </Button>
+          <Button variant="outline" size="icon" onClick={() => handleDelete(row.id)}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
             ),
         },
     ];
