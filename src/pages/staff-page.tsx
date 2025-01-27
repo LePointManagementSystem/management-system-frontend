@@ -74,10 +74,10 @@ const StaffPage: React.FC = () => {
             cell: (row: StaffMember) => (
                 <span
                     className={`px-2 py-1 rounded-full text-xs font-semibold ${row.status === 'Active'
-                            ? 'bg-green-100 text-green-800'
-                            : row.status === 'On Leave'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : 'bg-red-100 text-red-800'
+                        ? 'bg-green-100 text-green-800'
+                        : row.status === 'On Leave'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
                         }`}
                 >
                     {row.status}
@@ -88,13 +88,13 @@ const StaffPage: React.FC = () => {
             name: 'Actions',
             cell: (row: StaffMember) => (
                 <div className="flex space-x-2">
-          <Button variant="outline" size="icon" onClick={() => handleEdit(row)}>
-            <Edit  className='h-4 w-4' />
-          </Button>
-          <Button variant="outline" size="icon" onClick={() => handleDelete(row.id)}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
+                    <Button variant="outline" size="icon" onClick={() => handleEdit(row)}>
+                        <Edit className='h-4 w-4' />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => handleDelete(row.id)}>
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                </div>
             ),
         },
     ];
@@ -233,22 +233,18 @@ const StaffPage: React.FC = () => {
                     <CardTitle>Staff List</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  
-                        <DataTable
-                            columns={columns}
-                            data={staff}
-                            pagination
-                            highlightOnHover
-                            selectableRows
-                          
-                        />
-            
+
+                    <DataTable
+                        columns={columns}
+                        data={staff}
+                        pagination
+                        highlightOnHover
+                        selectableRows
+                    />
+
                 </CardContent>
             </Card>
         </div>
-
-
-
     );
 };
 

@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { User, Mail, Phone, MapPin, Briefcase, Calendar, Edit } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {  Mail, Phone, MapPin, Briefcase, Calendar, Edit } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
