@@ -19,6 +19,7 @@ function App() {
       <Routes>
         {/* Public Route */}
         <Route path="/" element={<LoginPage />} />
+        <Route path="/login" element={<LoginPage />} />
 
         {/* Protected Routes */}
         <Route path="/" element={<Layout><Outlet /></Layout>} >

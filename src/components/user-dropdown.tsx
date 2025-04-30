@@ -11,10 +11,11 @@ import {
 import { User } from 'lucide-react';
 
 interface UserDropdownProps {
-    onProfileClick: () => void;
+    onProfileClick: () => void
+    onLogout: () => void
 }
 
-const UserDropdown: React.FC<UserDropdownProps> = ({ onProfileClick }) => (
+const UserDropdown: React.FC<UserDropdownProps> = ({ onProfileClick, onLogout  }) => (
     <DropdownMenu>
         <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -31,7 +32,7 @@ const UserDropdown: React.FC<UserDropdownProps> = ({ onProfileClick }) => (
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onProfileClick}>Profile</DropdownMenuItem>
             <DropdownMenuItem>Settings</DropdownMenuItem>
-            <DropdownMenuItem>Logout</DropdownMenuItem>
+            <DropdownMenuItem onClick={onLogout}>Logout</DropdownMenuItem>
         </DropdownMenuContent>
     </DropdownMenu>
 );

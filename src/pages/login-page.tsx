@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { login } from '@/services/auth-service'
 import { Eye, EyeOff } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -7,17 +8,11 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-interface LoginCredentials {
-  email: string
-  password: string
-}
 
-const mockLogin = async (credentials: LoginCredentials): Promise<boolean> => {
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 1000))
-  // For demo purposes, consider any non-empty email and password as valid
-  return !!credentials.email && !!credentials.password
-}
+// {
+//   "email": "test@testuser.com",
+//   "password": "Test123!"
+// }
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
@@ -33,12 +28,16 @@ export function LoginPage() {
     setIsLoading(true)
 
     try {
-      const success = await mockLogin({ email, password })
-      if (success) {
-        // Redirect to dashboard on successful login
+      const result = await login({ email, password });
+      if (result.succeeded && result.token) {
+        localStorage.setItem('token', result.token)  
+  
+        console.log(result)
         navigate('/dashboard')
-      } else {
-        setError('Invalid email or password')
+      }else{
+        console.log(result.succeeded )
+        console.log(result.token)
+        setError(result.message || "Invalid email or password")
       }
     } catch (err) {
       setError('An error occurred. Please try again.')

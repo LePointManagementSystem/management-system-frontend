@@ -8,9 +8,10 @@ import UserDropdown from './user-dropdown';
 interface HeaderProps {
     toggleSidebar: () => void;
     onProfileClick: () => void;
+    onLogout: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ toggleSidebar, onProfileClick }) => (
+const Header: React.FC<HeaderProps> = ({ toggleSidebar, onProfileClick, onLogout }) => (
     <header className="bg-white shadow-md">
         <div className="flex items-center justify-between p-4">
             <div className="flex items-center">
@@ -27,7 +28,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, onProfileClick }) => (
                 <Button variant="ghost" size="icon">
                     <Bell className="h-5 w-5" />
                 </Button>
-                <UserDropdown onProfileClick={onProfileClick} />
+                <UserDropdown onProfileClick={onProfileClick} onLogout={onLogout} />
             </div>
         </div>
     </header>
