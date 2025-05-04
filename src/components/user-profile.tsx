@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 
 // Mock user data
 const initialUserData = {
-  name: "John Doe",
+  name: "Louis Doe",
   email: "john.doe@example.com",
   phone: "+1 (555) 123-4567",
   address: "123 Hotel Street, Cityville, State 12345",

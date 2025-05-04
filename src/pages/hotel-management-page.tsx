@@ -9,27 +9,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RoomManagement } from '@/components/room-management';
-
-interface Room {
-  id: number;
-  number: string;
-  type: string;
-  capacity: number;
-  price: number;
-  status: 'available' | 'occupied' | 'maintenance';
-}
 
 interface Hotel {
   id: number;
   name: string;
-  address: string;
-  rooms: Room[];
-  rating: number;
+  starRating: number;
+  description: string;
+  phoneNumber: string;
+  ownerID: number;
 }
 
 const HotelManagementPage = () => {
@@ -37,32 +27,34 @@ const HotelManagementPage = () => {
     {
       id: 1,
       name: "Le Point Hotel",
-      address: "123 Main St, City",
-      rooms: [
-        { id: 1, number: "101", type: "Standard", capacity: 2, price: 100, status: 'available' },
-        { id: 2, number: "102", type: "Deluxe", capacity: 3, price: 150, status: 'occupied' },
-      ],
-      rating: 4.5,
+      starRating: 4,
+      description: "Modern hotel in the heart of the city.",
+      phoneNumber: "+509 1234 5678",
+      ownerID: 101,
     },
     {
       id: 2,
       name: "Rosa Rosa",
-      address: "456 Oak Ave, Town",
-      rooms: [
-        { id: 3, number: "201", type: "Suite", capacity: 4, price: 200, status: 'available' },
-        { id: 4, number: "202", type: "Standard", capacity: 2, price: 90, status: 'maintenance' },
-      ],
-      rating: 3.8,
+      starRating: 3,
+      description: "Charming countryside escape.",
+      phoneNumber: "+509 9876 5432",
+      ownerID: 102,
     },
   ]);
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newHotel, setNewHotel] = useState<Omit<Hotel, 'id'>>({ name: '', address: '', rooms: [], rating: 0 });
-  const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
-  const [isRoomManagementOpen, setIsRoomManagementOpen] = useState(false);
+  const [newHotel, setNewHotel] = useState<Omit<Hotel, 'id'>>({
+    name: '',
+    starRating: 0,
+    description: '',
+    phoneNumber: '',
+    ownerID: 0,
+  });
 
   const handleAddHotel = () => {
-    setHotels([...hotels, { ...newHotel, id: hotels.length + 1 }]);
-    setNewHotel({ name: '', address: '', rooms: [], rating: 0 });
+    const nextID = hotels.length > 0 ? Math.max(...hotels.map(h => h.id)) + 1 : 1;
+    setHotels([...hotels, { ...newHotel, id: nextID }]);
+    setNewHotel({ name: '', starRating: 0, description: '', phoneNumber: '', ownerID: 0 });
     setIsAddDialogOpen(false);
   };
 
@@ -77,39 +69,32 @@ const HotelManagementPage = () => {
       sortable: true,
     },
     {
-      name: 'Address',
-      selector: (row: Hotel) => row.address,
+      name: 'Star Rating',
+      selector: (row: Hotel) => row.starRating.toString(),
       sortable: true,
     },
     {
-      name: 'Rooms',
-      selector: (row: Hotel) => row.rooms.length.toString(),
-      sortable: true,
+      name: 'Description',
+      selector: (row: Hotel) => row.description,
+      wrap: true,
     },
     {
-      name: 'Rating',
-      selector: (row: Hotel) => row.rating.toString(),
-      sortable: true,
+      name: 'Phone',
+      selector: (row: Hotel) => row.phoneNumber,
+    },
+    {
+      name: 'Owner ID',
+      selector: (row: Hotel) => row.ownerID.toString(),
     },
     {
       name: 'Actions',
       cell: (row: Hotel) => (
         <div className="flex space-x-2">
-          <Button variant="outline" size="icon" onClick={() => setSelectedHotel(row)}>
+          <Button variant="outline" size="icon">
             <Edit className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="icon" onClick={() => handleDeleteHotel(row.id)}>
             <Trash2 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setSelectedHotel(row);
-              setIsRoomManagementOpen(true);
-            }}
-          >
-            Manage Rooms
           </Button>
         </div>
       ),
@@ -124,6 +109,7 @@ const HotelManagementPage = () => {
           <Plus className="mr-2 h-4 w-4" /> Add Hotel
         </Button>
       </div>
+
       <DataTable
         columns={columns}
         data={hotels}
@@ -131,16 +117,17 @@ const HotelManagementPage = () => {
         responsive
         highlightOnHover
         striped
-        selectableRows
       />
+
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
             <DialogTitle>Add New Hotel</DialogTitle>
             <DialogDescription>
-              Enter the details of the new hotel. Click save when you're done.
+              Fill out the details below to register a new hotel.
             </DialogDescription>
           </DialogHeader>
+
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">
@@ -153,51 +140,63 @@ const HotelManagementPage = () => {
                 className="col-span-3"
               />
             </div>
+
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="address" className="text-right">
-                Address
+              <Label htmlFor="starRating" className="text-right">
+                Star Rating
               </Label>
               <Input
-                id="address"
-                value={newHotel.address}
-                onChange={(e) => setNewHotel({ ...newHotel, address: e.target.value })}
+                id="starRating"
+                type="number"
+                min="0"
+                max="5"
+                value={newHotel.starRating}
+                onChange={(e) => setNewHotel({ ...newHotel, starRating: parseInt(e.target.value) })}
                 className="col-span-3"
               />
             </div>
+
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="rating" className="text-right">
-                Rating
+              <Label htmlFor="description" className="text-right">
+                Description
               </Label>
               <Input
-                id="rating"
+                id="description"
+                value={newHotel.description}
+                onChange={(e) => setNewHotel({ ...newHotel, description: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="phoneNumber" className="text-right">
+                Phone
+              </Label>
+              <Input
+                id="phoneNumber"
+                value={newHotel.phoneNumber}
+                onChange={(e) => setNewHotel({ ...newHotel, phoneNumber: e.target.value })}
+                className="col-span-3"
+              />
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="ownerID" className="text-right">
+                Owner ID
+              </Label>
+              <Input
+                id="ownerID"
                 type="number"
-                step="0.1"
-                min="0"
-                max="5"
-                value={newHotel.rating}
-                onChange={(e) => setNewHotel({ ...newHotel, rating: parseFloat(e.target.value) })}
+                value={newHotel.ownerID}
+                onChange={(e) => setNewHotel({ ...newHotel, ownerID: parseInt(e.target.value) })}
                 className="col-span-3"
               />
             </div>
           </div>
+
           <DialogFooter>
-            <Button onClick={handleAddHotel}>Save changes</Button>
+            <Button onClick={handleAddHotel}>Save Hotel</Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={isRoomManagementOpen} onOpenChange={setIsRoomManagementOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>{selectedHotel?.name} - Room Management</DialogTitle>
-          </DialogHeader>
-          {selectedHotel && (
-            <RoomManagement
-              rooms={selectedHotel.rooms}
-              onAddRoom={(newRoom) => {}}
-              onUpdateRoom={(updatedRoom) => {}}
-              onDeleteRoom={(roomId) => {}}
-            />
-          )}
         </DialogContent>
       </Dialog>
     </div>
