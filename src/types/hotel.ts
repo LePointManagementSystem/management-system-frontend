@@ -7,15 +7,19 @@ export interface Room {
     capacity: number;
     price: number;
     status: 'available' | 'occupied' | 'maintenance';
-  }
+}
   
-  export interface Hotel {
-    id: number;
-    name: string;
-    address: string;
-    rooms: Room[];
-    rating: number;
-  }
+
+  
+export interface Hotel {
+  id: number;
+  name: string;
+  starRating: number;
+  description: string;
+  phoneNumber: string;
+  ownerID: number;
+}
+
   
   export interface Amenity {
     id: number;

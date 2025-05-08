@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import DataTable from 'react-data-table-component';
 import { Plus, Edit, Trash2 } from 'lucide-react';
-import { Button } from "@/components/ui/button";
+
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -9,40 +10,19 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
-interface Hotel {
-  id: number;
-  name: string;
-  starRating: number;
-  description: string;
-  phoneNumber: string;
-  ownerID: number;
-}
+import { getHotels } from '@/services/hotel-service';
+import { Hotel } from '@/types/hotel';
 
 const HotelManagementPage = () => {
-  const [hotels, setHotels] = useState<Hotel[]>([
-    {
-      id: 1,
-      name: "Le Point Hotel",
-      starRating: 4,
-      description: "Modern hotel in the heart of the city.",
-      phoneNumber: "+509 1234 5678",
-      ownerID: 101,
-    },
-    {
-      id: 2,
-      name: "Rosa Rosa",
-      starRating: 3,
-      description: "Charming countryside escape.",
-      phoneNumber: "+509 9876 5432",
-      ownerID: 102,
-    },
-  ]);
-
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
   const [newHotel, setNewHotel] = useState<Omit<Hotel, 'id'>>({
     name: '',
     starRating: 0,
@@ -101,6 +81,21 @@ const HotelManagementPage = () => {
     },
   ];
 
+  useEffect(() => {
+    const fetchHotels = async () => {
+      try {
+        const data = await getHotels();
+        setHotels(data);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHotels();
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -113,6 +108,7 @@ const HotelManagementPage = () => {
       <DataTable
         columns={columns}
         data={hotels}
+        progressPending={loading}
         pagination
         responsive
         highlightOnHover
@@ -130,9 +126,7 @@ const HotelManagementPage = () => {
 
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Name
-              </Label>
+              <Label htmlFor="name" className="text-right">Name</Label>
               <Input
                 id="name"
                 value={newHotel.name}
@@ -142,24 +136,22 @@ const HotelManagementPage = () => {
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="starRating" className="text-right">
-                Star Rating
-              </Label>
+              <Label htmlFor="starRating" className="text-right">Star Rating</Label>
               <Input
                 id="starRating"
                 type="number"
                 min="0"
                 max="5"
                 value={newHotel.starRating}
-                onChange={(e) => setNewHotel({ ...newHotel, starRating: parseInt(e.target.value) })}
+                onChange={(e) =>
+                  setNewHotel({ ...newHotel, starRating: parseInt(e.target.value) })
+                }
                 className="col-span-3"
               />
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">
-                Description
-              </Label>
+              <Label htmlFor="description" className="text-right">Description</Label>
               <Input
                 id="description"
                 value={newHotel.description}
@@ -169,9 +161,7 @@ const HotelManagementPage = () => {
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="phoneNumber" className="text-right">
-                Phone
-              </Label>
+              <Label htmlFor="phoneNumber" className="text-right">Phone</Label>
               <Input
                 id="phoneNumber"
                 value={newHotel.phoneNumber}
@@ -181,14 +171,14 @@ const HotelManagementPage = () => {
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="ownerID" className="text-right">
-                Owner ID
-              </Label>
+              <Label htmlFor="ownerID" className="text-right">Owner ID</Label>
               <Input
                 id="ownerID"
                 type="number"
                 value={newHotel.ownerID}
-                onChange={(e) => setNewHotel({ ...newHotel, ownerID: parseInt(e.target.value) })}
+                onChange={(e) =>
+                  setNewHotel({ ...newHotel, ownerID: parseInt(e.target.value) })
+                }
                 className="col-span-3"
               />
             </div>

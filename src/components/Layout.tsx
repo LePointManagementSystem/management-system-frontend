@@ -38,7 +38,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <Sidenav isSidebarOpen={isSidebarOpen} role='admin'/>
+      <Sidenav isSidebarOpen={isSidebarOpen} role='Admin'/>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">

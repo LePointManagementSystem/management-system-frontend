@@ -15,6 +15,16 @@ async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T> 
   return res.json();
 }
 
+export const getHotels = async (): Promise<Hotel[]> => {
+  const response = await fetch("http://localhost:5004/api/City/1/hotels");
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch hotels");
+  }
+
+  return await response.json();
+};
+
 // Hotel endpoints
 const getHotelById = (id: number): Promise<Hotel> =>
   fetchJson(`${API_BASE}/${id}`);
