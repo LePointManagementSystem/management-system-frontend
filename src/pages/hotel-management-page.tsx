@@ -22,6 +22,8 @@ const HotelManagementPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editingHotel, setEditingHotel] = useState<Hotel | null>(null);
+
 
   const [newHotel, setNewHotel] = useState<Omit<Hotel, 'id'>>({
     name: '',
@@ -32,12 +34,17 @@ const HotelManagementPage = () => {
   });
 
   const handleAddHotel = () => {
+    if (!newHotel.name.trim() || newHotel.starRating < 1 || newHotel.starRating > 5 || !newHotel.phoneNumber || newHotel.ownerID <= 0) {
+      alert("Please fill in all fields correctly.");
+      return;
+    }
+  
     const nextID = hotels.length > 0 ? Math.max(...hotels.map(h => h.id)) + 1 : 1;
     setHotels([...hotels, { ...newHotel, id: nextID }]);
     setNewHotel({ name: '', starRating: 0, description: '', phoneNumber: '', ownerID: 0 });
     setIsAddDialogOpen(false);
   };
-
+  
   const handleDeleteHotel = (id: number) => {
     setHotels(hotels.filter(hotel => hotel.id !== id));
   };
@@ -81,20 +88,25 @@ const HotelManagementPage = () => {
     },
   ];
 
+ 
+
   useEffect(() => {
     const fetchHotels = async () => {
       try {
         const data = await getHotels();
-        setHotels(data);
+        console.log("Fetched hotels:", data); 
+        setHotels(data || []);
       } catch (err) {
+        console.error("Error fetching hotels:", err);
         setError((err as Error).message);
       } finally {
         setLoading(false);
       }
     };
-
+  
     fetchHotels();
   }, []);
+  
 
   return (
     <div className="space-y-6">
