@@ -22,7 +22,6 @@ const HotelManagementPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingHotel, setEditingHotel] = useState<Hotel | null>(null);
 
 
   const [newHotel, setNewHotel] = useState<Omit<Hotel, 'id'>>({
@@ -76,7 +75,7 @@ const HotelManagementPage = () => {
     {
       name: 'Actions',
       cell: (row: Hotel) => (
-        <div className="flex space-x-2">
+        <div className="flex space-x-2"> 
           <Button variant="outline" size="icon">
             <Edit className="h-4 w-4" />
           </Button>

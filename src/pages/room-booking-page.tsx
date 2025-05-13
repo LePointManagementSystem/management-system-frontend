@@ -35,11 +35,23 @@ const RoomBookingPage: React.FC = () => {
         phone: "",
     })
 
+    const filteredRooms = availableRooms.filter(
+        (room) =>
+            (!roomType || room.type === roomType) &&
+            guests <= room.capacity
+    )
+
     const handleBooking = () => {
-        // Here you would typically send the booking details to your backend
-        console.log("Booking submitted:", { dateRange, roomType, guests, selectedRoom, bookingDetails })
-        // Reset form or show confirmation message
+        const { name, email, phone } = bookingDetails;
+        if (!name || !email || !phone) {
+            alert("Please fill all booking details.");
+            return;
+        }
+        console.log("Booking submitted:", { dateRange, roomType, guests, selectedRoom, bookingDetails });
     }
+
+    const isBookingDisabled =
+    !selectedRoom || !dateRange?.from || !dateRange?.to || !bookingDetails.name || !bookingDetails.email || !bookingDetails.phone;
 
     return (
         <div className="p-6 space-y-6">
@@ -82,6 +94,7 @@ const RoomBookingPage: React.FC = () => {
                                         selected={dateRange}
                                         onSelect={setDateRange}
                                         numberOfMonths={2}
+                                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                                     />
                                 </PopoverContent>
                             </Popover>
@@ -135,7 +148,7 @@ const RoomBookingPage: React.FC = () => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {availableRooms.map((room) => (
+                                {filteredRooms.map((room) => (
                                     <TableRow key={room.id}>
                                         <TableCell>{room.type}</TableCell>
                                         <TableCell>{room.capacity} guests</TableCell>
@@ -189,7 +202,7 @@ const RoomBookingPage: React.FC = () => {
                         </div>
                     </CardContent>
                     <CardFooter>
-                        <Button onClick={handleBooking} className="w-full">
+                        <Button disabled={isBookingDisabled} onClick={handleBooking} className="w-full">
                             <CheckCircle className="mr-2 h-4 w-4" /> Confirm Booking
                         </Button>
                     </CardFooter>
