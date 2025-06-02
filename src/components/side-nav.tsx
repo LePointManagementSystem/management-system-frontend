@@ -17,7 +17,7 @@ const menuItems: MenuItem[] = [
 ];
 
 
-const adjustedMenuItems = (role: 'Admin' | 'staff') => {
+const adjustedMenuItems = (role: 'Admin' | 'Staff') => {
     const adminMenuItems = menuItems.concat([
         { path: '/hotel-management', label: 'Hotel Management', icon: <Hotel className="h-5 w-5" /> },
         { path: '/inventory', label: 'Inventory', icon: <ClipboardList className="h-5 w-5" /> },
@@ -31,7 +31,7 @@ const adjustedMenuItems = (role: 'Admin' | 'staff') => {
 
 interface SidenavProps {
     isSidebarOpen: boolean;
-    role: 'Admin' | 'staff';
+    role: 'Admin' | 'Staff';
 }
 
 const Sidenav: React.FC<SidenavProps> = ({ isSidebarOpen, role }) => {
