@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react"
 import {
-    Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle
+    Card, CardContent, CardFooter, CardHeader, CardTitle
 } from "@/components/ui/card"
 import {
     Button
@@ -22,6 +22,7 @@ type Room = {
     type: string
     price: number
     capacity: number
+    roomNumber: string
 }
 
 type Client = {
@@ -33,9 +34,9 @@ type Client = {
 
 const roomTypes = ["Standard", "Deluxe", "Suite"]
 const availableRooms: Room[] = [
-    { id: 1, type: "Standard", price: 100, capacity: 2 },
-    { id: 2, type: "Deluxe", price: 150, capacity: 3 },
-    { id: 3, type: "Suite", price: 250, capacity: 4 }
+    { id: 1, type: "Standard", price: 100, capacity: 2, roomNumber: "101" },
+    { id: 2, type: "Deluxe", price: 150, capacity: 3, roomNumber: "202" },
+    { id: 3, type: "Suite", price: 250, capacity: 4, roomNumber: "303" }
 ]
 
 const existingClients: Client[] = [
@@ -140,6 +141,7 @@ const RoomBookingPage: React.FC = () => {
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead>Room Number</TableHead>
                                 <TableHead>Type</TableHead>
                                 <TableHead>Price</TableHead>
                                 <TableHead>Action</TableHead>
@@ -147,7 +149,8 @@ const RoomBookingPage: React.FC = () => {
                         </TableHeader>
                         <TableBody>
                             {filteredRooms.map(room => (
-                                <TableRow key={room.id}>
+                                <TableRow key={room.id} className={selectedRoom === room.id ? "bg-green-100" : ""}>
+                                    <TableCell>{room.roomNumber}</TableCell>
                                     <TableCell>{room.type}</TableCell>
                                     <TableCell>HTG {room.price}</TableCell>
                                     <TableCell>
@@ -159,6 +162,7 @@ const RoomBookingPage: React.FC = () => {
                             ))}
                         </TableBody>
                     </Table>
+
                 </CardContent>
             </Card>
 
