@@ -37,6 +37,7 @@ interface SidenavProps {
 const Sidenav: React.FC<SidenavProps> = ({ isSidebarOpen, role }) => {
 
     const items = adjustedMenuItems(role);
+    console.log(role);
 
     return (
         <aside className={`bg-gray-800 text-white w-64 min-h-screen ${isSidebarOpen ? '' : 'hidden'}`}>

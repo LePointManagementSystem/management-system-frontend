@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bell, ChevronDown, Menu, Search} from 'lucide-react'
+import { Bell, ChevronDown, Menu, Search } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -25,24 +25,25 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-  // Remove this line
-  //const [isProfileOpen, setIsProfileOpen] = useState(false)
+
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen)
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem('token'); // Or any other auth key
-    navigate('/login'); // Adjust path if needed
+    localStorage.removeItem('token');
+    navigate('/login');
   };
+
+  const roleUser = localStorage.getItem('role') as 'Admin' | 'Staff' | null;
+const userRole: 'Admin' | 'Staff' = roleUser === 'Admin' ? 'Admin' : 'Staff';
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <Sidenav isSidebarOpen={isSidebarOpen} role='Admin'/>
+      <Sidenav isSidebarOpen={isSidebarOpen} role={userRole} />
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
+
         <header className="bg-white shadow-md">
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center">
@@ -93,8 +94,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
           </div>
         </header>
-
-        {/* Main Content */}
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
           {children}
         </main>
