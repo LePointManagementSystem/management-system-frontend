@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-import { getHotels } from '@/services/hotel-service';
+import { addHotel, getHotels, deleteHotel } from '@/services/hotel-service';
 import { Hotel } from '@/types/hotel';
 
 const HotelManagementPage = () => {
@@ -32,19 +32,29 @@ const HotelManagementPage = () => {
     ownerID: 0,
   });
 
-  const handleAddHotel = () => {
+  const handleAddHotel = async () => {
     if (!newHotel.name.trim() || newHotel.starRating < 1 || newHotel.starRating > 5 || !newHotel.phoneNumber || newHotel.ownerID <= 0) {
       alert("Please fill in all fields correctly.");
       return;
     }
-  
-    const nextID = hotels.length > 0 ? Math.max(...hotels.map(h => h.id)) + 1 : 1;
-    setHotels([...hotels, { ...newHotel, id: nextID }]);
-    setNewHotel({ name: '', starRating: 0, description: '', phoneNumber: '', ownerID: 0 });
-    setIsAddDialogOpen(false);
+
+    try {
+      const createdHotel = await addHotel(newHotel);
+
+      setHotels((prev) => [...prev, createdHotel]);
+
+      setNewHotel({ name: '', starRating: 0, description: '', phoneNumber: '', ownerID: 0 });
+      setIsAddDialogOpen(false);
+
+    } catch (err) {
+      console.error("Add hotel error:", err);
+      alert("Something went wrong while adding the hotel.");
+    }
   };
-  
-  const handleDeleteHotel = (id: number) => {
+
+  const handleDeleteHotel = async (id: number) => {
+    
+    await deleteHotel(id);
     setHotels(hotels.filter(hotel => hotel.id !== id));
   };
 
@@ -75,7 +85,7 @@ const HotelManagementPage = () => {
     {
       name: 'Actions',
       cell: (row: Hotel) => (
-        <div className="flex space-x-2"> 
+        <div className="flex space-x-2">
           <Button variant="outline" size="icon">
             <Edit className="h-4 w-4" />
           </Button>
@@ -87,13 +97,12 @@ const HotelManagementPage = () => {
     },
   ];
 
- 
 
   useEffect(() => {
     const fetchHotels = async () => {
       try {
         const data = await getHotels();
-        console.log("Fetched hotels:", data); 
+        console.log("Fetched hotels:", data);
         setHotels(data || []);
       } catch (err) {
         console.error("Error fetching hotels:", err);
@@ -102,10 +111,10 @@ const HotelManagementPage = () => {
         setLoading(false);
       }
     };
-  
+
     fetchHotels();
   }, []);
-  
+
 
   return (
     <div className="space-y-6">

@@ -2,7 +2,7 @@
 
 import { Hotel, Room, Amenity, Image, RoomClass } from "@/types/hotel";
 
-const API_BASE = '/api/Hotel';
+const API_BASE = 'http://localhost:5004/api';
 
 async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(url, {
@@ -15,8 +15,23 @@ async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T> 
   return res.json();
 }
 
+
+export const addHotel = async (hotel: Omit<Hotel, 'id'>): Promise<Hotel> => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_BASE}/City/1/hotels`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(hotel),
+  });
+  return response.json();
+};
+
+
 export const getHotels = async (): Promise<Hotel[]> => {
-  const response = await fetch("http://localhost:5004/api/City/1/hotels");
+  const response = await fetch(`${API_BASE}/City/1/hotels`);
 
   if (!response.ok) {
     throw new Error("Failed to fetch hotels");
@@ -26,16 +41,29 @@ export const getHotels = async (): Promise<Hotel[]> => {
   const hotels = json.data;
 
   return hotels.map((h: any, index: number) => ({
-    id: index + 1, 
+    id: index + 1,
     name: h.name ?? "Unnamed Hotel",
-    starRating: 0, 
+    starRating: 0,
     description: h.description ?? "",
-    phoneNumber: "N/A", 
+    phoneNumber: "N/A",
     ownerID: 0,
   }));
 };
 
-// Hotel endpoints
+
+export const deleteHotel = async (id: number): Promise<void> => {
+  const token = localStorage.getItem('token');
+  fetch(`${API_BASE}/City/1/hotel/${id}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    }
+  }).then((res) => {
+    if (!res.ok) throw new Error('Failed to delete hotel');
+  });
+};
+
+
 const getHotelById = (id: number): Promise<Hotel> =>
   fetchJson(`${API_BASE}/${id}`);
 
@@ -45,10 +73,6 @@ const updateHotel = (id: number, hotel: Partial<Hotel>): Promise<Hotel> =>
     body: JSON.stringify(hotel),
   });
 
-const deleteHotel = (id: number): Promise<void> =>
-  fetch(`${API_BASE}/${id}`, { method: 'DELETE' }).then((res) => {
-    if (!res.ok) throw new Error('Failed to delete hotel');
-  });
 
 const getHotelRooms = (hotelId: number): Promise<Room[]> =>
   fetchJson(`${API_BASE}/${hotelId}/rooms`);
