@@ -16,12 +16,15 @@ import { Label } from '@/components/ui/label';
 
 import { addHotel, getHotels, deleteHotel } from '@/services/hotel-service';
 import { Hotel } from '@/types/hotel';
+import { addRoom } from '@/services/room-service';
 
 const HotelManagementPage = () => {
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [selectedHotelId, setSelectedHotelId] = useState<number | null>(null);
+  const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
 
 
   const [newHotel, setNewHotel] = useState<Omit<Hotel, 'id'>>({
@@ -30,6 +33,12 @@ const HotelManagementPage = () => {
     description: '',
     phoneNumber: '',
     ownerID: 0,
+  });
+
+   const [newRoom, setNewRoom] = useState({
+    roomNumber: '',
+    type: '',
+    price: 0,
   });
 
   const handleAddHotel = async () => {
@@ -52,8 +61,34 @@ const HotelManagementPage = () => {
     }
   };
 
+  const handleAddRoom = (hotelId: number) => {
+    setSelectedHotelId(hotelId);
+    setIsRoomDialogOpen(true);
+  };
+
+    const handleAddRoomToHotel = async () => {
+    if (!newRoom.roomNumber || !newRoom.type || newRoom.price <= 0 || !selectedHotelId) {
+      alert("Please fill all room fields correctly.");
+      return;
+    }
+
+    try {
+      await addRoom({
+        hotelId: selectedHotelId,
+        ...newRoom,
+      });
+
+      alert("Room added successfully!");
+      setNewRoom({ roomNumber: '', type: '', price: 0 });
+      setIsRoomDialogOpen(false);
+    } catch (err) {
+      console.error("Add room error:", err);
+      alert("Something went wrong while adding the room.");
+    }
+  };
+
   const handleDeleteHotel = async (id: number) => {
-    
+
     await deleteHotel(id);
     setHotels(hotels.filter(hotel => hotel.id !== id));
   };
@@ -86,6 +121,14 @@ const HotelManagementPage = () => {
       name: 'Actions',
       cell: (row: Hotel) => (
         <div className="flex space-x-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => handleAddRoom(row.id)}
+            title="Add Room"
+          >
+            <Plus className="h-4 w-4 text-green-600" />
+          </Button>
           <Button variant="outline" size="icon">
             <Edit className="h-4 w-4" />
           </Button>
@@ -206,6 +249,39 @@ const HotelManagementPage = () => {
 
           <DialogFooter>
             <Button onClick={handleAddHotel}>Save Hotel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+        {/* Add Room Dialog */}
+      <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Add Room</DialogTitle>
+            <DialogDescription>Add a room to hotel ID #{selectedHotelId}</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            {[
+              { label: 'Room Number', id: 'roomNumber', type: 'text', value: newRoom.roomNumber, onChange: (val: string) => setNewRoom({ ...newRoom, roomNumber: val }) },
+              { label: 'Type', id: 'type', type: 'text', value: newRoom.type, onChange: (val: string) => setNewRoom({ ...newRoom, type: val }) },
+              { label: 'Price', id: 'price', type: 'number', value: newRoom.price, onChange: (val: number) => setNewRoom({ ...newRoom, price: val }) },
+            ].map(field => (
+              <div key={field.id} className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor={field.id} className="text-right">{field.label}</Label>
+                <Input
+                  id={field.id}
+                  type={field.type}
+                  value={field.value}
+                  onChange={(e) => field.onChange(field.type === 'number' ? parseFloat(e.target.value) : e.target.value)}
+                  className="col-span-3"
+                />
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter>
+            <Button onClick={handleAddRoomToHotel}>Save Room</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
