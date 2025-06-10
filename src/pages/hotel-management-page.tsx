@@ -22,7 +22,7 @@ import { getRoomClasses } from '@/services/room-class-service';
 const HotelManagementPage = () => {
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedHotelId, setSelectedHotelId] = useState<number | null>(null);
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
@@ -39,11 +39,9 @@ const HotelManagementPage = () => {
 
   const [newRoom, setNewRoom] = useState({
     roomNumber: '',
-    type: '',
+    roomClassId: '',  
     price: 0,
   });
-
-
 
   type RoomField =
     | {
@@ -55,7 +53,7 @@ const HotelManagementPage = () => {
     }
     | {
       label: string;
-      id: 'type';
+      id: 'roomClassId';
       type: 'select';
       value: string;
       onChange: (val: string) => void;
@@ -77,11 +75,11 @@ const HotelManagementPage = () => {
       onChange: (val) => setNewRoom({ ...newRoom, roomNumber: val }),
     },
     {
-      label: 'Type',
-      id: 'type',
+      label: 'Room Class',
+      id: 'roomClassId',  
       type: 'select',
-      value: newRoom.type,
-      onChange: (val) => setNewRoom({ ...newRoom, type: val }),
+      value: newRoom.roomClassId,
+      onChange: (val) => setNewRoom({ ...newRoom, roomClassId: val }),
     },
     {
       label: 'Price',
@@ -91,6 +89,8 @@ const HotelManagementPage = () => {
       onChange: (val) => setNewRoom({ ...newRoom, price: val }),
     },
   ];
+
+
 
 
   const handleAddHotel = async () => {
@@ -119,25 +119,32 @@ const HotelManagementPage = () => {
   };
 
   const handleAddRoomToHotel = async () => {
-    if (!newRoom.roomNumber || !newRoom.type || newRoom.price <= 0 || !selectedHotelId) {
+    if (
+      !newRoom.roomNumber ||
+      !newRoom.roomClassId ||
+      newRoom.price <= 0 ||
+      !selectedHotelId
+    ) {
       alert("Please fill all room fields correctly.");
       return;
     }
 
     try {
-      await addRoom({
+      await addRoom(Number(newRoom.roomClassId), {
         hotelId: selectedHotelId,
-        ...newRoom,
+        roomNumber: newRoom.roomNumber,
+        price: newRoom.price,
       });
 
       alert("Room added successfully!");
-      setNewRoom({ roomNumber: '', type: '', price: 0 });
+      setNewRoom({ roomNumber: '', roomClassId: '', price: 0 });
       setIsRoomDialogOpen(false);
     } catch (err) {
       console.error("Add room error:", err);
       alert("Something went wrong while adding the room.");
     }
   };
+
 
   const handleDeleteHotel = async (id: number) => {
 
@@ -210,13 +217,6 @@ const HotelManagementPage = () => {
     fetchHotels();
   }, []);
 
-  const handleRoomDialogClose = (open: boolean) => {
-    setIsRoomDialogOpen(open);
-    if (!open) {
-      setSelectedHotelId(null);
-      setNewRoom({ roomNumber: '', type: '', price: 0 });
-    }
-  };
 
   useEffect(() => {
     const fetchRoomClasses = async () => {
@@ -231,6 +231,15 @@ const HotelManagementPage = () => {
 
     fetchRoomClasses();
   }, []);
+
+  const handleRoomDialogClose = (open: boolean) => {
+  setIsRoomDialogOpen(open);
+  if (!open) {
+    setSelectedHotelId(null);
+    setNewRoom({ roomNumber: '', roomClassId: '', price: 0 });
+  }
+};
+
 
   return (
     <div className="space-y-6">
@@ -326,7 +335,6 @@ const HotelManagementPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Add Room Dialog */}
       <Dialog open={isRoomDialogOpen} onOpenChange={handleRoomDialogClose}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -346,13 +354,15 @@ const HotelManagementPage = () => {
                     onChange={(e) => field.onChange(e.target.value)}
                     className="col-span-3 border rounded px-3 py-2"
                   >
-                    <option value="">Select type</option>
+                    <option value="">Select room class</option>
                     {Array.isArray(roomClasses) &&
-                    roomClasses.map((cls) => (
-                      <option key={cls.roomClassID} value={cls.roomClassID}>{cls.name}</option>
-                    ))}
-
+                      roomClasses.map((cls) => (
+                        <option key={cls.roomClassID} value={cls.roomClassID.toString()}>
+                          {cls.name}
+                        </option>
+                      ))}
                   </select>
+
                 ) : (
                   <Input
                     id={field.id}
@@ -370,7 +380,6 @@ const HotelManagementPage = () => {
                 )}
               </div>
             ))}
-
           </div>
 
           <DialogFooter>
