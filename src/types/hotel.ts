@@ -9,7 +9,6 @@ export interface Room {
   status: 'available' | 'occupied' | 'maintenance';
 }
 
-
 export interface Hotel {
   id: number;
   name: string;
@@ -33,9 +32,11 @@ export interface Image {
 }
 
 export interface RoomClass {
-  id: number;
+  roomClassID: number;
+  roomType: string;
   name: string;
-  description?: string;
+  description: string;
+  hotelName: string;
 }
 
 type BookingDuration = "2_hours" | "overnight";

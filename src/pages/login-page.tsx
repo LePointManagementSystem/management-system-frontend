@@ -29,12 +29,12 @@ export function LoginPage() {
 
     try {
       const result = await login({ email, password });
-      console.log(result)
+    
       if (result.succeeded && result.token) {
         localStorage.setItem('role', result.role ?? '');
         localStorage.setItem('token', result.token)
 
-        console.log(result.role)
+   
         navigate('/dashboard')
       } else {
         console.log(result.succeeded)

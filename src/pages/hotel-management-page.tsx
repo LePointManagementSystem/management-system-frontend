@@ -15,8 +15,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 import { addHotel, getHotels, deleteHotel } from '@/services/hotel-service';
-import { Hotel } from '@/types/hotel';
+import { Hotel, RoomClass } from '@/types/hotel';
 import { addRoom } from '@/services/room-service';
+import { getRoomClasses } from '@/services/room-class-service';
 
 const HotelManagementPage = () => {
   const [hotels, setHotels] = useState<Hotel[]>([]);
@@ -25,6 +26,7 @@ const HotelManagementPage = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedHotelId, setSelectedHotelId] = useState<number | null>(null);
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
+  const [roomClasses, setRoomClasses] = useState<RoomClass[]>([]);
 
 
   const [newHotel, setNewHotel] = useState<Omit<Hotel, 'id'>>({
@@ -35,11 +37,61 @@ const HotelManagementPage = () => {
     ownerID: 0,
   });
 
-   const [newRoom, setNewRoom] = useState({
+  const [newRoom, setNewRoom] = useState({
     roomNumber: '',
     type: '',
     price: 0,
   });
+
+
+
+  type RoomField =
+    | {
+      label: string;
+      id: 'roomNumber';
+      type: 'text';
+      value: string;
+      onChange: (val: string) => void;
+    }
+    | {
+      label: string;
+      id: 'type';
+      type: 'select';
+      value: string;
+      onChange: (val: string) => void;
+    }
+    | {
+      label: string;
+      id: 'price';
+      type: 'number';
+      value: number;
+      onChange: (val: number) => void;
+    };
+
+  const roomFields: RoomField[] = [
+    {
+      label: 'Room Number',
+      id: 'roomNumber',
+      type: 'text',
+      value: newRoom.roomNumber,
+      onChange: (val) => setNewRoom({ ...newRoom, roomNumber: val }),
+    },
+    {
+      label: 'Type',
+      id: 'type',
+      type: 'select',
+      value: newRoom.type,
+      onChange: (val) => setNewRoom({ ...newRoom, type: val }),
+    },
+    {
+      label: 'Price',
+      id: 'price',
+      type: 'number',
+      value: newRoom.price,
+      onChange: (val) => setNewRoom({ ...newRoom, price: val }),
+    },
+  ];
+
 
   const handleAddHotel = async () => {
     if (!newHotel.name.trim() || newHotel.starRating < 1 || newHotel.starRating > 5 || !newHotel.phoneNumber || newHotel.ownerID <= 0) {
@@ -66,7 +118,7 @@ const HotelManagementPage = () => {
     setIsRoomDialogOpen(true);
   };
 
-    const handleAddRoomToHotel = async () => {
+  const handleAddRoomToHotel = async () => {
     if (!newRoom.roomNumber || !newRoom.type || newRoom.price <= 0 || !selectedHotelId) {
       alert("Please fill all room fields correctly.");
       return;
@@ -127,7 +179,7 @@ const HotelManagementPage = () => {
             onClick={() => handleAddRoom(row.id)}
             title="Add Room"
           >
-            <Plus className="h-4 w-4 text-green-600" />
+            <Plus className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="icon">
             <Edit className="h-4 w-4" />
@@ -158,6 +210,27 @@ const HotelManagementPage = () => {
     fetchHotels();
   }, []);
 
+  const handleRoomDialogClose = (open: boolean) => {
+    setIsRoomDialogOpen(open);
+    if (!open) {
+      setSelectedHotelId(null);
+      setNewRoom({ roomNumber: '', type: '', price: 0 });
+    }
+  };
+
+  useEffect(() => {
+    const fetchRoomClasses = async () => {
+      try {
+        const roomClasses = await getRoomClasses();
+        console.log(roomClasses)
+        setRoomClasses(roomClasses);
+      } catch (err) {
+        console.error('Failed to fetch room classes:', err);
+      }
+    };
+
+    fetchRoomClasses();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -253,8 +326,8 @@ const HotelManagementPage = () => {
         </DialogContent>
       </Dialog>
 
-        {/* Add Room Dialog */}
-      <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
+      {/* Add Room Dialog */}
+      <Dialog open={isRoomDialogOpen} onOpenChange={handleRoomDialogClose}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Add Room</DialogTitle>
@@ -262,22 +335,42 @@ const HotelManagementPage = () => {
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            {[
-              { label: 'Room Number', id: 'roomNumber', type: 'text', value: newRoom.roomNumber, onChange: (val: string) => setNewRoom({ ...newRoom, roomNumber: val }) },
-              { label: 'Type', id: 'type', type: 'text', value: newRoom.type, onChange: (val: string) => setNewRoom({ ...newRoom, type: val }) },
-              { label: 'Price', id: 'price', type: 'number', value: newRoom.price, onChange: (val: number) => setNewRoom({ ...newRoom, price: val }) },
-            ].map(field => (
+            {roomFields.map(field => (
               <div key={field.id} className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor={field.id} className="text-right">{field.label}</Label>
-                <Input
-                  id={field.id}
-                  type={field.type}
-                  value={field.value}
-                  onChange={(e) => field.onChange(field.type === 'number' ? parseFloat(e.target.value) : e.target.value)}
-                  className="col-span-3"
-                />
+
+                {field.type === 'select' ? (
+                  <select
+                    id={field.id}
+                    value={field.value}
+                    onChange={(e) => field.onChange(e.target.value)}
+                    className="col-span-3 border rounded px-3 py-2"
+                  >
+                    <option value="">Select type</option>
+                    {Array.isArray(roomClasses) &&
+                    roomClasses.map((cls) => (
+                      <option key={cls.roomClassID} value={cls.roomClassID}>{cls.name}</option>
+                    ))}
+
+                  </select>
+                ) : (
+                  <Input
+                    id={field.id}
+                    type={field.type}
+                    value={field.value}
+                    onChange={(e) => {
+                      if (field.type === 'number') {
+                        field.onChange(parseFloat(e.target.value));
+                      } else {
+                        field.onChange(e.target.value);
+                      }
+                    }}
+                    className="col-span-3"
+                  />
+                )}
               </div>
             ))}
+
           </div>
 
           <DialogFooter>

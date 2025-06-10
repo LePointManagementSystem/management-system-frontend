@@ -13,3 +13,5 @@ export const addRoom = async (room: {
   if (!response.ok) throw new Error('Failed to add room');
   return await response.json();
 };
+
+
