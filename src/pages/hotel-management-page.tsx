@@ -39,7 +39,7 @@ const HotelManagementPage = () => {
 
   const [newRoom, setNewRoom] = useState({
     roomNumber: '',
-    roomClassId: '',  
+    roomClassId: '',
     price: 0,
   });
 
@@ -76,7 +76,7 @@ const HotelManagementPage = () => {
     },
     {
       label: 'Room Class',
-      id: 'roomClassId',  
+      id: 'roomClassId',
       type: 'select',
       value: newRoom.roomClassId,
       onChange: (val) => setNewRoom({ ...newRoom, roomClassId: val }),
@@ -120,8 +120,8 @@ const HotelManagementPage = () => {
 
   const handleAddRoomToHotel = async () => {
     if (
-      !newRoom.roomNumber ||
-      !newRoom.roomClassId ||
+      !newRoom.roomNumber.trim() ||
+      newRoom.roomClassId === '' ||
       newRoom.price <= 0 ||
       !selectedHotelId
     ) {
@@ -130,10 +130,11 @@ const HotelManagementPage = () => {
     }
 
     try {
-      await addRoom(Number(newRoom.roomClassId), {
+      await addRoom({
+        number: newRoom.roomNumber,
+        pricePerNight: newRoom.price,
         hotelId: selectedHotelId,
-        roomNumber: newRoom.roomNumber,
-        price: newRoom.price,
+        roomClassId: Number(newRoom.roomClassId),
       });
 
       alert("Room added successfully!");
@@ -233,12 +234,12 @@ const HotelManagementPage = () => {
   }, []);
 
   const handleRoomDialogClose = (open: boolean) => {
-  setIsRoomDialogOpen(open);
-  if (!open) {
-    setSelectedHotelId(null);
-    setNewRoom({ roomNumber: '', roomClassId: '', price: 0 });
-  }
-};
+    setIsRoomDialogOpen(open);
+    if (!open) {
+      setSelectedHotelId(null);
+      setNewRoom({ roomNumber: '', roomClassId: '', price: 0 });
+    }
+  };
 
 
   return (

@@ -1,21 +1,20 @@
 export const addRoom = async (
   roomClassId: number,
-  room: {
-    hotelId: number;
-    roomNumber: string;
-    type?: string;
-    price: number;
-  }
+  data: { number: string; pricePerNight: number }
 ) => {
-  const response = await fetch(
-    `http://localhost:5004/api/RoomClass/${roomClassId}/rooms`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(room),
-    }
-  );
+  const token = localStorage.getItem('token');
+  const res = await fetch(`http://localhost:5004/api/RoomClass/${roomClassId}/rooms`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
 
-  if (!response.ok) throw new Error("Failed to add room");
-  return await response.json();
+  if (!res.ok) {
+    const errorBody = await res.text(); // get the actual message from the backend
+    console.error("Room creation failed:", errorBody); // <-- This will help
+    throw new Error(`Failed to add room: ${errorBody}`);
+  }
 };
