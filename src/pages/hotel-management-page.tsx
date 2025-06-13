@@ -28,7 +28,6 @@ const HotelManagementPage = () => {
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
   const [roomClasses, setRoomClasses] = useState<RoomClass[]>([]);
 
-
   const [newHotel, setNewHotel] = useState<Omit<Hotel, 'id'>>({
     name: '',
     starRating: 0,
@@ -37,36 +36,35 @@ const HotelManagementPage = () => {
     ownerID: 0,
   });
 
-  const [newRoom, setNewRoom] = useState({
-    roomNumber: "",
+  const [newRoom, setNewRoom] = useState<{
+    roomNumber: string;
+    roomClassId: number | '';
+    price: number;
+    adultsCapacity: number;
+    childrenCapacity: number;
+  }>({
+    roomNumber: '',
+    roomClassId: '',
     price: 0,
-    roomClassId: "",
     adultsCapacity: 0,
     childrenCapacity: 0,
   });
 
   type RoomField =
     | {
-      label: string;
-      id: 'roomNumber';
-      type: 'text';
-      value: string;
-      onChange: (val: string) => void;
-    }
+        label: string;
+        id: 'roomNumber' | 'adultsCapacity' | 'childrenCapacity' | 'price';
+        type: 'text' | 'number';
+        value: string | number;
+        onChange: (val: string | number) => void;
+      }
     | {
-      label: string;
-      id: 'roomClassId';
-      type: 'select';
-      value: string;
-      onChange: (val: string) => void;
-    }
-    | {
-      label: string;
-      id: 'price';
-      type: 'number';
-      value: number;
-      onChange: (val: number) => void;
-    };
+        label: string;
+        id: 'roomClassId';
+        type: 'select';
+        value: number | '';
+        onChange: (val: number | '') => void;
+      };
 
   const roomFields: RoomField[] = [
     {
@@ -74,7 +72,7 @@ const HotelManagementPage = () => {
       id: 'roomNumber',
       type: 'text',
       value: newRoom.roomNumber,
-      onChange: (val) => setNewRoom({ ...newRoom, roomNumber: val }),
+      onChange: (val) => setNewRoom({ ...newRoom, roomNumber: val as string }),
     },
     {
       label: 'Room Class',
@@ -88,28 +86,44 @@ const HotelManagementPage = () => {
       id: 'price',
       type: 'number',
       value: newRoom.price,
-      onChange: (val) => setNewRoom({ ...newRoom, price: val }),
+      onChange: (val) => setNewRoom({ ...newRoom, price: val as number }),
+    },
+    {
+      label: 'Adults Capacity',
+      id: 'adultsCapacity',
+      type: 'number',
+      value: newRoom.adultsCapacity,
+      onChange: (val) => setNewRoom({ ...newRoom, adultsCapacity: val as number }),
+    },
+    {
+      label: 'Children Capacity',
+      id: 'childrenCapacity',
+      type: 'number',
+      value: newRoom.childrenCapacity,
+      onChange: (val) => setNewRoom({ ...newRoom, childrenCapacity: val as number }),
     },
   ];
 
-
   const handleAddHotel = async () => {
-    if (!newHotel.name.trim() || newHotel.starRating < 1 || newHotel.starRating > 5 || !newHotel.phoneNumber || newHotel.ownerID <= 0) {
-      alert("Please fill in all fields correctly.");
+    if (
+      !newHotel.name.trim() ||
+      newHotel.starRating < 1 ||
+      newHotel.starRating > 5 ||
+      !newHotel.phoneNumber ||
+      newHotel.ownerID <= 0
+    ) {
+      alert('Please fill in all fields correctly.');
       return;
     }
 
     try {
       const createdHotel = await addHotel(newHotel);
-
       setHotels((prev) => [...prev, createdHotel]);
-
       setNewHotel({ name: '', starRating: 0, description: '', phoneNumber: '', ownerID: 0 });
       setIsAddDialogOpen(false);
-
     } catch (err) {
-      console.error("Add hotel error:", err);
-      alert("Something went wrong while adding the hotel.");
+      console.error('Add hotel error:', err);
+      alert('Something went wrong while adding the hotel.');
     }
   };
 
@@ -123,23 +137,23 @@ const HotelManagementPage = () => {
       !newRoom.roomNumber.trim() ||
       newRoom.roomClassId === '' ||
       newRoom.price <= 0 ||
+      newRoom.adultsCapacity < 0 ||
+      newRoom.childrenCapacity < 0 ||
       !selectedHotelId
     ) {
-      alert("Please fill all room fields correctly.");
+      alert('Please fill all room fields correctly.');
       return;
     }
 
     try {
-      await addRoom(
-        Number(newRoom.roomClassId),
-        {
-          number: newRoom.roomNumber,
-          adultsCapacity: newRoom.adultsCapacity,
-          childrenCapacity: newRoom.childrenCapacity,
-          pricePerNight: newRoom.price,
-        });
+      await addRoom(newRoom.roomClassId as number, {
+        number: newRoom.roomNumber,
+        adultsCapacity: newRoom.adultsCapacity,
+        childrenCapacity: newRoom.childrenCapacity,
+        pricePerNight: newRoom.price,
+      });
 
-      alert("Room added successfully!");
+      alert('Room added successfully!');
       setNewRoom({
         roomNumber: '',
         roomClassId: '',
@@ -149,16 +163,14 @@ const HotelManagementPage = () => {
       });
       setIsRoomDialogOpen(false);
     } catch (err) {
-      console.error("Add room error:", err);
-      alert("Something went wrong while adding the room.");
+      console.error('Add room error:', err);
+      alert('Something went wrong while adding the room.');
     }
   };
 
-
   const handleDeleteHotel = async (id: number) => {
-
     await deleteHotel(id);
-    setHotels(hotels.filter(hotel => hotel.id !== id));
+    setHotels(hotels.filter((hotel) => hotel.id !== id));
   };
 
   const columns = [
@@ -208,15 +220,13 @@ const HotelManagementPage = () => {
     },
   ];
 
-
   useEffect(() => {
     const fetchHotels = async () => {
       try {
         const data = await getHotels();
-        console.log("Fetched hotels:", data);
         setHotels(data || []);
       } catch (err) {
-        console.error("Error fetching hotels:", err);
+        console.error('Error fetching hotels:', err);
         setError((err as Error).message);
       } finally {
         setLoading(false);
@@ -226,12 +236,10 @@ const HotelManagementPage = () => {
     fetchHotels();
   }, []);
 
-
   useEffect(() => {
     const fetchRoomClasses = async () => {
       try {
         const roomClasses = await getRoomClasses();
-        console.log(roomClasses)
         setRoomClasses(roomClasses);
       } catch (err) {
         console.error('Failed to fetch room classes:', err);
@@ -254,7 +262,6 @@ const HotelManagementPage = () => {
       });
     }
   };
-
 
   return (
     <div className="space-y-6">
@@ -279,14 +286,14 @@ const HotelManagementPage = () => {
         <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
             <DialogTitle>Add New Hotel</DialogTitle>
-            <DialogDescription>
-              Fill out the details below to register a new hotel.
-            </DialogDescription>
+            <DialogDescription>Fill out the details below to register a new hotel.</DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">Name</Label>
+              <Label htmlFor="name" className="text-right">
+                Name
+              </Label>
               <Input
                 id="name"
                 value={newHotel.name}
@@ -296,22 +303,24 @@ const HotelManagementPage = () => {
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="starRating" className="text-right">Star Rating</Label>
+              <Label htmlFor="starRating" className="text-right">
+                Star Rating
+              </Label>
               <Input
                 id="starRating"
                 type="number"
-                min="0"
+                min="1"
                 max="5"
                 value={newHotel.starRating}
-                onChange={(e) =>
-                  setNewHotel({ ...newHotel, starRating: parseInt(e.target.value) })
-                }
+                onChange={(e) => setNewHotel({ ...newHotel, starRating: parseInt(e.target.value) || 0 })}
                 className="col-span-3"
               />
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">Description</Label>
+              <Label htmlFor="description" className="text-right">
+                Description
+              </Label>
               <Input
                 id="description"
                 value={newHotel.description}
@@ -321,7 +330,9 @@ const HotelManagementPage = () => {
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="phoneNumber" className="text-right">Phone</Label>
+              <Label htmlFor="phoneNumber" className="text-right">
+                Phone
+              </Label>
               <Input
                 id="phoneNumber"
                 value={newHotel.phoneNumber}
@@ -331,14 +342,14 @@ const HotelManagementPage = () => {
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="ownerID" className="text-right">Owner ID</Label>
+              <Label htmlFor="ownerID" className="text-right">
+                Owner ID
+              </Label>
               <Input
                 id="ownerID"
                 type="number"
                 value={newHotel.ownerID}
-                onChange={(e) =>
-                  setNewHotel({ ...newHotel, ownerID: parseInt(e.target.value) })
-                }
+                onChange={(e) => setNewHotel({ ...newHotel, ownerID: parseInt(e.target.value) || 0 })}
                 className="col-span-3"
               />
             </div>
@@ -358,26 +369,29 @@ const HotelManagementPage = () => {
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            {roomFields.map(field => (
+            {roomFields.map((field) => (
               <div key={field.id} className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor={field.id} className="text-right">{field.label}</Label>
+                <Label htmlFor={field.id} className="text-right">
+                  {field.label}
+                </Label>
 
                 {field.type === 'select' ? (
                   <select
                     id={field.id}
                     value={field.value}
-                    onChange={(e) => field.onChange(e.target.value)}
+                    onChange={(e) =>
+                      field.onChange(e.target.value === '' ? '' : Number(e.target.value))
+                    }
                     className="col-span-3 border rounded px-3 py-2"
                   >
                     <option value="">Select room class</option>
                     {Array.isArray(roomClasses) &&
                       roomClasses.map((cls) => (
-                        <option key={cls.roomClassID} value={cls.roomClassID.toString()}>
+                        <option key={cls.roomClassID} value={cls.roomClassID}>
                           {cls.name}
                         </option>
                       ))}
                   </select>
-
                 ) : (
                   <Input
                     id={field.id}
@@ -385,7 +399,7 @@ const HotelManagementPage = () => {
                     value={field.value}
                     onChange={(e) => {
                       if (field.type === 'number') {
-                        field.onChange(parseFloat(e.target.value));
+                        field.onChange(parseFloat(e.target.value) || 0);
                       } else {
                         field.onChange(e.target.value);
                       }
