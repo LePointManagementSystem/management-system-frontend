@@ -1,252 +1,630 @@
-import React, { useState, useEffect } from "react"
-import {
-    Card, CardContent, CardFooter, CardHeader, CardTitle
-} from "@/components/ui/card"
-import {
-    Button
-} from "@/components/ui/button"
-import {
-    Input
-} from "@/components/ui/input"
-import {
-    Label
-} from "@/components/ui/label"
-import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from "@/components/ui/select"
+"use client"
+
+import type React from "react"
+import { useState, useEffect } from "react"
+import { CalendarIcon, CheckCircle, Loader2 } from "lucide-react"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { CheckCircle } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { cn } from "@/lib/utils"
+import { getRoomClasses } from "@/services/room-class-service"
+
+// Using your actual RoomClass interface
+export interface RoomClass {
+  roomClassID: number
+  roomType: string
+  name: string
+  description: string
+  hotelName: string
+}
 
 type Room = {
-    id: number
-    type: string
-    price: number
-    capacity: number
-    roomNumber: string
+  id: number
+  type: string
+  price: number
+  capacity: number
+  roomNumber: string
+  amenities: string[]
+  hotelName: string
 }
 
 type Client = {
-    id: number
-    name: string
-    email: string
-    phone: string
+  id: number
+  name: string
+  email: string
+  phone: string
 }
 
-const roomTypes = ["Standard", "Deluxe", "Suite"]
-const availableRooms: Room[] = [
-    { id: 1, type: "Standard", price: 100, capacity: 2, roomNumber: "101" },
-    { id: 2, type: "Deluxe", price: 150, capacity: 3, roomNumber: "202" },
-    { id: 3, type: "Suite", price: 250, capacity: 4, roomNumber: "303" }
+const existingClients: Client[] = [
+  { id: 1, name: "Alice Doe", email: "alice@example.com", phone: "1234567890" },
+  { id: 2, name: "Bob Smith", email: "bob@example.com", phone: "0987654321" },
 ]
 
-const existingClients: Client[] = [
-    { id: 1, name: "Alice Doe", email: "alice@example.com", phone: "1234567890" },
-    { id: 2, name: "Bob Smith", email: "bob@example.com", phone: "0987654321" }
+// Mock rooms that correspond to your room classes
+const mockRooms: Room[] = [
+  {
+    id: 101,
+    type: "Standard",
+    price: 1500,
+    capacity: 2,
+    roomNumber: "101",
+    amenities: ["Wi-Fi", "TV"],
+    hotelName: "Hotel Paradise",
+  },
+  {
+    id: 102,
+    type: "Standard",
+    price: 1500,
+    capacity: 2,
+    roomNumber: "102",
+    amenities: ["Wi-Fi", "TV"],
+    hotelName: "Hotel Paradise",
+  },
+  {
+    id: 201,
+    type: "Deluxe",
+    price: 2500,
+    capacity: 3,
+    roomNumber: "201",
+    amenities: ["Wi-Fi", "TV", "Mini-bar"],
+    hotelName: "Hotel Paradise",
+  },
+  {
+    id: 301,
+    type: "Suite",
+    price: 4000,
+    capacity: 4,
+    roomNumber: "301",
+    amenities: ["Wi-Fi", "TV", "Mini-bar", "Jacuzzi"],
+    hotelName: "Hotel Paradise",
+  },
 ]
+
+// Format date without external dependencies
+const formatDate = (date: Date) => {
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  })
+}
 
 const RoomBookingPage: React.FC = () => {
-    const [roomType, setRoomType] = useState("")
-    const [guests, setGuests] = useState(1)
-    const [selectedRoom, setSelectedRoom] = useState<number | null>(null)
-    const [selectedClientId, setSelectedClientId] = useState<number | null>(null)
-    const [newClient, setNewClient] = useState({ name: "", email: "", phone: "" })
-    const [bookingDuration, setBookingDuration] = useState<"2h" | "overnight">("2h")
-    const [notification, setNotification] = useState("")
+  // Current step in the booking process
+  const [currentStep, setCurrentStep] = useState(0)
 
-    useEffect(() => {
-        let timeout: NodeJS.Timeout
-        if (bookingDuration === "2h" && selectedRoom && selectedClientId !== null) {
-            timeout = setTimeout(() => {
-                setNotification("⏰ The 2-hour booking for the client is now over.")
-            }, 2 * 60 * 60 * 1000)
+  // Step 1: Search parameters
+  const [roomType, setRoomType] = useState("")
+  const [guests, setGuests] = useState(1)
+  const [date, setDate] = useState<Date | undefined>(new Date())
+  const [bookingDuration, setBookingDuration] = useState<"2h" | "overnight">("overnight")
 
-            // For demo/testing: use 10 sec instead of 2 hours
-            // timeout = setTimeout(() => {
-            //   setNotification("⏰ The 2-hour booking for the client is now over.")
-            // }, 10000)
-        }
-        return () => clearTimeout(timeout)
-    }, [bookingDuration, selectedRoom, selectedClientId])
+  // Step 2: Room selection
+  const [availableRooms, setAvailableRooms] = useState<Room[]>([])
+  const [selectedRoom, setSelectedRoom] = useState<number | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
-    const filteredRooms = availableRooms.filter(
-        room => (!roomType || room.type === roomType) && guests <= room.capacity
-    )
+  // Step 3: Client details
+  const [clientTab, setClientTab] = useState("existing")
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null)
+  const [newClient, setNewClient] = useState({ name: "", email: "", phone: "" })
 
-    const handleBooking = () => {
-        if (!selectedRoom) return alert("Select a room")
-        if (!bookingDuration) return alert("Choose booking duration")
+  // Room classes from API
+  const [roomClasses, setRoomClasses] = useState<RoomClass[]>([])
+  const [loadingRoomClasses, setLoadingRoomClasses] = useState(true)
 
-        if (selectedClientId === null) {
-            if (!newClient.name || !newClient.email || !newClient.phone)
-                return alert("Fill all client details")
+  // Booking confirmation
+  const [bookingComplete, setBookingComplete] = useState(false)
+  const [bookingReference, setBookingReference] = useState("")
+  const [notification, setNotification] = useState("")
 
-            console.log("Booking for NEW client:", newClient)
-        } else {
-            const client = existingClients.find(c => c.id === selectedClientId)
-            console.log("Booking for EXISTING client:", client)
-        }
-
-        console.log("Room booked:", {
-            roomId: selectedRoom,
-            guests,
-            duration: bookingDuration
-        })
+  // Load room classes on component mount
+  useEffect(() => {
+    const fetchClasses = async () => {
+      try {
+        setLoadingRoomClasses(true)
+        const classes = await getRoomClasses()
+        setRoomClasses(classes)
+      } catch (error) {
+        console.error("Error loading room classes:", error)
+        // Fallback mock data matching your interface
+        setRoomClasses([
+          {
+            roomClassID: 1,
+            roomType: "STD",
+            name: "Standard",
+            description: "Basic room with essential amenities",
+            hotelName: "Hotel Paradise",
+          },
+          {
+            roomClassID: 2,
+            roomType: "DLX",
+            name: "Deluxe",
+            description: "Comfortable room with additional amenities",
+            hotelName: "Hotel Paradise",
+          },
+          {
+            roomClassID: 3,
+            roomType: "STE",
+            name: "Suite",
+            description: "Luxury suite with premium amenities",
+            hotelName: "Hotel Paradise",
+          },
+        ])
+      } finally {
+        setLoadingRoomClasses(false)
+      }
     }
 
-    const isBookingDisabled =
-        !selectedRoom ||
-        (selectedClientId === null &&
-            (!newClient.name || !newClient.email || !newClient.phone))
+    fetchClasses()
+  }, [])
 
+  // Set up notification for 2-hour bookings
+  useEffect(() => {
+    let timeout: NodeJS.Timeout
+    if (bookingComplete && bookingDuration === "2h") {
+      // For demo: use 10 seconds instead of 2 hours
+      timeout = setTimeout(() => {
+        setNotification("⏰ The 2-hour booking is now over.")
+      }, 10000)
+
+      // Actual 2-hour timeout
+      // timeout = setTimeout(() => {
+      //   setNotification("⏰ The 2-hour booking is now over.");
+      // }, 2 * 60 * 60 * 1000);
+    }
+    return () => clearTimeout(timeout)
+  }, [bookingComplete, bookingDuration])
+
+  // Search for available rooms
+  const handleSearch = async () => {
+    if (!roomType || !date) return
+
+    setIsLoading(true)
+
+    try {
+      const selectedClass = roomClasses.find((c) => c.name === roomType)
+
+      if (selectedClass) {
+        // Uncomment when API is ready
+        // const rawRooms = await fetchAvailableRooms(selectedClass.roomClassID);
+        // const mappedRooms = rawRooms.map((room: any): Room => ({
+        //   id: room.roomId,
+        //   type: room.roomClassName,
+        //   price: room.pricePerNight,
+        //   capacity: room.adultsCapacity + room.childrenCapacity,
+        //   roomNumber: room.number,
+        //   amenities: room.amenities || [],
+        //   hotelName: selectedClass.hotelName
+        // }));
+        // setAvailableRooms(mappedRooms);
+
+        // Using mock data for now
+        const filteredMockRooms = mockRooms.filter(
+          (room) => room.type === roomType && room.capacity >= guests && room.hotelName === selectedClass.hotelName,
+        )
+
+        // Simulate API delay
+        setTimeout(() => {
+          setAvailableRooms(filteredMockRooms)
+          setIsLoading(false)
+          setCurrentStep(1) // Move to room selection step
+        }, 800)
+      }
+    } catch (error) {
+      console.error("Failed to load available rooms", error)
+      setIsLoading(false)
+    }
+  }
+
+  // Handle room selection
+  const handleRoomSelect = (roomId: number) => {
+    setSelectedRoom(roomId)
+    setCurrentStep(2) // Move to client details step
+  }
+
+  // Handle client selection
+  const handleClientSelect = (clientId: string) => {
+    setSelectedClientId(Number(clientId))
+  }
+
+  // Validate client form
+  const isClientFormValid = () => {
+    if (clientTab === "existing") {
+      return selectedClientId !== null
+    } else {
+      return newClient.name && newClient.email && newClient.phone
+    }
+  }
+
+  // Handle booking submission
+  const handleBooking = () => {
+    if (!selectedRoom || !isClientFormValid()) return
+
+    const client = clientTab === "existing" ? existingClients.find((c) => c.id === selectedClientId) : newClient
+
+    const room = availableRooms.find((r) => r.id === selectedRoom)
+
+    console.log("Booking details:", {
+      room,
+      client,
+      date: date ? formatDate(date) : "",
+      duration: bookingDuration,
+      guests,
+    })
+
+    // Generate a random booking reference
+    const reference = `BK-${Math.floor(100000 + Math.random() * 900000)}`
+    setBookingReference(reference)
+    setBookingComplete(true)
+    setCurrentStep(3) // Move to confirmation step
+  }
+
+  // Reset booking form
+  const handleNewBooking = () => {
+    setCurrentStep(0)
+    setRoomType("")
+    setGuests(1)
+    setDate(new Date())
+    setBookingDuration("overnight")
+    setSelectedRoom(null)
+    setSelectedClientId(null)
+    setNewClient({ name: "", email: "", phone: "" })
+    setBookingComplete(false)
+    setBookingReference("")
+    setNotification("")
+  }
+
+  if (loadingRoomClasses) {
     return (
-        <div className="p-6 space-y-6">
-            <h2 className="text-3xl font-bold mb-6">Room Booking</h2>
+      <div className="p-6 flex justify-center items-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading room classes...</span>
+      </div>
+    )
+  }
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Search for Rooms</CardTitle>
-                </CardHeader>
-                <CardContent className="grid md:grid-cols-2 gap-4">
-                    <div>
-                        <Label>Room Type</Label>
-                        <Select onValueChange={setRoomType}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select room type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {roomTypes.map(type => (
-                                    <SelectItem key={type} value={type}>{type}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+  return (
+    <div className="p-6 space-y-6 max-w-5xl mx-auto">
+      <h2 className="text-3xl font-bold mb-6">Room Booking</h2>
 
-                    <div>
-                        <Label>Number of Guests</Label>
-                        <Input
-                            type="number"
-                            min={1}
-                            value={guests}
-                            onChange={(e) => setGuests(parseInt(e.target.value))}
-                        />
-                    </div>
-                </CardContent>
-            </Card>
+      {/* Step Indicator */}
+      <div className="flex justify-between mb-8">
+        {["Search", "Select Room", "Client Details", "Confirmation"].map((step, index) => (
+          <div key={step} className="flex flex-col items-center">
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                currentStep >= index ? "bg-blue-500 text-white" : "bg-gray-200"
+              }`}
+            >
+              {index + 1}
+            </div>
+            <span className="text-sm mt-1">{step}</span>
+          </div>
+        ))}
+      </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Available Rooms</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Room Number</TableHead>
-                                <TableHead>Type</TableHead>
-                                <TableHead>Price</TableHead>
-                                <TableHead>Action</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredRooms.map(room => (
-                                <TableRow key={room.id} className={selectedRoom === room.id ? "bg-green-100" : ""}>
-                                    <TableCell>{room.roomNumber}</TableCell>
-                                    <TableCell>{room.type}</TableCell>
-                                    <TableCell>HTG {room.price}</TableCell>
-                                    <TableCell>
-                                        <Button onClick={() => setSelectedRoom(room.id)} size="sm">
-                                            Select
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+      {/* Step 1: Search Form */}
+      {currentStep === 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Search for Available Rooms</CardTitle>
+          </CardHeader>
+          <CardContent className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="roomType">Room Type</Label>
+              <Select value={roomType} onValueChange={setRoomType}>
+                <SelectTrigger id="roomType">
+                  <SelectValue placeholder="Select room type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roomClasses.map((roomClass) => (
+                    <SelectItem key={roomClass.roomClassID} value={roomClass.name}>
+                      {roomClass.name} ({roomClass.roomType}) - {roomClass.hotelName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-                </CardContent>
-            </Card>
+            <div className="space-y-2">
+              <Label htmlFor="guests">Number of Guests</Label>
+              <Input
+                id="guests"
+                type="number"
+                min={1}
+                max={10}
+                value={guests}
+                onChange={(e) => setGuests(Number.parseInt(e.target.value) || 1)}
+              />
+            </div>
 
-            {selectedRoom && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Client Details</CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid md:grid-cols-2 gap-4">
-                        <div>
-                            <Label>Select Existing Client</Label>
-                            <Select onValueChange={(val) => setSelectedClientId(Number(val))}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Choose existing client" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {existingClients.map(client => (
-                                        <SelectItem key={client.id} value={client.id.toString()}>
-                                            {client.name} - {client.email}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Or Add New Client</Label>
-                            <Input
-                                placeholder="Name"
-                                value={newClient.name}
-                                onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
-                            />
-                            <Input
-                                placeholder="Email"
-                                type="email"
-                                value={newClient.email}
-                                onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                            />
-                            <Input
-                                placeholder="Phone"
-                                value={newClient.phone}
-                                onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
-                            />
-                        </div>
-                    </CardContent>
-                </Card>
+            <div className="space-y-2">
+              <Label>Check-in Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date ? formatDate(date) : "Select date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={setDate}
+                    initialFocus
+                    disabled={(date) => date < new Date()}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Booking Duration</Label>
+              <Select value={bookingDuration} onValueChange={(val) => setBookingDuration(val as "2h" | "overnight")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose duration" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2h">2 Hours</SelectItem>
+                  <SelectItem value="overnight">Overnight</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button onClick={handleSearch} disabled={!roomType || !date || isLoading} className="w-full">
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Searching...
+                </>
+              ) : (
+                "Search Available Rooms"
+              )}
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+      {/* Step 2: Room Selection - Now as a List */}
+      {currentStep === 1 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Available Rooms</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Select a room from the list below for {guests} guest{guests > 1 ? "s" : ""}
+            </p>
+          </CardHeader>
+          <CardContent>
+            {availableRooms.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No rooms available matching your criteria.</p>
+                <Button variant="outline" onClick={() => setCurrentStep(0)} className="mt-4">
+                  Modify Search
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Room Number</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Capacity</TableHead>
+                      <TableHead>Amenities</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {availableRooms.map((room) => (
+                      <TableRow key={room.id} className={cn(selectedRoom === room.id && "bg-muted/50")}>
+                        <TableCell className="font-medium">{room.roomNumber}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{room.type}</Badge>
+                        </TableCell>
+                        <TableCell>{room.capacity} guests</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{room.amenities.join(", ")}</TableCell>
+                        <TableCell className="font-medium">HTG {room.price}</TableCell>
+                        <TableCell>
+                          <Button
+                            onClick={() => handleRoomSelect(room.id)}
+                            size="sm"
+                            variant={selectedRoom === room.id ? "default" : "outline"}
+                          >
+                            {selectedRoom === room.id ? "Selected" : "Select"}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Button variant="outline" onClick={() => setCurrentStep(0)}>
+              Back to Search
+            </Button>
+            <Button onClick={() => selectedRoom && setCurrentStep(2)} disabled={!selectedRoom}>
+              Continue to Client Details
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
 
-            {selectedRoom && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Booking Options</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <Label>Booking Duration</Label>
-                        <Select onValueChange={(val) => setBookingDuration(val as "2h" | "overnight")}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Choose duration" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="2h">2 Hours</SelectItem>
-                                <SelectItem value="overnight">Overnight</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </CardContent>
-                    <CardFooter>
-                        <Button
-                            onClick={handleBooking}
-                            disabled={isBookingDisabled}
-                            className="w-full"
-                        >
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Confirm Booking
-                        </Button>
-                    </CardFooter>
-                </Card>
+      {/* Step 3: Client Details */}
+      {currentStep === 2 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Client Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={clientTab} onValueChange={setClientTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="existing">Existing Client</TabsTrigger>
+                <TabsTrigger value="new">New Client</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="existing" className="space-y-4 pt-4">
+                <div>
+                  <Label>Select Client</Label>
+                  <Select onValueChange={handleClientSelect}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose existing client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {existingClients.map((client) => (
+                        <SelectItem key={client.id} value={client.id.toString()}>
+                          {client.name} - {client.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedClientId && (
+                  <div className="border rounded-md p-4 bg-muted/50">
+                    <h4 className="font-medium mb-2">Selected Client</h4>
+                    {(() => {
+                      const client = existingClients.find((c) => c.id === selectedClientId)
+                      return client ? (
+                        <div className="space-y-1">
+                          <p>
+                            <span className="font-medium">Name:</span> {client.name}
+                          </p>
+                          <p>
+                            <span className="font-medium">Email:</span> {client.email}
+                          </p>
+                          <p>
+                            <span className="font-medium">Phone:</span> {client.phone}
+                          </p>
+                        </div>
+                      ) : null
+                    })()}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="new" className="space-y-4 pt-4">
+                <div>
+                  <Label htmlFor="clientName">Full Name</Label>
+                  <Input
+                    id="clientName"
+                    placeholder="Full Name"
+                    value={newClient.name}
+                    onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="clientEmail">Email</Label>
+                  <Input
+                    id="clientEmail"
+                    type="email"
+                    placeholder="Email Address"
+                    value={newClient.email}
+                    onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="clientPhone">Phone</Label>
+                  <Input
+                    id="clientPhone"
+                    placeholder="Phone Number"
+                    value={newClient.phone}
+                    onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Button variant="outline" onClick={() => setCurrentStep(1)}>
+              Back to Room Selection
+            </Button>
+            <Button onClick={handleBooking} disabled={!isClientFormValid()}>
+              Complete Booking
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+
+      {/* Step 4: Booking Confirmation */}
+      {currentStep === 3 && bookingComplete && (
+        <Card>
+          <CardHeader className="text-center">
+            <CheckCircle className="mx-auto h-12 w-12 text-green-500 mb-2" />
+            <CardTitle>Booking Confirmed!</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="border rounded-md p-4 bg-muted/50">
+              <h4 className="font-medium mb-2">Booking Details</h4>
+              <div className="space-y-2">
+                <p>
+                  <span className="font-medium">Booking Reference:</span> {bookingReference}
+                </p>
+                <p>
+                  <span className="font-medium">Room:</span> {(() => {
+                    const room = availableRooms.find((r) => r.id === selectedRoom)
+                    return room ? `${room.roomNumber} (${room.type})` : ""
+                  })()}
+                </p>
+                <p>
+                  <span className="font-medium">Date:</span> {date ? formatDate(date) : ""}
+                </p>
+                <p>
+                  <span className="font-medium">Duration:</span> {bookingDuration === "2h" ? "2 Hours" : "Overnight"}
+                </p>
+                <p>
+                  <span className="font-medium">Guests:</span> {guests}
+                </p>
+                <p>
+                  <span className="font-medium">Client:</span>{" "}
+                  {clientTab === "existing"
+                    ? existingClients.find((c) => c.id === selectedClientId)?.name
+                    : newClient.name}
+                </p>
+              </div>
+            </div>
+
+            {bookingDuration === "2h" && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                <p className="text-yellow-800 text-sm">
+                  This is a 2-hour booking. A notification will appear when the time is up.
+                </p>
+              </div>
             )}
 
             {notification && (
-                <div className="mt-6 p-4 bg-yellow-100 border border-yellow-300 rounded">
-                    {notification}
-                </div>
+              <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                <p className="text-red-800">{notification}</p>
+              </div>
             )}
-        </div>
-    )
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Button onClick={handleNewBooking} className="w-full">
+              Make Another Booking
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+    </div>
+  )
 }
 
 export default RoomBookingPage
