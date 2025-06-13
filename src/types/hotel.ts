@@ -2,11 +2,11 @@
 
 export interface Room {
   id: number;
-  number: string;
   type: string;
-  capacity: number;
   price: number;
-  status: 'available' | 'occupied' | 'maintenance';
+  capacity: number;
+  number: string; 
+  hotelName: string;
 }
 
 export interface Hotel {
