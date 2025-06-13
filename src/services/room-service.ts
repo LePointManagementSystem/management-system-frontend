@@ -8,7 +8,7 @@ export const addRoom = async (
   }
 ) => {
   const token = localStorage.getItem('token');
-  const res = await fetch(`http://localhost:5004/api/RoomClass/1/rooms`, {
+  const res = await fetch(`http://localhost:5004/api/RoomClass/${roomClassId}/rooms`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

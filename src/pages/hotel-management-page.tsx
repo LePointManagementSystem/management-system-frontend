@@ -52,19 +52,19 @@ const HotelManagementPage = () => {
 
   type RoomField =
     | {
-        label: string;
-        id: 'roomNumber' | 'adultsCapacity' | 'childrenCapacity' | 'price';
-        type: 'text' | 'number';
-        value: string | number;
-        onChange: (val: string | number) => void;
-      }
+      label: string;
+      id: 'roomNumber' | 'adultsCapacity' | 'childrenCapacity' | 'price';
+      type: 'text' | 'number';
+      value: string | number;
+      onChange: (val: string | number) => void;
+    }
     | {
-        label: string;
-        id: 'roomClassId';
-        type: 'select';
-        value: number | '';
-        onChange: (val: number | '') => void;
-      };
+      label: string;
+      id: 'roomClassId';
+      type: 'select';
+      value: number | '';
+      onChange: (val: number | '') => void;
+    };
 
   const roomFields: RoomField[] = [
     {
@@ -146,12 +146,15 @@ const HotelManagementPage = () => {
     }
 
     try {
-      await addRoom(newRoom.roomClassId as number, {
-        number: newRoom.roomNumber,
-        adultsCapacity: newRoom.adultsCapacity,
-        childrenCapacity: newRoom.childrenCapacity,
-        pricePerNight: newRoom.price,
-      });
+      await addRoom(
+        Number(newRoom.roomClassId),
+        {
+          number: newRoom.roomNumber,
+          adultsCapacity: newRoom.adultsCapacity,
+          childrenCapacity: newRoom.childrenCapacity,
+          pricePerNight: newRoom.price,
+        }
+      );
 
       alert('Room added successfully!');
       setNewRoom({
