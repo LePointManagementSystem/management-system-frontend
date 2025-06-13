@@ -38,9 +38,11 @@ const HotelManagementPage = () => {
   });
 
   const [newRoom, setNewRoom] = useState({
-    roomNumber: '',
-    roomClassId: '',
+    roomNumber: "",
     price: 0,
+    roomClassId: "",
+    adultsCapacity: 0,
+    childrenCapacity: 0,
   });
 
   type RoomField =
@@ -91,8 +93,6 @@ const HotelManagementPage = () => {
   ];
 
 
-
-
   const handleAddHotel = async () => {
     if (!newHotel.name.trim() || newHotel.starRating < 1 || newHotel.starRating > 5 || !newHotel.phoneNumber || newHotel.ownerID <= 0) {
       alert("Please fill in all fields correctly.");
@@ -130,15 +130,23 @@ const HotelManagementPage = () => {
     }
 
     try {
-      await addRoom({
-        number: newRoom.roomNumber,
-        pricePerNight: newRoom.price,
-        hotelId: selectedHotelId,
-        roomClassId: Number(newRoom.roomClassId),
-      });
+      await addRoom(
+        Number(newRoom.roomClassId),
+        {
+          number: newRoom.roomNumber,
+          adultsCapacity: newRoom.adultsCapacity,
+          childrenCapacity: newRoom.childrenCapacity,
+          pricePerNight: newRoom.price,
+        });
 
       alert("Room added successfully!");
-      setNewRoom({ roomNumber: '', roomClassId: '', price: 0 });
+      setNewRoom({
+        roomNumber: '',
+        roomClassId: '',
+        price: 0,
+        adultsCapacity: 0,
+        childrenCapacity: 0,
+      });
       setIsRoomDialogOpen(false);
     } catch (err) {
       console.error("Add room error:", err);
@@ -237,7 +245,13 @@ const HotelManagementPage = () => {
     setIsRoomDialogOpen(open);
     if (!open) {
       setSelectedHotelId(null);
-      setNewRoom({ roomNumber: '', roomClassId: '', price: 0 });
+      setNewRoom({
+        roomNumber: '',
+        roomClassId: '',
+        price: 0,
+        adultsCapacity: 0,
+        childrenCapacity: 0,
+      });
     }
   };
 
