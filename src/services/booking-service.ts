@@ -5,7 +5,7 @@ const API_BASE = 'http://localhost:5004/api';
 
 
 export const createBooking = async (booking: Omit<Booking, "id">) => {
-  const response = await fetch("http://localhost:5004/api/Booking/create", {
+  const response = await fetch(`${API_BASE}/Booking/create`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

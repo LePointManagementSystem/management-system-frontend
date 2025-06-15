@@ -24,11 +24,12 @@ type Client = {
     name: string
     email: string
     phone: string
+    cin: string
 }
 
 const existingClients: Client[] = [
-    { id: 1, name: "Alice Doe", email: "alice@example.com", phone: "1234567890" },
-    { id: 2, name: "Bob Smith", email: "bob@example.com", phone: "0987654321" },
+    { id: 1, name: "Alice Doe", email: "alice@example.com", phone: "1234567890", cin: '423566786' },
+    { id: 2, name: "Bob Smith", email: "bob@example.com", phone: "0987654321", cin: '423566786' },
 ]
 
 
@@ -53,7 +54,7 @@ const RoomBookingPage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false)
     const [clientTab, setClientTab] = useState("existing")
     const [selectedClientId, setSelectedClientId] = useState<number | null>(null)
-    const [newClient, setNewClient] = useState({ name: "", email: "", phone: "" })
+    const [newClient, setNewClient] = useState({ name: "", email: "", phone: "", cin: "" })
     const [roomClasses, setRoomClasses] = useState<RoomClass[]>([])
     const [loadingRoomClasses, setLoadingRoomClasses] = useState(true)
     const [bookingComplete, setBookingComplete] = useState(false)
@@ -173,7 +174,7 @@ const handleSearch = async () => {
         setBookingDuration("overnight")
         setSelectedRoom(null)
         setSelectedClientId(null)
-        setNewClient({ name: "", email: "", phone: "" })
+        setNewClient({ name: "", email: "", phone: "", cin: "" })
         setBookingComplete(false)
         setBookingReference("")
         setNotification("")
@@ -443,6 +444,15 @@ const handleSearch = async () => {
                                         placeholder="Phone Number"
                                         value={newClient.phone}
                                         onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                                    />
+                                </div>
+                                 <div>
+                                    <Label htmlFor="clientCin">Cin</Label>
+                                    <Input
+                                        id="clientCin"
+                                        placeholder="Cin"
+                                        value={newClient.cin}
+                                        onChange={(e) => setNewClient({ ...newClient, cin: e.target.value })}
                                     />
                                 </div>
                             </TabsContent>

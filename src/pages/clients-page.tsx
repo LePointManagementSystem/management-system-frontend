@@ -19,20 +19,21 @@ interface Client {
     name: string;
     email: string;
     phone: string;
+    cin: string;
 }
 
 const ClientsPage: React.FC = () => {
     const [clients, setClients] = useState<Client[]>([
-        { id: '1', name: 'John Doe', email: 'john@example.com', phone: '123-456-7890' },
-        { id: '2', name: 'Jane Smith', email: 'jane@example.com', phone: '098-765-4321' },
-        { id: '3', name: 'Alice Johnson', email: 'alice@example.com', phone: '555-555-5555' },
+        { id: '1', name: 'John Doe', email: 'john@example.com', phone: '123-456-7890', cin: '323443245' },
+        { id: '2', name: 'Jane Smith', email: 'jane@example.com', phone: '098-765-4321', cin: '323443245' },
+        { id: '3', name: 'Alice Johnson', email: 'alice@example.com', phone: '555-555-5555', cin: '323443245' },
     ]);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [currentClient, setCurrentClient] = useState<Client | null>(null);
-    const [newClient, setNewClient] = useState<Omit<Client, 'id'>>({ name: '', email: '', phone: '' });
+    const [newClient, setNewClient] = useState<Omit<Client, 'id'>>({ name: '', email: '', phone: '', cin: '' });
 
     const filteredClients = clients.filter(
         (client) =>
@@ -43,7 +44,7 @@ const ClientsPage: React.FC = () => {
     const handleAddClient = () => {
         const id = Math.random().toString(36).substr(2, 9);
         setClients([...clients, { ...newClient, id }]);
-        setNewClient({ name: '', email: '', phone: '' });
+        setNewClient({ name: '', email: '', phone: '', cin: '' });
         setIsAddDialogOpen(false);
     };
 
@@ -73,6 +74,11 @@ const ClientsPage: React.FC = () => {
         {
             name: 'Phone',
             selector: (row) => row.phone,
+            sortable: true,
+        },
+        {
+            name: 'CIN ',
+            selector: (row) => row.cin,
             sortable: true,
         },
         {
@@ -178,6 +184,14 @@ const ClientsPage: React.FC = () => {
                                     id="phone"
                                     value={newClient.phone}
                                     onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="cin">Phone</Label>
+                                <Input
+                                    id="cin"
+                                    value={newClient.cin}
+                                    onChange={(e) => setNewClient({ ...newClient, cin: e.target.value })}
                                 />
                             </div>
                         </div>
