@@ -2,21 +2,17 @@ import { useState } from 'react'
 import { Search } from 'lucide-react'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Client } from '@/types/client';
 
-interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-}
+
 
 // Mock function to simulate database search
 const searchClients = async (query: string): Promise<Client[]> => {
   // In a real application, this would be an API call to your backend
   await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
   const mockClients: Client[] = [
-    { id: '1', name: 'John Doe', email: 'john@example.com', phone: '123-456-7890' },
-    { id: '2', name: 'Jane Smith', email: 'jane@example.com', phone: '098-765-4321' },
+    { id: '1', name: 'John Doe', email: 'john@example.com', phone: '123-456-7890', cin: '1238748937'},
+    { id: '2', name: 'Jane Smith', email: 'jane@example.com', phone: '098-765-4321', cin: '12389878937' },
   ];
   return mockClients.filter(client => 
     client.name.toLowerCase().includes(query.toLowerCase()) ||
