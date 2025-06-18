@@ -27,6 +27,13 @@ export const addRoom = async (
   }
 };
 
+export const getRoomsByHotel = async (hotelId: number) => {
+  const response = await fetch(`${API_BASE}/Room/hotel/${hotelId}`);
+  if (!response.ok) throw new Error("Failed to fetch rooms");
+  return await response.json();
+};
+
+
 
 type AvailableRoom = {
   roomId: number;
