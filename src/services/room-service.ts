@@ -28,7 +28,7 @@ export const addRoom = async (
 };
 
 export const getRoomsByHotel = async (hotelId: number) => {
-  const response = await fetch(`${API_BASE}/Room/hotel/${hotelId}`);
+  const response = await fetch(`${API_BASE}/hotel/${hotelId}/rooms`);
   if (!response.ok) throw new Error("Failed to fetch rooms");
   return await response.json();
 };
@@ -71,3 +71,46 @@ export const fetchAvailableRooms = async (
   return result.data;
 };
 
+export const updateRoom = async (
+  roomId: number,
+  updatedRoomData: {
+    number?: string;
+    adultsCapacity?: number;
+    childrenCapacity?: number;
+    pricePerNight?: number;
+  }
+) => {
+  const token = localStorage.getItem('token');
+  if (!token) throw new Error("No auth token");
+
+  const res = await fetch(`${API_BASE}/Room/${roomId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(updatedRoomData),
+  });
+
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(`Failed to update room: ${error}`);
+  }
+};
+
+export const deleteRoom = async (roomId: number) => {
+  const token = localStorage.getItem('token');
+  if (!token) throw new Error("No auth token");
+
+  const res = await fetch(`${API_BASE}/Room/${roomId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(`Failed to delete room: ${error}`);
+  }
+};
