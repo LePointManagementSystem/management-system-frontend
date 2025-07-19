@@ -1,4 +1,15 @@
+import { AvailableRoom, Room } from "@/types/hotel";
+
 const API_BASE = 'http://localhost:5004/api';
+
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  if (!token) throw new Error("No auth token");
+  return {
+    'Authorization': `Bearer ${token}`,
+  };
+};
 
 
 export const addRoom = async (
@@ -27,33 +38,13 @@ export const addRoom = async (
   }
 };
 
-
-type AvailableRoom = {
-  roomId: number;
-  roomClassName: string;
-  number: string;
-  adultsCapacity: number;
-  childrenCapacity: number;
-  pricePerNight: number;
-  createdAtUtc: string;
-};
-
-type Room = {
-  roomId: number;
-  roomClassId: number;
-  roomClassName?: string;
-  number: string;
-  adultsCapacity: number;
-  childrenCapacity: number;
-  pricePerNight: number;
-  createdAtUtc: string;
-};
-
 export const getRoomsByHotelId = async (hotelId: number): Promise<Room[]> => {
+  const token = localStorage.getItem('token');
   const response = await fetch(`${API_BASE}/Hotel/${hotelId}/rooms`, {
     method: 'GET',
     headers: {
       'Accept': 'application/json',
+      'Authorization': `Bearer ${token}`,
     },
   });
 
@@ -63,13 +54,15 @@ export const getRoomsByHotelId = async (hotelId: number): Promise<Room[]> => {
   }
 
   const result = await response.json();
+  console.log('Fetched rooms result:', result.data.result);
 
-  if (!result.succeeded) {
-    throw new Error(`API error: ${result.message}`);
+  if (!result || !Array.isArray(result.data.result)) {
+    throw new Error('Invalid response format: expected object with `data` as array');
   }
 
-  return result.data;
+  return result.data.result;
 };
+
 
 
 export const fetchAvailableRooms = async (

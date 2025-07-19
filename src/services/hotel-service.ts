@@ -4,6 +4,15 @@ import { Hotel, Room, Amenity, Image, RoomClass } from "@/types/hotel";
 
 const API_BASE = 'http://localhost:5004/api';
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  if (!token) throw new Error("No auth token");
+  return {
+    'Authorization': `Bearer ${token}`,
+  };
+};
+
+
 async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(url, {
     headers: { 'Content-Type': 'application/json', ...options.headers },

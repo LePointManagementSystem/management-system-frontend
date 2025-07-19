@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import DataTable from 'react-data-table-component';
 import { Plus, Edit, Trash2 } from 'lucide-react';
-
+import RoomList from '@/components/room-list';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -185,7 +185,7 @@ const HotelManagementPage = () => {
 
       const safeRooms: Room[] = rooms.map((room: any) => ({
         ...room,
-        roomClassName: room.roomClassName ?? '', // default to empty string
+        roomClassName: room.roomClassName ?? '',
       }));
 
       setRoomsData((prev) => ({ ...prev, [hotelId]: rooms }))
@@ -195,7 +195,6 @@ const HotelManagementPage = () => {
       return []
     }
   }
-
 
   const handleToggleExpand = async (hotelId: number) => {
     const newExpandedRows = new Set(expandedRows)
@@ -218,50 +217,25 @@ const HotelManagementPage = () => {
   }
 
   const RoomsExpandedComponent = ({ data }: { data: Hotel }) => {
-    const rooms = roomsData[data.id] || []
+    // const rooms = roomsData[data.id] || []
 
-    if (rooms.length === 0) {
-      return (
-        <div className="p-4 bg-gray-50">
-          <p className="text-gray-500 text-center">No rooms found for this hotel.</p>
-        </div>
-      )
-    }
+    // if (rooms.length === 0) {
+    //   return (
+    //     <div className="p-4 bg-gray-50">
+    //       <p className="text-gray-500 text-center">No rooms found for this hotel.</p>
+    //     </div>
+    //   )
+    // }
 
     return (
       <div className="p-4 bg-gray-50">
-        <h4 className="font-semibold mb-3">Rooms in {data.name}</h4>
-        <div className="bg-white rounded-lg border">
-          <div className="grid grid-cols-6 gap-4 p-3 bg-gray-100 font-medium text-sm border-b">
-            <div>Room Number</div>
-            <div>Class</div>
-            <div>Price/Night</div>
-            <div>Adults</div>
-            <div>Children</div>
-            <div>Created</div>
-          </div>
-          {rooms.map((room, index) => (
-            <div
-              key={room.roomId}
-              className={`grid grid-cols-6 gap-4 p-3 text-sm ${index !== rooms.length - 1 ? "border-b" : ""
-                } hover:bg-gray-50`}
-            >
-              <div className="font-medium">{room.number}</div>
-              <div>
-                <Badge variant="outline" className="text-xs">
-                  {room.roomClassName}
-                </Badge>
-              </div>
-              <div className="font-medium">${room.pricePerNight}</div>
-              <div>{room.adultsCapacity}</div>
-              <div>{room.childrenCapacity}</div>
-              <div className="text-gray-500">{formatDate(room.createdAtUtc)}</div>
-            </div>
-          ))}
-        </div>
+        <RoomList hotelId={data.id} />
       </div>
-    )
+    );
   }
+
+
+
 
   const columns = [
     {

@@ -41,6 +41,16 @@ export interface RoomClass {
   hotelName: string;
 }
 
+export type AvailableRoom = {
+  roomId: number;
+  roomClassName: string;
+  number: string;
+  adultsCapacity: number;
+  childrenCapacity: number;
+  pricePerNight: number;
+  createdAtUtc: string;
+};
+
 type BookingDuration = "2_hours" | "overnight";
 
 export interface Booking {
