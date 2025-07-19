@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 import { addHotel, getHotels, deleteHotel } from '@/services/hotel-service';
-import { Hotel, RoomClass } from '@/types/hotel';
+import { Hotel, Room, RoomClass } from '@/types/hotel';
 import { addRoom } from '@/services/room-service';
 import { getRoomClasses } from '@/services/room-class-service';
 
@@ -25,6 +25,8 @@ const HotelManagementPage = () => {
   const [, setError] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedHotelId, setSelectedHotelId] = useState<number | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
+  const [roomsData, setRoomsData] = useState<Record<number, Room[]>>({})
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
   const [roomClasses, setRoomClasses] = useState<RoomClass[]>([]);
 
@@ -176,6 +178,69 @@ const HotelManagementPage = () => {
     setHotels(hotels.filter((hotel) => hotel.id !== id));
   };
 
+  const handleToggleExpand = async (hotelId: number) => {
+    const newExpandedRows = new Set(expandedRows)
+
+    if (expandedRows.has(hotelId)) {
+      newExpandedRows.delete(hotelId)
+    } else {
+      newExpandedRows.add(hotelId)
+      // Fetch rooms if not already loaded
+      if (!roomsData[hotelId]) {
+        await fetchRoomsForHotel(hotelId)
+      }
+    }
+
+    setExpandedRows(newExpandedRows)
+  }
+
+  const RoomsExpandedComponent = ({ data }: { data: Hotel }) => {
+    const rooms = roomsData[data.id] || []
+
+    if (rooms.length === 0) {
+      return (
+        <div className="p-4 bg-gray-50">
+          <p className="text-gray-500 text-center">No rooms found for this hotel.</p>
+        </div>
+      )
+    }
+
+    return (
+      <div className="p-4 bg-gray-50">
+        <h4 className="font-semibold mb-3">Rooms in {data.name}</h4>
+        <div className="bg-white rounded-lg border">
+          <div className="grid grid-cols-6 gap-4 p-3 bg-gray-100 font-medium text-sm border-b">
+            <div>Room Number</div>
+            <div>Class</div>
+            <div>Price/Night</div>
+            <div>Adults</div>
+            <div>Children</div>
+            <div>Created</div>
+          </div>
+          {rooms.map((room, index) => (
+            <div
+              key={room.roomId}
+              className={`grid grid-cols-6 gap-4 p-3 text-sm ${
+                index !== rooms.length - 1 ? "border-b" : ""
+              } hover:bg-gray-50`}
+            >
+              <div className="font-medium">{room.number}</div>
+              <div>
+                <Badge variant="outline" className="text-xs">
+                  {room.roomClassName}
+                </Badge>
+              </div>
+              <div className="font-medium">${room.pricePerNight}</div>
+              <div>{room.adultsCapacity}</div>
+              <div>{room.childrenCapacity}</div>
+              <div className="text-gray-500">{formatDate(room.createdAtUtc)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   const columns = [
     {
       name: 'Name',
@@ -283,6 +348,10 @@ const HotelManagementPage = () => {
         responsive
         highlightOnHover
         striped
+        expandableRows
+        expandableRowsComponent={RoomsExpandedComponent}
+        expandableRowExpanded={(row) => expandedRows.has(row.id)}
+        onRowExpandToggled={(expanded, row) => handleToggleExpand(row.id)}
       />
 
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
