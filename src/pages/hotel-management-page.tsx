@@ -16,8 +16,9 @@ import { Label } from '@/components/ui/label';
 
 import { addHotel, getHotels, deleteHotel } from '@/services/hotel-service';
 import { Hotel, Room, RoomClass } from '@/types/hotel';
-import { addRoom } from '@/services/room-service';
+import { addRoom, getRoomsByHotelId } from '@/services/room-service';
 import { getRoomClasses } from '@/services/room-class-service';
+import { Badge } from '@/components/ui/badge';
 
 const HotelManagementPage = () => {
   const [hotels, setHotels] = useState<Hotel[]>([]);
@@ -178,6 +179,24 @@ const HotelManagementPage = () => {
     setHotels(hotels.filter((hotel) => hotel.id !== id));
   };
 
+  const fetchRoomsForHotel = async (hotelId: number) => {
+    try {
+      const rooms = await getRoomsByHotelId(hotelId);
+
+      const safeRooms: Room[] = rooms.map((room: any) => ({
+        ...room,
+        roomClassName: room.roomClassName ?? '', // default to empty string
+      }));
+
+      setRoomsData((prev) => ({ ...prev, [hotelId]: rooms }))
+      return safeRooms
+    } catch (err) {
+      console.error("Error fetching rooms:", err)
+      return []
+    }
+  }
+
+
   const handleToggleExpand = async (hotelId: number) => {
     const newExpandedRows = new Set(expandedRows)
 
@@ -192,6 +211,10 @@ const HotelManagementPage = () => {
     }
 
     setExpandedRows(newExpandedRows)
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString()
   }
 
   const RoomsExpandedComponent = ({ data }: { data: Hotel }) => {
@@ -220,9 +243,8 @@ const HotelManagementPage = () => {
           {rooms.map((room, index) => (
             <div
               key={room.roomId}
-              className={`grid grid-cols-6 gap-4 p-3 text-sm ${
-                index !== rooms.length - 1 ? "border-b" : ""
-              } hover:bg-gray-50`}
+              className={`grid grid-cols-6 gap-4 p-3 text-sm ${index !== rooms.length - 1 ? "border-b" : ""
+                } hover:bg-gray-50`}
             >
               <div className="font-medium">{room.number}</div>
               <div>

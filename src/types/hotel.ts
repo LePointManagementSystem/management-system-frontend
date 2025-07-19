@@ -1,12 +1,14 @@
 // src/types/hotel.ts
 
 export interface Room {
-  id: number;
-  type: string;
-  price: number;
-  capacity: number;
-  number: string; 
-  hotelName: string;
+  roomId: number
+  roomClassName?: string
+  number: string
+  adultsCapacity: number
+  childrenCapacity: number
+  pricePerNight: number
+  createdAtUtc: string
+  hotelId?: number 
 }
 
 export interface Hotel {

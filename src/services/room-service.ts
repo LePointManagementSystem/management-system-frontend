@@ -3,7 +3,7 @@ const API_BASE = 'http://localhost:5004/api';
 
 export const addRoom = async (
    roomClassId: number,
-  roomData: {
+    roomData: {
     number: string;
     adultsCapacity: number;
     childrenCapacity: number;
@@ -27,13 +27,6 @@ export const addRoom = async (
   }
 };
 
-export const getRoomsByHotel = async (hotelId: number) => {
-  const response = await fetch(`${API_BASE}/hotel/${hotelId}/rooms`);
-  if (!response.ok) throw new Error("Failed to fetch rooms");
-  return await response.json();
-};
-
-
 
 type AvailableRoom = {
   roomId: number;
@@ -44,6 +37,40 @@ type AvailableRoom = {
   pricePerNight: number;
   createdAtUtc: string;
 };
+
+type Room = {
+  roomId: number;
+  roomClassId: number;
+  roomClassName?: string;
+  number: string;
+  adultsCapacity: number;
+  childrenCapacity: number;
+  pricePerNight: number;
+  createdAtUtc: string;
+};
+
+export const getRoomsByHotelId = async (hotelId: number): Promise<Room[]> => {
+  const response = await fetch(`${API_BASE}/Hotel/${hotelId}/rooms`, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to fetch rooms: ${errorText}`);
+  }
+
+  const result = await response.json();
+
+  if (!result.succeeded) {
+    throw new Error(`API error: ${result.message}`);
+  }
+
+  return result.data;
+};
+
 
 export const fetchAvailableRooms = async (
   roomClassId: number
