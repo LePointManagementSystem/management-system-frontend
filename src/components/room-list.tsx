@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import DataTable from 'react-data-table-component';
 import { getRoomsByHotelId } from '@/services/room-service';
 import { Room } from '@/types/hotel';
 
@@ -27,24 +28,53 @@ const RoomList: React.FC<RoomListProps> = ({ hotelId }) => {
     fetchRooms();
   }, [hotelId]);
 
+  const columns = [
+    {
+      name: 'Room Number',
+      selector: (row: Room) => row.number,
+      sortable: true,
+    },
+    {
+      name: 'Class',
+      selector: (row: Room) => row.roomClassName || 'N/A',
+      sortable: true,
+    },
+    {
+      name: 'Adults',
+      selector: (row: Room) => row.adultsCapacity,
+    },
+    {
+      name: 'Children',
+      selector: (row: Room) => row.childrenCapacity,
+    },
+    {
+      name: 'Price',
+      selector: (row: Room) => `$${row.pricePerNight}`,
+      sortable: true,
+    },
+    {
+      name: 'Created',
+      selector: (row: Room) =>
+        new Date(row.createdAtUtc).toLocaleString(),
+      sortable: true,
+    },
+  ];
+
   if (loading) return <p>Loading rooms...</p>;
   if (error) return <p className="text-red-500">Error: {error}</p>;
 
   return (
-    <div>
-      <h2 className="text-xl font-semibold mb-4">Rooms for Hotel #{hotelId}</h2>
-      <ul className="space-y-4">
-        {rooms.map((room) => (
-          <li key={room.roomId} className="p-4 border rounded shadow-sm">
-            <p><strong>Room Number:</strong> {room.number}</p>
-            <p><strong>Class:</strong> {room.roomClassName || 'N/A'}</p>
-            <p><strong>Adults:</strong> {room.adultsCapacity}</p>
-            <p><strong>Children:</strong> {room.childrenCapacity}</p>
-            <p><strong>Price:</strong> ${room.pricePerNight}</p>
-            <p className="text-sm text-gray-500"><strong>Created:</strong> {new Date(room.createdAtUtc).toLocaleString()}</p>
-          </li>
-        ))}
-      </ul>
+    <div className="mt-4">
+      {/* <h2 className="text-xl font-semibold mb-4">Rooms for Hotel #{hotelId}</h2> */}
+      <DataTable
+        columns={columns}
+        data={rooms}
+        pagination
+        highlightOnHover
+        striped
+        dense
+        defaultSortFieldId={1}
+      />
     </div>
   );
 };

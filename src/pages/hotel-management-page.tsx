@@ -18,7 +18,6 @@ import { addHotel, getHotels, deleteHotel } from '@/services/hotel-service';
 import { Hotel, Room, RoomClass } from '@/types/hotel';
 import { addRoom, getRoomsByHotelId } from '@/services/room-service';
 import { getRoomClasses } from '@/services/room-class-service';
-import { Badge } from '@/components/ui/badge';
 
 const HotelManagementPage = () => {
   const [hotels, setHotels] = useState<Hotel[]>([]);
@@ -217,25 +216,12 @@ const HotelManagementPage = () => {
   }
 
   const RoomsExpandedComponent = ({ data }: { data: Hotel }) => {
-    // const rooms = roomsData[data.id] || []
-
-    // if (rooms.length === 0) {
-    //   return (
-    //     <div className="p-4 bg-gray-50">
-    //       <p className="text-gray-500 text-center">No rooms found for this hotel.</p>
-    //     </div>
-    //   )
-    // }
-
     return (
       <div className="p-4 bg-gray-50">
         <RoomList hotelId={data.id} />
       </div>
     );
   }
-
-
-
 
   const columns = [
     {
