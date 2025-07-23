@@ -1,3 +1,4 @@
+import { CreateBookingRequest } from "@/types/boking";
 import { AvailableRoom, Room } from "@/types/hotel";
 
 const API_BASE = 'http://localhost:5004/api';
@@ -132,5 +133,23 @@ export const deleteRoom = async (roomId: number) => {
   if (!res.ok) {
     const error = await res.text();
     throw new Error(`Failed to delete room: ${error}`);
+  }
+};
+
+
+export const createBooking = async (data: CreateBookingRequest): Promise<void> => {
+   const token = localStorage.getItem('token');
+  const response = await fetch('/api/Booking/create', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`, // optional if auth required
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to create booking');
   }
 };
