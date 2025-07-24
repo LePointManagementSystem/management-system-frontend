@@ -1,9 +1,6 @@
 // types/booking.ts
-export interface Guest {
-  firstName: string;
-  lastName: string;
-  cin: string;
-}
+
+import { Guest } from "./client";
 
 export interface CreateBookingRequest {
   hotelId: number;

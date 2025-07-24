@@ -1,4 +1,4 @@
-export interface Client {
+export interface Guest {
   id: string;
   name: string;
   email: string;
