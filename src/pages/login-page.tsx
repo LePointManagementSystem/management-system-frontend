@@ -11,7 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 // {
 //   "email": "test@testuser.com",
-//   "password": "Test123!"
+//   "password": "Test231!"
 // }
 
 export function LoginPage() {
