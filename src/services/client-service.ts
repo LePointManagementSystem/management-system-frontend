@@ -22,3 +22,24 @@ export async function fetchGuest(): Promise<Guest[]> {
     return data;
 
 }
+
+export async function addGuest(guest: Omit<Guest, 'id'>): Promise<Guest> {
+  const token = localStorage.getItem('token');
+
+  const response = await fetch(BASE_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'text/plain',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(guest),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to add guest: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data;
+}

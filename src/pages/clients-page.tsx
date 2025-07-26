@@ -51,7 +51,7 @@ const ClientsPage: React.FC = () => {
     const handleAddClient = () => {
         const id = Math.random().toString(36).substr(2, 9);
         setClients([...clients, { ...newClient, id }]);
-        setNewClient({ firstName: '',lastName:'', email: '', cin: '' });
+        setNewClient({ firstName: '',lastName:'', cin: '',  email: '' });
         setIsAddDialogOpen(false);
     };
 
@@ -180,6 +180,15 @@ const ClientsPage: React.FC = () => {
                                     onChange={(e) => setNewClient({ ...newClient, lastName: e.target.value })}
                                 />
                             </div>
+
+                             <div>
+                                <Label htmlFor="cin">CIN</Label>
+                                <Input
+                                    id="cin"
+                                    value={newClient.cin}
+                                    onChange={(e) => setNewClient({ ...newClient, cin: e.target.value })}
+                                />
+                            </div>
                             <div>
                                 <Label htmlFor="email">Email</Label>
                                 <Input
@@ -190,14 +199,7 @@ const ClientsPage: React.FC = () => {
                                 />
                             </div>
                            
-                            <div>
-                                <Label htmlFor="cin">Phone</Label>
-                                <Input
-                                    id="cin"
-                                    value={newClient.cin}
-                                    onChange={(e) => setNewClient({ ...newClient, cin: e.target.value })}
-                                />
-                            </div>
+                           
                         </div>
                         <DialogFooter>
                             <Button type="submit" onClick={handleAddClient}>
