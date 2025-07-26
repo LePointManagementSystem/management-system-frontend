@@ -24,14 +24,9 @@ const ClientsPage: React.FC = () => {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [currentClient, setCurrentClient] = useState<Guest | null>(null);
-    const [newClient, setNewClient] = useState<Omit<Guest, 'id'>>({ name: '', email: '', phone: '', cin: '' });
+    const [newClient, setNewClient] = useState<Omit<Guest, 'id'>>({ firstName: '',lastName: '', email: '', cin: '' });
 
-    const filteredClients = clients.filter(
-        (client) =>
-            client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            client.email.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
+   
     useEffect(() => {
     const loadGuests = async () => {
         try {
@@ -45,11 +40,18 @@ const ClientsPage: React.FC = () => {
     loadGuests();
 }, []);
 
+ const filteredClients = clients.filter(
+        (client) =>
+            (`${client.firstName} ${client.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            client.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+
 
     const handleAddClient = () => {
         const id = Math.random().toString(36).substr(2, 9);
         setClients([...clients, { ...newClient, id }]);
-        setNewClient({ name: '', email: '', phone: '', cin: '' });
+        setNewClient({ firstName: '',lastName:'', email: '', cin: '' });
         setIsAddDialogOpen(false);
     };
 
@@ -67,18 +69,18 @@ const ClientsPage: React.FC = () => {
     // Define columns for the DataTable
     const columns: TableColumn<Guest>[] = [
         {
-            name: 'Name',
-            selector: (row) => row.name,
+            name: 'firstName',
+            selector: (row) => row.firstName,
+            sortable: true,
+        },
+        {
+            name: 'lastName',
+            selector: (row) => row.lastName,
             sortable: true,
         },
         {
             name: 'Email',
             selector: (row) => row.email,
-            sortable: true,
-        },
-        {
-            name: 'Phone',
-            selector: (row) => row.phone,
             sortable: true,
         },
         {
@@ -106,10 +108,18 @@ const ClientsPage: React.FC = () => {
                             {currentClient && (
                                 <div className="grid gap-4 py-4">
                                     <div>
-                                        <Label htmlFor="edit-name">Name</Label>
+                                        <Label htmlFor="edit-name">First Name</Label>
                                         <Input
                                             id="edit-name"
-                                            value={currentClient.name}
+                                            value={currentClient.firstName}
+                                            onChange={(e) => setCurrentClient({ ...currentClient, name: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="edit-name">Last Name</Label>
+                                        <Input
+                                            id="edit-name"
+                                            value={currentClient.lastName}
                                             onChange={(e) => setCurrentClient({ ...currentClient, name: e.target.value })}
                                         />
                                     </div>
@@ -122,14 +132,7 @@ const ClientsPage: React.FC = () => {
                                             onChange={(e) => setCurrentClient({ ...currentClient, email: e.target.value })}
                                         />
                                     </div>
-                                    <div>
-                                        <Label htmlFor="edit-phone">Phone</Label>
-                                        <Input
-                                            id="edit-phone"
-                                            value={currentClient.phone}
-                                            onChange={(e) => setCurrentClient({ ...currentClient, phone: e.target.value })}
-                                        />
-                                    </div>
+                                 
                                 </div>
                             )}
                             <DialogFooter>
@@ -167,10 +170,18 @@ const ClientsPage: React.FC = () => {
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
                             <div>
-                                <Label htmlFor="name">Name</Label>
+                                <Label htmlFor="name">First Name</Label>
                                 <Input
                                     id="name"
-                                    value={newClient.name}
+                                    value={newClient.firstName}
+                                    onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="name">Last Name</Label>
+                                <Input
+                                    id="name"
+                                    value={newClient.lastName}
                                     onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
                                 />
                             </div>
@@ -183,14 +194,7 @@ const ClientsPage: React.FC = () => {
                                     onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
                                 />
                             </div>
-                            <div>
-                                <Label htmlFor="phone">Phone</Label>
-                                <Input
-                                    id="phone"
-                                    value={newClient.phone}
-                                    onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
-                                />
-                            </div>
+                           
                             <div>
                                 <Label htmlFor="cin">Phone</Label>
                                 <Input

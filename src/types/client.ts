@@ -1,7 +1,7 @@
 export interface Guest {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
-  phone: string;
   cin: string
 }
