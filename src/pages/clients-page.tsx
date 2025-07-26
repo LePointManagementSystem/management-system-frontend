@@ -69,13 +69,8 @@ const ClientsPage: React.FC = () => {
     // Define columns for the DataTable
     const columns: TableColumn<Guest>[] = [
         {
-            name: 'firstName',
-            selector: (row) => row.firstName,
-            sortable: true,
-        },
-        {
-            name: 'lastName',
-            selector: (row) => row.lastName,
+            name: 'Name',
+            selector: (row) => `${row.firstName} ${row.lastName}`,
             sortable: true,
         },
         {
@@ -112,7 +107,7 @@ const ClientsPage: React.FC = () => {
                                         <Input
                                             id="edit-name"
                                             value={currentClient.firstName}
-                                            onChange={(e) => setCurrentClient({ ...currentClient, name: e.target.value })}
+                                            onChange={(e) => setCurrentClient({ ...currentClient, firstName: e.target.value })}
                                         />
                                     </div>
                                     <div>
@@ -120,7 +115,7 @@ const ClientsPage: React.FC = () => {
                                         <Input
                                             id="edit-name"
                                             value={currentClient.lastName}
-                                            onChange={(e) => setCurrentClient({ ...currentClient, name: e.target.value })}
+                                            onChange={(e) => setCurrentClient({ ...currentClient, lastName: e.target.value })}
                                         />
                                     </div>
                                     <div>
@@ -174,7 +169,7 @@ const ClientsPage: React.FC = () => {
                                 <Input
                                     id="name"
                                     value={newClient.firstName}
-                                    onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                                    onChange={(e) => setNewClient({ ...newClient, firstName: e.target.value })}
                                 />
                             </div>
                             <div>
@@ -182,7 +177,7 @@ const ClientsPage: React.FC = () => {
                                 <Input
                                     id="name"
                                     value={newClient.lastName}
-                                    onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                                    onChange={(e) => setNewClient({ ...newClient, lastName: e.target.value })}
                                 />
                             </div>
                             <div>
