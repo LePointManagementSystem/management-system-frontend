@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Guest } from '@/types/client';
+import { fetchGuest } from '@/services/client-service';
 
 
 const ClientsPage: React.FC = () => {

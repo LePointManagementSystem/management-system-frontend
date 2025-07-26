@@ -15,7 +15,7 @@ export async function fetchGuest(token: string): Promise<Guest[]> {
     if (!response.ok) {
         throw new Error(`Failed to fetch guests: ${response.statusText}`);
     }
-
+     console.log(response.json());
 
     return response.json();
 }
