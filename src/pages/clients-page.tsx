@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import DataTable, { TableColumn } from 'react-data-table-component';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,20 @@ const ClientsPage: React.FC = () => {
             client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             client.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    useEffect(() => {
+    const loadGuests = async () => {
+        try {
+            const data = await fetchGuest();
+            setClients(data);
+        } catch (error) {
+            console.error("Failed to load guests:", error);
+        }
+    };
+
+    loadGuests();
+}, []);
+
 
     const handleAddClient = () => {
         const id = Math.random().toString(36).substr(2, 9);

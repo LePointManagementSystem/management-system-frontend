@@ -3,7 +3,8 @@ import { Guest } from "@/types/client";
 const BASE_URL = "http://localhost:5004/api/Guest"
 
 
-export async function fetchGuest(token: string): Promise<Guest[]> {
+export async function fetchGuest(): Promise<Guest[]> {
+    const token = localStorage.getItem('token');
     const response = await fetch(BASE_URL, {
         method: 'GET',
         headers: {
@@ -15,7 +16,9 @@ export async function fetchGuest(token: string): Promise<Guest[]> {
     if (!response.ok) {
         throw new Error(`Failed to fetch guests: ${response.statusText}`);
     }
-     console.log(response.json());
+    const data: Guest[] = await response.json();
+    console.log(data);
 
-    return response.json();
+    return data;
+
 }
