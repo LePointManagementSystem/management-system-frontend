@@ -20,7 +20,6 @@ export async function fetchGuest(): Promise<Guest[]> {
     console.log(data);
 
     return data;
-
 }
 
 export async function addGuest(guest: Omit<Guest, 'id'>): Promise<Guest> {
@@ -30,16 +29,18 @@ export async function addGuest(guest: Omit<Guest, 'id'>): Promise<Guest> {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Accept': 'text/plain',
-      'Authorization': `Bearer ${token}`,
+       Accept: "application/json",
+       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(guest),
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to add guest: ${response.statusText}`);
+    const errorText = await response.text();
+    throw new Error(`Failed to add guest: ${response.statusText} - ${errorText}`);
   }
 
   const data = await response.json();
+  console.log("Added guest:", data);
   return data;
 }

@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Guest } from '@/types/client';
-import { fetchGuest } from '@/services/client-service';
+import { addGuest, fetchGuest } from '@/services/client-service';
 
 
 const ClientsPage: React.FC = () => {
@@ -24,35 +24,38 @@ const ClientsPage: React.FC = () => {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [currentClient, setCurrentClient] = useState<Guest | null>(null);
-    const [newClient, setNewClient] = useState<Omit<Guest, 'id'>>({ firstName: '',lastName: '', email: '', cin: '' });
+    const [newClient, setNewClient] = useState<Omit<Guest, 'id'>>({ firstName: '', lastName: '', cin: '', email: '' });
 
-   
+
     useEffect(() => {
-    const loadGuests = async () => {
-        try {
-            const data = await fetchGuest();
-            setClients(data);
-        } catch (error) {
-            console.error("Failed to load guests:", error);
-        }
-    };
+        const loadGuests = async () => {
+            try {
+                const data = await fetchGuest();
+                setClients(data);
+            } catch (error) {
+                console.error("Failed to load guests:", error);
+            }
+        };
 
-    loadGuests();
-}, []);
+        loadGuests();
+    }, []);
 
- const filteredClients = clients.filter(
+    const filteredClients = clients.filter(
         (client) =>
             (`${client.firstName} ${client.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())) ||
             client.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const handleAddClient = async () => {
+        try {
+            const savedGuest = await addGuest(newClient);
+            setClients((prev)=>[...prev, savedGuest])
+            setNewClient({ firstName: '', lastName: '', cin: '', email: '' });
+            setIsAddDialogOpen(false);
 
-
-    const handleAddClient = () => {
-        const id = Math.random().toString(36).substr(2, 9);
-        setClients([...clients, { ...newClient, id }]);
-        setNewClient({ firstName: '',lastName:'', cin: '',  email: '' });
-        setIsAddDialogOpen(false);
+        } catch (error) {
+            console.error("Error adding guest:", error);
+        }
     };
 
     const handleEditClient = () => {
@@ -127,7 +130,7 @@ const ClientsPage: React.FC = () => {
                                             onChange={(e) => setCurrentClient({ ...currentClient, email: e.target.value })}
                                         />
                                     </div>
-                                 
+
                                 </div>
                             )}
                             <DialogFooter>
@@ -181,7 +184,7 @@ const ClientsPage: React.FC = () => {
                                 />
                             </div>
 
-                             <div>
+                            <div>
                                 <Label htmlFor="cin">CIN</Label>
                                 <Input
                                     id="cin"
@@ -198,8 +201,8 @@ const ClientsPage: React.FC = () => {
                                     onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
                                 />
                             </div>
-                           
-                           
+
+
                         </div>
                         <DialogFooter>
                             <Button type="submit" onClick={handleAddClient}>
