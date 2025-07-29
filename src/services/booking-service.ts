@@ -1,22 +1,32 @@
 // services/booking-service.ts
 import { Booking } from "@/types/hotel";
 
-const API_BASE = 'http://localhost:5004/api';
-
-
-export const createBooking = async (booking: Omit<Booking, "id">) => {
-  const response = await fetch(`${API_BASE}/Booking/create`, {
+const createBooking = async (bookingData: {
+  hotelId: number;
+  checkInDateUtc: string;
+  checkOutDateUtc: string;
+  roomIds: number[];
+  paymentMethod: number;
+  durationType: number;
+  guest: {
+    firstName: string;
+    lastName: string;
+    cin: string;
+  };
+}) => {
+  const res = await fetch("/api/Booking/create", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      //include authorization header if required
+      "Authorization": `Bearer ${token}`
     },
-    body: JSON.stringify(booking),
+    body: JSON.stringify(bookingData),
   });
 
-  if (!response.ok) {
+  if (!res.ok) {
     throw new Error("Failed to create booking");
   }
 
-  const data = await response.json();
-  return data;
+  return await res.json();
 };

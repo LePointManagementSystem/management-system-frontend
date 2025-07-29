@@ -17,19 +17,12 @@ import { cn } from "@/lib/utils"
 import { getRoomClasses } from "@/services/room-class-service"
 import { Room, RoomClass } from "@/types/hotel"
 import { fetchAvailableRooms } from "@/services/room-service"
+import { Guest } from "@/types/client"
 
 
-type Client = {
-    id: number
-    name: string
-    email: string
-    phone: string
-    cin: string
-}
 
-const existingClients: Client[] = [
-    { id: 1, name: "Alice Doe", email: "alice@example.com", phone: "1234567890", cin: '423566786' },
-    { id: 2, name: "Bob Smith", email: "bob@example.com", phone: "0987654321", cin: '423566786' },
+const existingClients: Guest[] = [
+  
 ]
 
 
@@ -94,43 +87,43 @@ const RoomBookingPage: React.FC = () => {
     }, [bookingComplete, bookingDuration])
 
 
-const handleSearch = async () => {
-    if (!roomType || !date) return;
+    const handleSearch = async () => {
+        if (!roomType || !date) return;
 
-    setIsLoading(true);
+        setIsLoading(true);
 
-    try {
-        const selectedClass = roomClasses.find((c) => c.name === roomType);
+        try {
+            const selectedClass = roomClasses.find((c) => c.name === roomType);
 
-        if (selectedClass) {
-            const rawRooms = await fetchAvailableRooms(selectedClass.roomClassID);
+            if (selectedClass) {
+                const rawRooms = await fetchAvailableRooms(selectedClass.roomClassID);
 
-            const mappedRooms = rawRooms.map((room: any): Room => ({
-                id: room.roomId,
-                type: room.roomClassName,
-                price: room.pricePerNight,
-                capacity: room.adultsCapacity + room.childrenCapacity,
-                number: room.number,
-                hotelName: room.hotelName,
-            }));
+                const mappedRooms = rawRooms.map((room: any): Room => ({
+                    roomId: room.roomId,
+                    roomClassName: room.roomClassName,
+                    pricePerNight: room.pricePerNight,
+                    capacity: room.adultsCapacity + room.childrenCapacity,
+                    number: room.number,
+                    hotelName: room.hotelName,
+                }));
 
-            setAvailableRooms(mappedRooms);
-            setCurrentStep(1); 
-        } else {
-            console.warn("No matching room class found for selected type.");
-            setAvailableRooms([]);
+                setAvailableRooms(mappedRooms);
+                setCurrentStep(1);
+            } else {
+                console.warn("No matching room class found for selected type.");
+                setAvailableRooms([]);
+            }
+        } catch (error) {
+            console.error("Failed to load available rooms", error);
+        } finally {
+            setIsLoading(false);
         }
-    } catch (error) {
-        console.error("Failed to load available rooms", error);
-    } finally {
-        setIsLoading(false);
-    }
-};
+    };
 
 
     const handleRoomSelect = (roomId: number) => {
         setSelectedRoom(roomId)
-        setCurrentStep(2) 
+        setCurrentStep(2)
     }
 
     const handleClientSelect = (clientId: string) => {
@@ -163,7 +156,7 @@ const handleSearch = async () => {
         const reference = `BK-${Math.floor(100000 + Math.random() * 900000)}`
         setBookingReference(reference)
         setBookingComplete(true)
-        setCurrentStep(3) 
+        setCurrentStep(3)
     }
 
     const handleNewBooking = () => {
@@ -403,11 +396,12 @@ const handleSearch = async () => {
                                                         <span className="font-medium">Name:</span> {client.name}
                                                     </p>
                                                     <p>
-                                                        <span className="font-medium">Email:</span> {client.email}
+                                                        <span className="font-medium">:</span> {client.cin}
                                                     </p>
                                                     <p>
-                                                        <span className="font-medium">Phone:</span> {client.phone}
+                                                        <span className="font-medium">Email:</span> {client.email}
                                                     </p>
+
                                                 </div>
                                             ) : null
                                         })()}
@@ -425,7 +419,15 @@ const handleSearch = async () => {
                                         onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
                                     />
                                 </div>
-
+                                <div>
+                                    <Label htmlFor="clientCin">Cin</Label>
+                                    <Input
+                                        id="clientCin"
+                                        placeholder="Cin"
+                                        value={newClient.cin}
+                                        onChange={(e) => setNewClient({ ...newClient, cin: e.target.value })}
+                                    />
+                                </div>
                                 <div>
                                     <Label htmlFor="clientEmail">Email</Label>
                                     <Input
@@ -434,25 +436,6 @@ const handleSearch = async () => {
                                         placeholder="Email Address"
                                         value={newClient.email}
                                         onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                                    />
-                                </div>
-
-                                <div>
-                                    <Label htmlFor="clientPhone">Phone</Label>
-                                    <Input
-                                        id="clientPhone"
-                                        placeholder="Phone Number"
-                                        value={newClient.phone}
-                                        onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
-                                    />
-                                </div>
-                                 <div>
-                                    <Label htmlFor="clientCin">Cin</Label>
-                                    <Input
-                                        id="clientCin"
-                                        placeholder="Cin"
-                                        value={newClient.cin}
-                                        onChange={(e) => setNewClient({ ...newClient, cin: e.target.value })}
                                     />
                                 </div>
                             </TabsContent>
