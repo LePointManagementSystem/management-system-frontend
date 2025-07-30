@@ -5,9 +5,9 @@ export interface Room {
   roomClassName?: string
   number: string
   adultsCapacity: number
-  childrenCapacity: number
-  pricePerNight: number
-  createdAtUtc: string
+  childrenCapacity?: number
+  pricePerNight?: number
+  createdAtUtc?: string
   hotelId?: number 
 }
 

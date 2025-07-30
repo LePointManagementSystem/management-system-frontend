@@ -41,15 +41,15 @@ const RoomBookingPage: React.FC = () => {
     const [selectedRoom, setSelectedRoom] = useState<number | null>(null)
     const [isLoading, setIsLoading] = useState(false)
     const [clientTab, setClientTab] = useState("existing")
-    const [selectedClientId, setSelectedClientId] = useState<number | null>(null)
-    const [newClient, setNewClient] = useState({ name: "", email: "", phone: "", cin: "" })
+    const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
+    const [newClient, setNewClient] = useState({ firstName: "", lastName: "", cin: "", email: "" })
     const [bookingComplete, setBookingComplete] = useState(false)
     const [bookingReference, setBookingReference] = useState("")
     const [notification, setNotification] = useState("")
     const [existingClients, setExistingClients] = useState<Guest[]>([]);
 
 
-    const {roomClasses, loading: loadingRoomClasses} = useRoomClasses();
+    const { roomClasses, loading: loadingRoomClasses } = useRoomClasses();
 
 
     useEffect(() => {
@@ -67,12 +67,12 @@ const RoomBookingPage: React.FC = () => {
         return () => clearTimeout(timeout)
     }, [bookingComplete, bookingDuration])
 
-    useEffect(() =>{
-        const fetchClients = async () =>{
-            try{
+    useEffect(() => {
+        const fetchClients = async () => {
+            try {
                 const clients = await fetchGuest();
                 setExistingClients(clients)
-            }catch(error){
+            } catch (error) {
                 console.error("Error fetching guests");
             }
         };
@@ -93,10 +93,9 @@ const RoomBookingPage: React.FC = () => {
                 const mappedRooms = rawRooms.map((room: any): Room => ({
                     roomId: room.roomId,
                     roomClassName: room.roomClassName,
-                    pricePerNight: room.pricePerNight,
-                    // capacity: room.adultsCapacity + room.childrenCapacity,
                     number: room.number,
-                    hotelName: room.hotelName,
+                    adultsCapacity: room.adultsCapacity  + room.childrenCapacity,
+                    hotelId: room.hotelId
                 }));
                 setAvailableRooms(mappedRooms);
                 setCurrentStep(1);
@@ -118,14 +117,14 @@ const RoomBookingPage: React.FC = () => {
     }
 
     const handleClientSelect = (clientId: string) => {
-        setSelectedClientId(Number(clientId))
+        setSelectedClientId(clientId)
     }
 
     const isClientFormValid = () => {
         if (clientTab === "existing") {
             return selectedClientId !== null
         } else {
-            return newClient.name && newClient.email && newClient.phone
+            return newClient.email
         }
     }
 
@@ -133,7 +132,7 @@ const RoomBookingPage: React.FC = () => {
         if (!selectedRoom || !isClientFormValid()) return
 
         const client = clientTab === "existing" ? existingClients.find((c) => c.id === selectedClientId) : newClient
-        const room = availableRooms.find((r) => r.id === selectedRoom)
+        const room = availableRooms.find((r) => r.roomId === selectedRoom)
 
         console.log("Booking details:", {
             room,
@@ -157,7 +156,7 @@ const RoomBookingPage: React.FC = () => {
         setBookingDuration("overnight")
         setSelectedRoom(null)
         setSelectedClientId(null)
-        setNewClient({ name: "", email: "", phone: "", cin: "" })
+        setNewClient({ firstName: "", lastName: "", cin: "", email: "" })
         setBookingComplete(false)
         setBookingReference("")
         setNotification("")
@@ -264,7 +263,7 @@ const RoomBookingPage: React.FC = () => {
                         </div>
                     </CardContent>
                     <CardFooter>
-                        
+
                         <Button onClick={handleSearch} disabled={!roomType || !date || isLoading} className="w-full">
                             {isLoading ? (
                                 <>
@@ -311,21 +310,21 @@ const RoomBookingPage: React.FC = () => {
                                     </TableHeader>
                                     <TableBody>
                                         {availableRooms.map((room) => (
-                                            <TableRow key={room.id} className={cn(selectedRoom === room.id && "bg-muted/50")}>
+                                            <TableRow key={room.roomId} className={cn(selectedRoom === room.roomId && "bg-muted/50")}>
                                                 <TableCell className="font-medium">{room.number}</TableCell>
                                                 <TableCell>
-                                                    <Badge variant="outline">{room.type}</Badge>
+                                                    <Badge variant="outline">{room.roomClassName}</Badge>
                                                 </TableCell>
-                                                <TableCell>{room.capacity} guests</TableCell>
+                                                <TableCell>{room.adultsCapacity} guests</TableCell>
                                                 {/* <TableCell className="max-w-[200px] truncate">{room.amenities.join(", ")}</TableCell> */}
-                                                <TableCell className="font-medium">HTG {room.price}</TableCell>
+                                                <TableCell className="font-medium">HTG {room.pricePerNight}</TableCell>
                                                 <TableCell>
                                                     <Button
-                                                        onClick={() => handleRoomSelect(room.id)}
+                                                        onClick={() => handleRoomSelect(room.roomId)}
                                                         size="sm"
-                                                        variant={selectedRoom === room.id ? "default" : "outline"}
+                                                        variant={selectedRoom === room.roomId ? "default" : "outline"}
                                                     >
-                                                        {selectedRoom === room.id ? "Selected" : "Select"}
+                                                        {selectedRoom === room.roomId ? "Selected" : "Select"}
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
@@ -368,8 +367,8 @@ const RoomBookingPage: React.FC = () => {
                                         </SelectTrigger>
                                         <SelectContent>
                                             {existingClients.map((client) => (
-                                                <SelectItem key={client.id} value={client.id.toString()}>
-                                                    {client.name} - {client.email}
+                                                <SelectItem key={client.id} value={client.id ?? ""}>
+                                                    {client.firstName} - {client.email}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -384,7 +383,7 @@ const RoomBookingPage: React.FC = () => {
                                             return client ? (
                                                 <div className="space-y-1">
                                                     <p>
-                                                        <span className="font-medium">Name:</span> {client.name}
+                                                        <span className="font-medium">Name:</span> {client.firstName}
                                                     </p>
                                                     <p>
                                                         <span className="font-medium">:</span> {client.cin}
@@ -402,12 +401,21 @@ const RoomBookingPage: React.FC = () => {
 
                             <TabsContent value="new" className="space-y-4 pt-4">
                                 <div>
-                                    <Label htmlFor="clientName">Full Name</Label>
+                                    <Label htmlFor="clientName">First Name</Label>
                                     <Input
                                         id="clientName"
-                                        placeholder="Full Name"
-                                        value={newClient.name}
-                                        onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                                        placeholder="First Name"
+                                        value={newClient.firstName}
+                                        onChange={(e) => setNewClient({ ...newClient, firstName: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="clientName">Last Name</Label>
+                                    <Input
+                                        id="clientName"
+                                        placeholder="Last Name"
+                                        value={newClient.lastName}
+                                        onChange={(e) => setNewClient({ ...newClient, lastName: e.target.value })}
                                     />
                                 </div>
                                 <div>
@@ -459,8 +467,8 @@ const RoomBookingPage: React.FC = () => {
                                 </p>
                                 <p>
                                     <span className="font-medium">Room:</span> {(() => {
-                                        const room = availableRooms.find((r) => r.id === selectedRoom)
-                                        return room ? `${room.number} (${room.type})` : ""
+                                        const room = availableRooms.find((r) => r.roomId === selectedRoom)
+                                        return room ? `${room.number} (${room.roomClassName})` : ""
                                     })()}
                                 </p>
                                 <p>
@@ -475,8 +483,8 @@ const RoomBookingPage: React.FC = () => {
                                 <p>
                                     <span className="font-medium">Client:</span>{" "}
                                     {clientTab === "existing"
-                                        ? existingClients.find((c) => c.id === selectedClientId)?.name
-                                        : newClient.name}
+                                        ? existingClients.find((c) => c.id === selectedClientId)?.firstName
+                                        : newClient.firstName}
                                 </p>
                             </div>
                         </div>
