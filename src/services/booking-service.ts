@@ -1,7 +1,7 @@
 // services/booking-service.ts
 import { Booking } from "@/types/hotel";
 
-const createBooking = async (bookingData: {
+export const createBooking = async (bookingData: {
   hotelId: number;
   checkInDateUtc: string;
   checkOutDateUtc: string;
@@ -14,6 +14,11 @@ const createBooking = async (bookingData: {
     cin: string;
   };
 }) => {
+  const token = localStorage.getItem('token');
+
+   if (!token) {
+    throw new Error("User is not authenticated. Token not found.");
+  }
   const res = await fetch("/api/Booking/create", {
     method: "POST",
     headers: {
