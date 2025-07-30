@@ -14,16 +14,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
-import { getRoomClasses } from "@/services/room-class-service"
-import { Room, RoomClass } from "@/types/hotel"
+import { Room } from "@/types/hotel"
 import { fetchAvailableRooms } from "@/services/room-service"
 import { Guest } from "@/types/client"
-
-
-
-const existingClients: Guest[] = [
-  
-]
+import { useRoomClasses } from "@/hooks/use-room-classes"
+import { fetchGuest } from "@/services/client-service"
 
 
 const formatDate = (date: Date) => {
@@ -48,27 +43,13 @@ const RoomBookingPage: React.FC = () => {
     const [clientTab, setClientTab] = useState("existing")
     const [selectedClientId, setSelectedClientId] = useState<number | null>(null)
     const [newClient, setNewClient] = useState({ name: "", email: "", phone: "", cin: "" })
-    const [roomClasses, setRoomClasses] = useState<RoomClass[]>([])
-    const [loadingRoomClasses, setLoadingRoomClasses] = useState(true)
     const [bookingComplete, setBookingComplete] = useState(false)
     const [bookingReference, setBookingReference] = useState("")
     const [notification, setNotification] = useState("")
+    const [existingClients, setExistingClients] = useState<Guest[]>([]);
 
-    useEffect(() => {
-        const fetchClasses = async () => {
-            try {
-                setLoadingRoomClasses(true)
-                const classes = await getRoomClasses()
-                setRoomClasses(classes)
-            } catch (error) {
-                console.error("Error loading room classes:", error)
-            } finally {
-                setLoadingRoomClasses(false)
-            }
-        }
 
-        fetchClasses()
-    }, [])
+    const {roomClasses, loading: loadingRoomClasses} = useRoomClasses();
 
 
     useEffect(() => {
@@ -86,39 +67,49 @@ const RoomBookingPage: React.FC = () => {
         return () => clearTimeout(timeout)
     }, [bookingComplete, bookingDuration])
 
+    useEffect(() =>{
+        const fetchClients = async () =>{
+            try{
+                const clients = await fetchGuest();
+                setExistingClients(clients)
+            }catch(error){
+                console.error("Error fetching guests");
+            }
+        };
+        fetchClients();
 
-    // const handleSearch = async () => {
-    //     if (!roomType || !date) return;
+    }, [])
 
-    //     setIsLoading(true);
 
-    //     try {
-    //         const selectedClass = roomClasses.find((c) => c.name === roomType);
+    const handleSearch = async () => {
+        if (!roomType || !date) return;
 
-    //         if (selectedClass) {
-    //             const rawRooms = await fetchAvailableRooms(selectedClass.roomClassID);
+        setIsLoading(true);
 
-    //             const mappedRooms = rawRooms.map((room: any): Room => ({
-    //                 roomId: room.roomId,
-    //                 roomClassName: room.roomClassName,
-    //                 pricePerNight: room.pricePerNight,
-    //                 capacity: room.adultsCapacity + room.childrenCapacity,
-    //                 number: room.number,
-    //                 hotelName: room.hotelName,
-    //             }));
-
-    //             setAvailableRooms(mappedRooms);
-    //             setCurrentStep(1);
-    //         } else {
-    //             console.warn("No matching room class found for selected type.");
-    //             setAvailableRooms([]);
-    //         }
-    //     } catch (error) {
-    //         console.error("Failed to load available rooms", error);
-    //     } finally {
-    //         setIsLoading(false);
-    //     }
-    // };
+        try {
+            const selectedClass = roomClasses.find((c) => c.name === roomType);
+            if (selectedClass) {
+                const rawRooms = await fetchAvailableRooms(selectedClass.roomClassID);
+                const mappedRooms = rawRooms.map((room: any): Room => ({
+                    roomId: room.roomId,
+                    roomClassName: room.roomClassName,
+                    pricePerNight: room.pricePerNight,
+                    // capacity: room.adultsCapacity + room.childrenCapacity,
+                    number: room.number,
+                    hotelName: room.hotelName,
+                }));
+                setAvailableRooms(mappedRooms);
+                setCurrentStep(1);
+            } else {
+                console.warn("No matching room class found for selected type.");
+                setAvailableRooms([]);
+            }
+        } catch (error) {
+            console.error("Failed to load available rooms", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
 
     const handleRoomSelect = (roomId: number) => {
@@ -138,26 +129,25 @@ const RoomBookingPage: React.FC = () => {
         }
     }
 
-    // const handleBooking = () => {
-    //     if (!selectedRoom || !isClientFormValid()) return
+    const handleBooking = () => {
+        if (!selectedRoom || !isClientFormValid()) return
 
-    //     const client = clientTab === "existing" ? existingClients.find((c) => c.id === selectedClientId) : newClient
+        const client = clientTab === "existing" ? existingClients.find((c) => c.id === selectedClientId) : newClient
+        const room = availableRooms.find((r) => r.id === selectedRoom)
 
-    //     const room = availableRooms.find((r) => r.id === selectedRoom)
+        console.log("Booking details:", {
+            room,
+            client,
+            date: date ? formatDate(date) : "",
+            duration: bookingDuration,
+            guests,
+        })
 
-    //     console.log("Booking details:", {
-    //         room,
-    //         client,
-    //         date: date ? formatDate(date) : "",
-    //         duration: bookingDuration,
-    //         guests,
-    //     })
-
-    //     const reference = `BK-${Math.floor(100000 + Math.random() * 900000)}`
-    //     setBookingReference(reference)
-    //     setBookingComplete(true)
-    //     setCurrentStep(3)
-    // }
+        const reference = `BK-${Math.floor(100000 + Math.random() * 900000)}`
+        setBookingReference(reference)
+        setBookingComplete(true)
+        setCurrentStep(3)
+    }
 
     const handleNewBooking = () => {
         setCurrentStep(0)
@@ -274,8 +264,8 @@ const RoomBookingPage: React.FC = () => {
                         </div>
                     </CardContent>
                     <CardFooter>
-                        {/* onClick={handleSearch} */}
-                        <Button  disabled={!roomType || !date || isLoading} className="w-full">
+                        
+                        <Button onClick={handleSearch} disabled={!roomType || !date || isLoading} className="w-full">
                             {isLoading ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
