@@ -13,7 +13,7 @@ export const createBooking = async (bookingData: {
     lastName: string;
     cin: string;
   };
-}) => {
+}) :Promise<Booking[]>=> {
   const token = localStorage.getItem('token');
 
    if (!token) {

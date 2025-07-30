@@ -34,7 +34,6 @@ export const addRoom = async (
 
   if (!res.ok) {
     const errorBody = await res.text(); 
-    console.error("Room creation failed:", errorBody); 
     throw new Error(`Failed to add room: ${errorBody}`);
   }
 };
@@ -55,7 +54,6 @@ export const getRoomsByHotelId = async (hotelId: number): Promise<Room[]> => {
   }
 
   const result = await response.json();
-  console.log('Fetched rooms result:', result.data.result);
 
   if (!result || !Array.isArray(result.data.result)) {
     throw new Error('Invalid response format: expected object with `data` as array');
@@ -137,19 +135,19 @@ export const deleteRoom = async (roomId: number) => {
 };
 
 
-export const createBooking = async (data: CreateBookingRequest): Promise<void> => {
-   const token = localStorage.getItem('token');
-  const response = await fetch('/api/Booking/create', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`, // optional if auth required
-    },
-    body: JSON.stringify(data),
-  });
+// export const createBooking = async (data: CreateBookingRequest): Promise<void> => {
+//    const token = localStorage.getItem('token');
+//   const response = await fetch('/api/Booking/create', {
+//     method: 'POST',
+//     headers: {
+//       'Content-Type': 'application/json',
+//       Authorization: `Bearer ${token}`, // optional if auth required
+//     },
+//     body: JSON.stringify(data),
+//   });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Failed to create booking');
-  }
-};
+//   if (!response.ok) {
+//     const error = await response.json();
+//     throw new Error(error.message || 'Failed to create booking');
+//   }
+// };
