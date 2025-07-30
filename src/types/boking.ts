@@ -2,10 +2,10 @@
 
 import { Guest } from "./client";
 
-export interface CreateBookingRequest {
+export interface BookingPayload {
   hotelId: number;
-  checkInDateUtc: string; // ISO string
-  checkOutDateUtc: string; // ISO string
+  checkInDateUtc: string;
+  checkOutDateUtc: string;
   roomIds: number[];
   paymentMethod: number;
   durationType: number;

@@ -1,29 +1,18 @@
 // services/booking-service.ts
-import { Booking } from "@/types/hotel";
 
-export const createBooking = async (bookingData: {
-  hotelId: number;
-  checkInDateUtc: string;
-  checkOutDateUtc: string;
-  roomIds: number[];
-  paymentMethod: number;
-  durationType: number;
-  guest: {
-    firstName: string;
-    lastName: string;
-    cin: string;
-  };
-}) :Promise<Booking[]>=> {
+import { BookingPayload } from "@/types/boking";
+
+
+export const createBooking = async (bookingData: BookingPayload) => {
   const token = localStorage.getItem('token');
 
    if (!token) {
     throw new Error("User is not authenticated. Token not found.");
   }
-  const res = await fetch("/api/Booking/create", {
+  const res = await fetch("http://localhost:5004/api/Booking/create", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      //include authorization header if required
       "Authorization": `Bearer ${token}`
     },
     body: JSON.stringify(bookingData),
@@ -35,3 +24,5 @@ export const createBooking = async (bookingData: {
 
   return await res.json();
 };
+
+

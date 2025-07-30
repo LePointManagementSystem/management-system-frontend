@@ -87,38 +87,38 @@ const RoomBookingPage: React.FC = () => {
     }, [bookingComplete, bookingDuration])
 
 
-    const handleSearch = async () => {
-        if (!roomType || !date) return;
+    // const handleSearch = async () => {
+    //     if (!roomType || !date) return;
 
-        setIsLoading(true);
+    //     setIsLoading(true);
 
-        try {
-            const selectedClass = roomClasses.find((c) => c.name === roomType);
+    //     try {
+    //         const selectedClass = roomClasses.find((c) => c.name === roomType);
 
-            if (selectedClass) {
-                const rawRooms = await fetchAvailableRooms(selectedClass.roomClassID);
+    //         if (selectedClass) {
+    //             const rawRooms = await fetchAvailableRooms(selectedClass.roomClassID);
 
-                const mappedRooms = rawRooms.map((room: any): Room => ({
-                    roomId: room.roomId,
-                    roomClassName: room.roomClassName,
-                    pricePerNight: room.pricePerNight,
-                    capacity: room.adultsCapacity + room.childrenCapacity,
-                    number: room.number,
-                    hotelName: room.hotelName,
-                }));
+    //             const mappedRooms = rawRooms.map((room: any): Room => ({
+    //                 roomId: room.roomId,
+    //                 roomClassName: room.roomClassName,
+    //                 pricePerNight: room.pricePerNight,
+    //                 capacity: room.adultsCapacity + room.childrenCapacity,
+    //                 number: room.number,
+    //                 hotelName: room.hotelName,
+    //             }));
 
-                setAvailableRooms(mappedRooms);
-                setCurrentStep(1);
-            } else {
-                console.warn("No matching room class found for selected type.");
-                setAvailableRooms([]);
-            }
-        } catch (error) {
-            console.error("Failed to load available rooms", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    //             setAvailableRooms(mappedRooms);
+    //             setCurrentStep(1);
+    //         } else {
+    //             console.warn("No matching room class found for selected type.");
+    //             setAvailableRooms([]);
+    //         }
+    //     } catch (error) {
+    //         console.error("Failed to load available rooms", error);
+    //     } finally {
+    //         setIsLoading(false);
+    //     }
+    // };
 
 
     const handleRoomSelect = (roomId: number) => {
@@ -138,26 +138,26 @@ const RoomBookingPage: React.FC = () => {
         }
     }
 
-    const handleBooking = () => {
-        if (!selectedRoom || !isClientFormValid()) return
+    // const handleBooking = () => {
+    //     if (!selectedRoom || !isClientFormValid()) return
 
-        const client = clientTab === "existing" ? existingClients.find((c) => c.id === selectedClientId) : newClient
+    //     const client = clientTab === "existing" ? existingClients.find((c) => c.id === selectedClientId) : newClient
 
-        const room = availableRooms.find((r) => r.id === selectedRoom)
+    //     const room = availableRooms.find((r) => r.id === selectedRoom)
 
-        console.log("Booking details:", {
-            room,
-            client,
-            date: date ? formatDate(date) : "",
-            duration: bookingDuration,
-            guests,
-        })
+    //     console.log("Booking details:", {
+    //         room,
+    //         client,
+    //         date: date ? formatDate(date) : "",
+    //         duration: bookingDuration,
+    //         guests,
+    //     })
 
-        const reference = `BK-${Math.floor(100000 + Math.random() * 900000)}`
-        setBookingReference(reference)
-        setBookingComplete(true)
-        setCurrentStep(3)
-    }
+    //     const reference = `BK-${Math.floor(100000 + Math.random() * 900000)}`
+    //     setBookingReference(reference)
+    //     setBookingComplete(true)
+    //     setCurrentStep(3)
+    // }
 
     const handleNewBooking = () => {
         setCurrentStep(0)
@@ -274,7 +274,8 @@ const RoomBookingPage: React.FC = () => {
                         </div>
                     </CardContent>
                     <CardFooter>
-                        <Button onClick={handleSearch} disabled={!roomType || !date || isLoading} className="w-full">
+                        {/* onClick={handleSearch} */}
+                        <Button  disabled={!roomType || !date || isLoading} className="w-full">
                             {isLoading ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
