@@ -19,6 +19,7 @@ import { fetchAvailableRooms } from "@/services/room-service"
 import { Guest } from "@/types/client"
 import { useRoomClasses } from "@/hooks/use-room-classes"
 import { fetchGuest } from "@/services/client-service"
+import { createBooking } from "@/services/booking-service"
 
 
 const formatDate = (date: Date) => {
@@ -94,7 +95,7 @@ const RoomBookingPage: React.FC = () => {
                     roomId: room.roomId,
                     roomClassName: room.roomClassName,
                     number: room.number,
-                    adultsCapacity: room.adultsCapacity  + room.childrenCapacity,
+                    adultsCapacity: room.adultsCapacity + room.childrenCapacity,
                     hotelId: room.hotelId
                 }));
                 setAvailableRooms(mappedRooms);
@@ -147,6 +148,43 @@ const RoomBookingPage: React.FC = () => {
         setBookingComplete(true)
         setCurrentStep(3)
     }
+
+    const handleSubmitBooking = async () => {
+        if (!selectedRoom || !date || !isClientFormValid()) {
+            alert("Incomplete booking details.")
+            return
+        }
+
+        const client = clientTab === "existing"
+            ? existingClients.find(c => c.id === selectedClientId)
+            : newClient
+
+        const bookingPayload = {
+            hotelId: 1,
+            checkInDateUtc: "2025-07-30T15:54:37.055Z",
+            checkOutDateUtc: "2025-07-31T17:54:37.055Z",
+            roomIds: [1],
+            paymentMethod: 0,
+            durationType: 2,
+            guest: {
+                firstName: "John",
+                lastName: "Doe",
+                cin: "AB1234567",
+            },
+        };
+
+        try {
+            const result = await createBooking(bookingPayload);
+            setBookingReference(result.bookingReference || `BK-${Math.floor(100000 + Math.random() * 900000)}`)
+            setBookingComplete(true)
+            setCurrentStep(3)
+            alert("Booking completed successful")
+        } catch (error) {
+            console.error("Booking error :", error)
+            alert("Booking failed try again.")
+        }
+    }
+
 
     const handleNewBooking = () => {
         setCurrentStep(0)
@@ -444,7 +482,7 @@ const RoomBookingPage: React.FC = () => {
                         <Button variant="outline" onClick={() => setCurrentStep(1)}>
                             Back to Room Selection
                         </Button>
-                        <Button onClick={handleBooking} disabled={!isClientFormValid()}>
+                        <Button onClick={handleSubmitBooking} disabled={!isClientFormValid()}>
                             Complete Booking
                         </Button>
                     </CardFooter>
