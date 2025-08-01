@@ -33,7 +33,6 @@ const formatDate = (date: Date) => {
 
 const RoomBookingPage: React.FC = () => {
     const [currentStep, setCurrentStep] = useState(0)
-
     const [roomType, setRoomType] = useState("")
     const [guests, setGuests] = useState(1)
     const [date, setDate] = useState<Date | undefined>(new Date())
@@ -48,6 +47,7 @@ const RoomBookingPage: React.FC = () => {
     const [bookingReference, setBookingReference] = useState("")
     const [notification, setNotification] = useState("")
     const [existingClients, setExistingClients] = useState<Guest[]>([]);
+    const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
 
 
     const { roomClasses, loading: loadingRoomClasses } = useRoomClasses();
@@ -129,25 +129,7 @@ const RoomBookingPage: React.FC = () => {
         }
     }
 
-    const handleBooking = () => {
-        if (!selectedRoom || !isClientFormValid()) return
 
-        const client = clientTab === "existing" ? existingClients.find((c) => c.id === selectedClientId) : newClient
-        const room = availableRooms.find((r) => r.roomId === selectedRoom)
-
-        console.log("Booking details:", {
-            room,
-            client,
-            date: date ? formatDate(date) : "",
-            duration: bookingDuration,
-            guests,
-        })
-
-        const reference = `BK-${Math.floor(100000 + Math.random() * 900000)}`
-        setBookingReference(reference)
-        setBookingComplete(true)
-        setCurrentStep(3)
-    }
 
     const handleSubmitBooking = async () => {
         if (!selectedRoom || !date || !isClientFormValid()) {
@@ -161,15 +143,15 @@ const RoomBookingPage: React.FC = () => {
 
         const bookingPayload = {
             hotelId: 1,
-            checkInDateUtc: "2025-07-30T15:54:37.055Z",
-            checkOutDateUtc: "2025-07-31T17:54:37.055Z",
+            checkInDateUtc: "2025-07-30T15:54:39.055Z",
+            checkOutDateUtc: "2025-07-30T17:54:39.055Z",
             roomIds: [1],
             paymentMethod: 0,
-            durationType: 2,
+            durationType: bookingDuration === "2h" ? 1 : 2,
             guest: {
-                firstName: "John",
-                lastName: "Doe",
-                cin: "AB1234567",
+                firstName: client?.firstName || "",
+                lastName: client?.lastName || "",
+                cin: client?.cin || "",
             },
         };
 
@@ -346,7 +328,7 @@ const RoomBookingPage: React.FC = () => {
                                             <TableHead>Action</TableHead>
                                         </TableRow>
                                     </TableHeader>
-                                    <TableBody>
+                                    <TableBody>s
                                         {availableRooms.map((room) => (
                                             <TableRow key={room.roomId} className={cn(selectedRoom === room.roomId && "bg-muted/50")}>
                                                 <TableCell className="font-medium">{room.number}</TableCell>
@@ -521,8 +503,8 @@ const RoomBookingPage: React.FC = () => {
                                 <p>
                                     <span className="font-medium">Client:</span>{" "}
                                     {clientTab === "existing"
-                                        ? existingClients.find((c) => c.id === selectedClientId)?.firstName
-                                        : newClient.firstName}
+                                        ? existingClients.find((c) => c.id === selectedClientId)?.firstName + " " + existingClients.find((c) => c.id === selectedClientId)?.lastName
+                                        : newClient.firstName + " " + newClient.lastName}
                                 </p>
                             </div>
                         </div>
