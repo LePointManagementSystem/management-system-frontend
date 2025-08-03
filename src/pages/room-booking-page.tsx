@@ -48,9 +48,7 @@ const RoomBookingPage: React.FC = () => {
     const [notification, setNotification] = useState("")
     const [existingClients, setExistingClients] = useState<Guest[]>([]);
 
-
     const { roomClasses, loading: loadingRoomClasses } = useRoomClasses();
-
 
     useEffect(() => {
         let timeout: NodeJS.Timeout
@@ -113,7 +111,6 @@ const RoomBookingPage: React.FC = () => {
 
     const handleRoomSelect = (roomId: number) => {
         setSelectedRoom(roomId)
-     
         setCurrentStep(2)
     }
 
@@ -129,15 +126,23 @@ const RoomBookingPage: React.FC = () => {
         }
     }
 
-
-
     const handleSubmitBooking = async () => {
         if (!selectedRoom || !date || !isClientFormValid()) {
             alert("Incomplete booking details.")
             return
         }
 
-        console.log(`thhis is the selected room ${selectedRoom}`)
+        const checkInDate = new Date(date);
+        const checkOutDate = new Date(checkInDate);
+
+        if (bookingDuration === "2h") {
+            checkOutDate.setHours(checkOutDate.getHours() + 2);
+        } else {
+            checkOutDate.setDate(checkOutDate.getDate() + 1);
+        }
+
+        const checkInDateUtc = checkInDate.toISOString();
+        const checkOutDateUtc = checkOutDate.toISOString();
 
         const client = clientTab === "existing"
             ? existingClients.find(c => c.id === selectedClientId)
@@ -145,8 +150,8 @@ const RoomBookingPage: React.FC = () => {
 
         const bookingPayload = {
             hotelId: 1,
-            checkInDateUtc: "2025-07-30T15:54:39.055Z",
-            checkOutDateUtc: "2025-07-30T17:54:39.055Z",
+            checkInDateUtc: checkInDateUtc,
+            checkOutDateUtc: checkOutDateUtc,
             roomIds: [selectedRoom],
             paymentMethod: 0,
             durationType: bookingDuration === "2h" ? 1 : 2,
@@ -154,7 +159,7 @@ const RoomBookingPage: React.FC = () => {
                 firstName: client?.firstName || "",
                 lastName: client?.lastName || "",
                 cin: client?.cin || "",
-            }, 
+            },
         };
 
         try {
@@ -330,7 +335,7 @@ const RoomBookingPage: React.FC = () => {
                                             <TableHead>Action</TableHead>
                                         </TableRow>
                                     </TableHeader>
-                                    <TableBody>s
+                                    <TableBody>
                                         {availableRooms.map((room) => (
                                             <TableRow key={room.roomId} className={cn(selectedRoom === room.roomId && "bg-muted/50")}>
                                                 <TableCell className="font-medium">{room.number}</TableCell>
@@ -345,11 +350,11 @@ const RoomBookingPage: React.FC = () => {
                                                         onClick={() => handleRoomSelect(room.roomId)}
                                                         size="sm"
                                                         variant={selectedRoom === room.roomId ? "default" : "outline"}
-                                                        
+
                                                     >
                                                         {selectedRoom === room.roomId ? "Selected" : "Select"}
-                                                       
-                                                        
+
+
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
