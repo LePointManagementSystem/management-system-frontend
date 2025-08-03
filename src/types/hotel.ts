@@ -55,7 +55,7 @@ type BookingDuration = "2_hours" | "overnight";
 
 export interface Booking {
   id: number;
-  roomId: number;
+  roomId: [number];
   startTime: Date;
   endTime: Date;
   clientName: string;

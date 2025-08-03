@@ -47,7 +47,6 @@ const RoomBookingPage: React.FC = () => {
     const [bookingReference, setBookingReference] = useState("")
     const [notification, setNotification] = useState("")
     const [existingClients, setExistingClients] = useState<Guest[]>([]);
-    const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
 
 
     const { roomClasses, loading: loadingRoomClasses } = useRoomClasses();
@@ -114,6 +113,7 @@ const RoomBookingPage: React.FC = () => {
 
     const handleRoomSelect = (roomId: number) => {
         setSelectedRoom(roomId)
+     
         setCurrentStep(2)
     }
 
@@ -137,6 +137,8 @@ const RoomBookingPage: React.FC = () => {
             return
         }
 
+        console.log(`thhis is the selected room ${selectedRoom}`)
+
         const client = clientTab === "existing"
             ? existingClients.find(c => c.id === selectedClientId)
             : newClient
@@ -145,14 +147,14 @@ const RoomBookingPage: React.FC = () => {
             hotelId: 1,
             checkInDateUtc: "2025-07-30T15:54:39.055Z",
             checkOutDateUtc: "2025-07-30T17:54:39.055Z",
-            roomIds: [1],
+            roomIds: [selectedRoom],
             paymentMethod: 0,
             durationType: bookingDuration === "2h" ? 1 : 2,
             guest: {
                 firstName: client?.firstName || "",
                 lastName: client?.lastName || "",
                 cin: client?.cin || "",
-            },
+            }, 
         };
 
         try {
@@ -343,8 +345,11 @@ const RoomBookingPage: React.FC = () => {
                                                         onClick={() => handleRoomSelect(room.roomId)}
                                                         size="sm"
                                                         variant={selectedRoom === room.roomId ? "default" : "outline"}
+                                                        
                                                     >
                                                         {selectedRoom === room.roomId ? "Selected" : "Select"}
+                                                       
+                                                        
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
