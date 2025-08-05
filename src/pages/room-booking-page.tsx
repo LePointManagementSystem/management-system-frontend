@@ -55,15 +55,11 @@ const RoomBookingPage: React.FC = () => {
         if (bookingComplete && bookingDuration === "2h") {
             timeout = setTimeout(() => {
                 setNotification("⏰ The 2-hour booking is now over.")
-            }, 10000)
-
-            // Actual 2-hour timeout
-            // timeout = setTimeout(() => {
-            //   setNotification("⏰ The 2-hour booking is now over.");
-            // }, 2 * 60 * 60 * 1000);
+            }, 2 * 60 * 60 * 10000)
         }
         return () => clearTimeout(timeout)
     }, [bookingComplete, bookingDuration])
+    
 
     useEffect(() => {
         const fetchClients = async () => {
