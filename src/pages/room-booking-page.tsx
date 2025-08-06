@@ -59,7 +59,7 @@ const RoomBookingPage: React.FC = () => {
         }
         return () => clearTimeout(timeout)
     }, [bookingComplete, bookingDuration])
-    
+
 
     useEffect(() => {
         const fetchClients = async () => {
@@ -132,9 +132,12 @@ const RoomBookingPage: React.FC = () => {
         const checkOutDate = new Date(checkInDate);
 
         if (bookingDuration === "2h") {
-            checkOutDate.setHours(checkOutDate.getHours() + 2);
-        } else {
+            checkInDate.setHours(checkInDate.getHours(), 0, 0);
+            checkOutDate.setHours(checkInDate.getHours() + 2, 0, 0);
+        } else if (bookingDuration === "overnight") {
+            checkInDate.setHours(21, 0, 0);
             checkOutDate.setDate(checkOutDate.getDate() + 1);
+            checkOutDate.setHours(7, 0, 0);
         }
 
         const checkInDateUtc = checkInDate.toISOString();
@@ -164,6 +167,7 @@ const RoomBookingPage: React.FC = () => {
             setBookingComplete(true)
             setCurrentStep(3)
             alert("Booking completed successful")
+            console.log(result)
         } catch (error) {
             console.error("Booking error :", error)
             alert("Booking failed try again.")
