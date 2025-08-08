@@ -71,7 +71,6 @@ const RoomBookingPage: React.FC = () => {
             }
         };
         fetchClients();
-
     }, [])
 
 
@@ -350,11 +349,8 @@ const RoomBookingPage: React.FC = () => {
                                                         onClick={() => handleRoomSelect(room.roomId)}
                                                         size="sm"
                                                         variant={selectedRoom === room.roomId ? "default" : "outline"}
-
                                                     >
                                                         {selectedRoom === room.roomId ? "Selected" : "Select"}
-
-
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
