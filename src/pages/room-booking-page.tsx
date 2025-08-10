@@ -48,6 +48,11 @@ const RoomBookingPage: React.FC = () => {
     const [notification, setNotification] = useState("")
     const [existingClients, setExistingClients] = useState<Guest[]>([]);
 
+    const [time, setTime] = useState({
+        hours: new Date().getHours(),
+        minutes: new Date().getMinutes(),
+    });
+
     const { roomClasses, loading: loadingRoomClasses } = useRoomClasses();
 
     useEffect(() => {
@@ -267,13 +272,39 @@ const RoomBookingPage: React.FC = () => {
                                     <Calendar
                                         mode="single"
                                         selected={date}
-                                        onSelect={setDate}
+                                        onSelect={(selectedDate) => {
+                                            if (selectedDate) {
+                                                const newDate = new Date(selectedDate);
+                                                newDate.setHours(time.hours, time.minutes); // merge with selected time
+                                                setDate(newDate);
+                                            }
+                                        }}
                                         initialFocus
                                         disabled={(date) => date < new Date()}
                                     />
                                 </PopoverContent>
                             </Popover>
                         </div>
+
+                        <div className="space-y-2">
+                            <Label>Check-in Time</Label>
+                            <input
+                                type="time"
+                                value={`${String(time.hours).padStart(2, "0")}:${String(time.minutes).padStart(2, "0")}`}
+                                onChange={(e) => {
+                                    const [hours, minutes] = e.target.value.split(":").map(Number);
+                                    setTime({ hours, minutes });
+
+                                    if (date) {
+                                        const updatedDate = new Date(date);
+                                        updatedDate.setHours(hours, minutes);
+                                        setDate(updatedDate);
+                                    }
+                                }}
+                                className="border rounded p-2 w-full"
+                            />
+                        </div>
+
 
                         <div className="space-y-2">
                             <Label>Booking Duration</Label>
