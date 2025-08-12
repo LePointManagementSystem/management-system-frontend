@@ -18,11 +18,12 @@ import { Room } from "@/types/hotel"
 import { fetchAvailableRooms } from "@/services/room-service"
 import { Guest } from "@/types/client"
 import { useRoomClasses } from "@/hooks/use-room-classes"
-import { fetchGuest } from "@/services/client-service"
+import { addGuest, fetchGuest } from "@/services/client-service"
 import { createBooking } from "@/services/booking-service"
 
 
 const formatDate = (date: Date) => {
+    ``
     return date.toLocaleDateString("en-US", {
         weekday: "long",
         year: "numeric",
@@ -147,31 +148,45 @@ const RoomBookingPage: React.FC = () => {
         const checkInDateUtc = checkInDate.toISOString();
         const checkOutDateUtc = checkOutDate.toISOString();
 
-        const client = clientTab === "existing"
-            ? existingClients.find(c => c.id === selectedClientId)
-            : newClient
-
-        const bookingPayload = {
-            hotelId: 1,
-            checkInDateUtc: checkInDateUtc,
-            checkOutDateUtc: checkOutDateUtc,
-            roomIds: [selectedRoom],
-            paymentMethod: 0,
-            durationType: bookingDuration === "2h" ? 1 : 2,
-            guest: {
-                firstName: client?.firstName || "",
-                lastName: client?.lastName || "",
-                cin: client?.cin || "",
-            },
-        };
-
         try {
+            let guestId: string | null = null;
+            let clientData: typeof newClient;
+
+            if (clientTab === "existing") {
+                guestId = selectedClientId ?? null;
+                const existing = existingClients.find(c => c.id === selectedClientId);
+                clientData = existing ?? { firstName: "", lastName: "", cin: "", email: "" };
+            } else {
+                const addedGuest = await addGuest({
+                    firstName: newClient.firstName,
+                    lastName: newClient.lastName,
+                    cin: newClient.cin,
+                    email: newClient.email
+                });
+                guestId = addedGuest.id ?? null;
+            }
+
+            const bookingPayload = {
+                hotelId: 1,
+                checkInDateUtc: checkInDateUtc,
+                checkOutDateUtc: checkOutDateUtc,
+                roomIds: [selectedRoom],
+                paymentMethod: 0,
+                durationType: bookingDuration === "2h" ? 1 : 2,
+                guest: {
+                    firstName: clientData.firstName,
+                    lastName: clientData.lastName,
+                    cin: clientData.cin,
+                },
+            };
+
             const result = await createBooking(bookingPayload);
             setBookingReference(result.bookingReference || `BK-${Math.floor(100000 + Math.random() * 900000)}`)
             setBookingComplete(true)
             setCurrentStep(3)
             alert("Booking completed successful")
             console.log(result)
+
         } catch (error) {
             console.error("Booking error :", error)
             alert("Booking failed try again.")
