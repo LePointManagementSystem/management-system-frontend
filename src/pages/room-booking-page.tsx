@@ -20,6 +20,7 @@ import { Guest } from "@/types/client"
 import { useRoomClasses } from "@/hooks/use-room-classes"
 import { addGuest, fetchGuest } from "@/services/client-service"
 import { createBooking } from "@/services/booking-service"
+import { BookingPayload } from "@/types/boking"
 
 
 const formatDate = (date: Date) => {
@@ -155,7 +156,14 @@ const RoomBookingPage: React.FC = () => {
             if (clientTab === "existing") {
                 guestId = selectedClientId ?? null;
                 const existing = existingClients.find(c => c.id === selectedClientId);
-                clientData = existing ?? { firstName: "", lastName: "", cin: "", email: "" };
+                clientData = existing
+                    ? {
+                        firstName: existing.firstName ?? "",
+                        lastName: existing.lastName ?? "",
+                        cin: existing.cin ?? "",
+                        email: existing.email ?? ""
+                    }
+                    : { firstName: "", lastName: "", cin: "", email: "" };
             } else {
                 const addedGuest = await addGuest({
                     firstName: newClient.firstName,
@@ -164,21 +172,29 @@ const RoomBookingPage: React.FC = () => {
                     email: newClient.email
                 });
                 guestId = addedGuest.id ?? null;
+                clientData = {
+                    firstName: newClient.firstName ?? "",
+                    lastName: newClient.lastName ?? "",
+                    cin: newClient.cin ?? "",
+                    email: newClient.email ?? ""
+                };
             }
-
-            const bookingPayload = {
+            const bookingPayload: BookingPayload = {
                 hotelId: 1,
-                checkInDateUtc: checkInDateUtc,
-                checkOutDateUtc: checkOutDateUtc,
+                checkInDateUtc,
+                checkOutDateUtc,
                 roomIds: [selectedRoom],
                 paymentMethod: 0,
                 durationType: bookingDuration === "2h" ? 1 : 2,
                 guest: {
+                    id: guestId ?? "", // for new guests, use the ID returned by addGuest
                     firstName: clientData.firstName,
                     lastName: clientData.lastName,
                     cin: clientData.cin,
-                },
+                    email: clientData.email
+                }
             };
+
 
             const result = await createBooking(bookingPayload);
             setBookingReference(result.bookingReference || `BK-${Math.floor(100000 + Math.random() * 900000)}`)
