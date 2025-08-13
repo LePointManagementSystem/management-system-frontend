@@ -193,7 +193,8 @@ const RoomBookingPage: React.FC = () => {
                 }
             };
 
-
+            console.log(selectedRoom)
+            console.log(bookingPayload)
             const result = await createBooking(bookingPayload);
             setBookingReference(result.bookingReference || `BK-${Math.floor(100000 + Math.random() * 900000)}`)
             setBookingComplete(true)
