@@ -187,11 +187,9 @@ const RoomBookingPage: React.FC = () => {
                 paymentMethod: 0,
                 durationType: bookingDuration === "2h" ? 1 : 2,
                 guest: {
-                    id: guestId ?? "", // for new guests, use the ID returned by addGuest
                     firstName: clientData.firstName,
                     lastName: clientData.lastName,
                     cin: clientData.cin,
-                    email: clientData.email
                 }
             };
 

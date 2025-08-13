@@ -43,13 +43,13 @@ const ClientsPage: React.FC = () => {
     const filteredClients = clients.filter(
         (client) =>
             (`${client.firstName} ${client.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            client.email.toLowerCase().includes(searchTerm.toLowerCase())
+            (client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false)
     );
 
     const handleAddClient = async () => {
         try {
             const savedGuest = await addGuest(newClient);
-            setClients((prev)=>[...prev, savedGuest])
+            setClients((prev) => [...prev, savedGuest])
             setNewClient({ firstName: '', lastName: '', cin: '', email: '' });
             setIsAddDialogOpen(false);
 
@@ -65,7 +65,7 @@ const ClientsPage: React.FC = () => {
         }
     };
 
-    const handleDeleteClient = (id: string) => {
+    const handleDeleteClient = (id?: string) => {
         setClients(clients.filter((client) => client.id !== id));
     };
 
@@ -78,7 +78,7 @@ const ClientsPage: React.FC = () => {
         },
         {
             name: 'Email',
-            selector: (row) => row.email,
+            selector: (row) => row.email || "",
             sortable: true,
         },
         {

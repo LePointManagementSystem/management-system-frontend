@@ -282,7 +282,7 @@ const HotelManagementPage = () => {
         setLoading(false);
       }
     };
-
+ 
     fetchHotels();
   }, []);
 
