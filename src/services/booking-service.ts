@@ -25,4 +25,8 @@ export const createBooking = async (bookingData: BookingPayload) => {
   return await res.json();
 };
 
+export const getAllBookings = async (hotelId: number) =>{
+
+}
+
 
