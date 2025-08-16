@@ -2,6 +2,7 @@
 
 import { BookingPayload } from "@/types/boking";
 
+const BASE_URL = "http://localhost:5004/api"
 
 export const createBooking = async (bookingData: BookingPayload) => {
   const token = localStorage.getItem('token');
@@ -9,7 +10,7 @@ export const createBooking = async (bookingData: BookingPayload) => {
    if (!token) {
     throw new Error("User is not authenticated. Token not found.");
   }
-  const res = await fetch("http://localhost:5004/api/Booking/create", {
+  const res = await fetch(`${BASE_URL}/Booking/create`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -25,8 +26,5 @@ export const createBooking = async (bookingData: BookingPayload) => {
   return await res.json();
 };
 
-export const getAllBookings = async (hotelId: number) =>{
-
-}
 
 

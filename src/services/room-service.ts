@@ -132,20 +132,3 @@ export const deleteRoom = async (roomId: number) => {
   }
 };
 
-
-// export const createBooking = async (data: CreateBookingRequest): Promise<void> => {
-//    const token = localStorage.getItem('token');
-//   const response = await fetch('/api/Booking/create', {
-//     method: 'POST',
-//     headers: {
-//       'Content-Type': 'application/json',
-//       Authorization: `Bearer ${token}`, // optional if auth required
-//     },
-//     body: JSON.stringify(data),
-//   });
-
-//   if (!response.ok) {
-//     const error = await response.json();
-//     throw new Error(error.message || 'Failed to create booking');
-//   }
-// };
