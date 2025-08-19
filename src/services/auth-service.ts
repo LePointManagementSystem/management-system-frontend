@@ -2,6 +2,7 @@ export interface LoginCredentials {
     email: string
     password: string
   }
+
   
   export interface LoginResponse {
     succeeded: boolean
@@ -10,10 +11,12 @@ export interface LoginCredentials {
     message?: string
     role?: string
   }
+
+  const BASE_URL = "http://localhost:5004/api"
   
   export const login = async (credentials: LoginCredentials): Promise<LoginResponse> => {
     try {
-      const response = await fetch('http://localhost:5004/api/auth/login', {
+      const response = await fetch(`${BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
