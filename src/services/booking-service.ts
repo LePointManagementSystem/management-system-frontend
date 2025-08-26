@@ -26,5 +26,23 @@ export const createBooking = async (bookingData: BookingPayload) => {
   return await res.json();
 };
 
+export const fetchAllBookings = async () => {
+  const token = localStorage.getItem('token');
 
+  if (!token) {
+    throw new Error("User is not authenticated. Token not found.");
+  }
 
+  const res = await fetch(`${BASE_URL}/Booking`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${token}`
+    }
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch bookings");
+  }
+
+  return await res.json();
+};
