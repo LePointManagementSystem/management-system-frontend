@@ -43,7 +43,6 @@ export const fetchBookingById = async (id: string) => {
   if (!res.ok) {
     throw new Error("Failed to fetch booking");
   }
-
   return await res.json();
 };
 
@@ -54,7 +53,7 @@ export const fetchAllBookings = async () => {
     throw new Error("User is not authenticated. Token not found.");
   }
 
-  const res = await fetch(`${BASE_URL}/Booking`, {
+  const res = await fetch(`${BASE_URL}/Booking/all`, {
     method: "GET",
     headers: {
       "Authorization": `Bearer ${token}`
