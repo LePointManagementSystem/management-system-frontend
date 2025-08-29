@@ -33,12 +33,8 @@ export function LoginPage() {
       if (result.succeeded && result.token) {
         localStorage.setItem('role', result.role ?? '');
         localStorage.setItem('token', result.token)
-
-   
         navigate('/dashboard')
       } else {
-        console.log(result.succeeded)
-        console.log(result.token)
         setError(result.message || "Invalid email or password")
       }
     } catch (err) {

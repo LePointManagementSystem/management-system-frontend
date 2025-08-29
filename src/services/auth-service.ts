@@ -27,12 +27,11 @@ export interface LoginCredentials {
      
       if (!response.ok) {
         const errorData = await response.json()
-        console.log(errorData.message)
         return { succeeded: false, message: errorData.message || 'Login failed' }
       }
-  
+
+      
       const data = await response.json()
-      console.log(data);
       return { succeeded: true, token: data.data.token, username:data.data.username, role:data.data.roles[0] }
     } catch (error) {
       return { succeeded: false, message: 'Network error' }
