@@ -49,10 +49,7 @@ export const fetchBookingById = async (id: string) => {
 
 export const fetchAllBookings = async () => {
   const token = localStorage.getItem('token');
-
-  if (!token) {
-    throw new Error("User is not authenticated. Token not found.");
-  }
+  if (!token) throw new Error("User is not authenticated. Token not found.");
 
   const res = await fetch(`${BASE_URL}/Booking/all`, {
     method: "GET",
@@ -64,7 +61,14 @@ export const fetchAllBookings = async () => {
   if (!res.ok) {
     throw new Error("Failed to fetch bookings");
   }
+
   const data = await res.json();
-  console.log(data)
-  return data.data;
+  console.log("Bookings API response:", data);
+
+  // Essaye d'extraire le tableau quelle que soit la forme
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data.data)) return data.data;
+  if (Array.isArray(data.bookings)) return data.bookings;
+
+  return [];
 };

@@ -3,16 +3,9 @@ import { Users, ShoppingCart, Utensils, Calendar, BarChart } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { fetchAllBookings } from '@/services/booking-service'
 import { useEffect, useState } from 'react'
+import { Booking } from '@/types/hotel'
 
 
-interface Booking {
-  bookingReference: string
-  guest: {
-    firstName: string
-    lastName: string
-  }
-  createdAt: string
-}
 
 
 const DashboardPage = () => {
@@ -24,6 +17,7 @@ const DashboardPage = () => {
     const loadBookings = async () => {
       try {
         const data = await fetchAllBookings()
+        console.log("data:", data)
         setBookings(data || [])
       } catch (err) {
         console.error("Failed to fetch bookings:", err)
@@ -93,7 +87,8 @@ const DashboardPage = () => {
             {loading ? (
               <p className="text-sm text-gray-500">Loading...</p>
             ) : bookings.length === 0 ? (
-              <p className="text-sm text-gray-500">No bookings yet</p>
+              (console.log("No bookings yet :", bookings),
+              <p className="text-sm text-gray-500">No bookings yet</p>)
             ) : (
               <div className="space-y-4">
                 {bookings.slice(0, 5).map((booking, idx) => (
@@ -101,10 +96,10 @@ const DashboardPage = () => {
                     <div className="w-9 h-9 rounded-full bg-gray-200 mr-3"></div>
                     <div>
                       <p className="text-sm font-medium">
-                        {booking.guest.firstName} {booking.guest.lastName} booked a room
+                      {booking.clientEmail}
                       </p>
                       <p className="text-xs text-gray-500">
-                        Ref: {booking.bookingReference}
+                        {booking.roomId} - {new Date(booking.endTime).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
