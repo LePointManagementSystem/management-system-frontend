@@ -2,16 +2,45 @@ import { Link } from 'react-router-dom'
 import { Users, ShoppingCart, Utensils, Calendar, BarChart } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { fetchAllBookings } from '@/services/booking-service'
+import { useEffect, useState } from 'react'
+
+
+interface Booking {
+  bookingReference: string
+  guest: {
+    firstName: string
+    lastName: string
+  }
+  createdAt: string
+}
 
 
 const DashboardPage = () => {
+
+  const [bookings, setBookings] = useState<Booking[]>([])
+  const [loading, setLoading] = useState(true)
+
+   useEffect(() => {
+    const loadBookings = async () => {
+      try {
+        const data = await fetchAllBookings()
+        setBookings(data || [])
+      } catch (err) {
+        console.error("Failed to fetch bookings:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadBookings()
+  }, [])
+
   return (
     <div className="space-y-6">
       <h2 className="text-3xl font-bold">Dashboard</h2>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
-         
+
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Bookings</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -61,17 +90,27 @@ const DashboardPage = () => {
             <CardTitle>Recent Bookings</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {[1, 2, 3, 4, 5].map((item) => (
-                <div key={item} className="flex items-center">
-                  <div className="w-9 h-9 rounded-full bg-gray-200 mr-3"></div>
-                  <div>
-                    <p className="text-sm font-medium">Guest {item} booked a room</p>
-                    <p className="text-xs text-gray-500">2 hours ago</p>
+            {loading ? (
+              <p className="text-sm text-gray-500">Loading...</p>
+            ) : bookings.length === 0 ? (
+              <p className="text-sm text-gray-500">No bookings yet</p>
+            ) : (
+              <div className="space-y-4">
+                {bookings.slice(0, 5).map((booking, idx) => (
+                  <div key={idx} className="flex items-center">
+                    <div className="w-9 h-9 rounded-full bg-gray-200 mr-3"></div>
+                    <div>
+                      <p className="text-sm font-medium">
+                        {booking.guest.firstName} {booking.guest.lastName} booked a room
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Ref: {booking.bookingReference}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card>
