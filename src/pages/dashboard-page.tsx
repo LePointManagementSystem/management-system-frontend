@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
 import { Users, ShoppingCart, Utensils, Calendar, BarChart } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { fetchAllBookings } from '@/services/booking-service'
+
 
 const DashboardPage = () => {
   return (

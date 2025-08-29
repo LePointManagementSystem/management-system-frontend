@@ -38,6 +38,7 @@ export const fetchBookingById = async (id: string) => {
     headers: {
       "Authorization": `Bearer ${token}`
     }
+
   });
 
   if (!res.ok) {
@@ -63,6 +64,7 @@ export const fetchAllBookings = async () => {
   if (!res.ok) {
     throw new Error("Failed to fetch bookings");
   }
-
-  return await res.json();
+  const data = await res.json();
+  console.log(data)
+  return data.data;
 };
