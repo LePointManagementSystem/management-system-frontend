@@ -17,8 +17,6 @@ export async function fetchGuest(): Promise<Guest[]> {
         throw new Error(`Failed to fetch guests: ${response.statusText}`);
     }
     const data: Guest[] = await response.json();
-    console.log(data);
-
     return data;
 }
 

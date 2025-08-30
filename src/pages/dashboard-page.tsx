@@ -99,7 +99,7 @@ const DashboardPage = () => {
                       {booking.clientEmail}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {booking.roomId} - {new Date(booking.endTime).toLocaleDateString()}
+                       Room : {booking.numbers[0]} - {new Date(booking.endTime).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
