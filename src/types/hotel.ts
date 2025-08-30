@@ -58,7 +58,7 @@ export interface Booking {
   roomId: [number];
   bookingId: number;
   startTime: Date;
-  endTime: Date;
+  checkOutDateUtc: Date;
   clientName: string;
   clientEmail: string;
   clientPhone: string;

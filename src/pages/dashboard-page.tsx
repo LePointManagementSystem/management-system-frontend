@@ -13,7 +13,7 @@ const DashboardPage = () => {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
 
-   useEffect(() => {
+  useEffect(() => {
     const loadBookings = async () => {
       try {
         const data = await fetchAllBookings()
@@ -88,7 +88,7 @@ const DashboardPage = () => {
               <p className="text-sm text-gray-500">Loading...</p>
             ) : bookings.length === 0 ? (
               (console.log("No bookings yet :", bookings),
-              <p className="text-sm text-gray-500">No bookings yet</p>)
+                <p className="text-sm text-gray-500">No bookings yet</p>)
             ) : (
               <div className="space-y-4">
                 {bookings.slice(0, 5).map((booking, idx) => (
@@ -96,10 +96,15 @@ const DashboardPage = () => {
                     <div className="w-9 h-9 rounded-full bg-gray-200 mr-3"></div>
                     <div>
                       <p className="text-sm font-medium">
-                      {booking.clientEmail}
+                        {booking.clientEmail}
                       </p>
                       <p className="text-xs text-gray-500">
-                       Room : {booking.numbers[0]} - {new Date(booking.endTime).toLocaleDateString()}
+                        Room: {booking.numbers[0]} -{" "}
+                        {new Date(booking.checkOutDateUtc).toLocaleDateString()}{" "}
+                        {new Date(booking.checkOutDateUtc).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </p>
                     </div>
                   </div>
