@@ -23,15 +23,19 @@ import { createBooking } from "@/services/booking-service"
 import { BookingPayload } from "@/types/boking"
 
 
-const formatDate = (date: Date) => {
-    ``
-    return date.toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-    })
+
+
+const formatDateTime = (date: Date) => {
+  return date.toLocaleString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
 }
+
 
 const RoomBookingPage: React.FC = () => {
     const [currentStep, setCurrentStep] = useState(0)
@@ -62,7 +66,7 @@ const RoomBookingPage: React.FC = () => {
         if (bookingComplete && bookingDuration === "2h") {
             timeout = setTimeout(() => {
                 setNotification("⏰ The 2-hour booking is now over.")
-            }, 2 * 60 * 60 * 10000)
+            }, 2 * 60 * 60 * 1000)
         }
         return () => clearTimeout(timeout)
     }, [bookingComplete, bookingDuration])
@@ -83,7 +87,6 @@ const RoomBookingPage: React.FC = () => {
 
     const handleSearch = async () => {
         if (!roomType || !date) return;
-
         setIsLoading(true);
 
         try {
@@ -109,7 +112,6 @@ const RoomBookingPage: React.FC = () => {
             setIsLoading(false);
         }
     };
-
 
     const handleRoomSelect = (roomId: number) => {
         setSelectedRoom(roomId)
@@ -193,17 +195,15 @@ const RoomBookingPage: React.FC = () => {
                 }
             };
 
-            console.log(selectedRoom)
-            console.log(bookingPayload)
+        
             const result = await createBooking(bookingPayload);
             setBookingReference(result.bookingReference || `BK-${Math.floor(100000 + Math.random() * 900000)}`)
             setBookingComplete(true)
             setCurrentStep(3)
             alert("Booking completed successful")
-            console.log(result)
+
 
         } catch (error) {
-            console.error("Booking error :", error)
             alert("Booking failed try again.")
         }
     }
@@ -295,7 +295,7 @@ const RoomBookingPage: React.FC = () => {
                                         className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}
                                     >
                                         <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {date ? formatDate(date) : "Select date"}
+                                        {date ? formatDateTime(date) : "Select date"}
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
@@ -559,7 +559,7 @@ const RoomBookingPage: React.FC = () => {
                                     })()}
                                 </p>
                                 <p>
-                                    <span className="font-medium">Date:</span> {date ? formatDate(date) : ""}
+                                    <span className="font-medium">Date:</span> {date ? formatDateTime(date) : ""}
                                 </p>
                                 <p>
                                     <span className="font-medium">Duration:</span> {bookingDuration === "2h" ? "2 Hours" : "Overnight"}
