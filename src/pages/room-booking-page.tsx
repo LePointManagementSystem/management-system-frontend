@@ -26,14 +26,14 @@ import { BookingPayload } from "@/types/boking"
 
 
 const formatDateTime = (date: Date) => {
-  return date.toLocaleString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
+    return date.toLocaleString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    })
 }
 
 
@@ -181,7 +181,7 @@ const RoomBookingPage: React.FC = () => {
                     email: newClient.email ?? ""
                 };
             }
-            const bookingPayload: BookingPayload = {
+            const bookingPayload1: BookingPayload = {
                 hotelId: 1,
                 checkInDateUtc,
                 checkOutDateUtc,
@@ -194,9 +194,25 @@ const RoomBookingPage: React.FC = () => {
                     cin: clientData.cin,
                 }
             };
+            const bookingPayload: BookingPayload = {
+                hotelId: 1,
+                checkInDateUtc,
+                checkOutDateUtc,
+                roomIds: [12],
+                paymentMethod: 0,
+                durationType: 1,
+                guest: {
+                    firstName: clientData.firstName,
+                    lastName: clientData.lastName,
+                    cin: clientData.cin,
+                }
+            };
 
-        
+           console.log(bookingPayload)
+
+
             const result = await createBooking(bookingPayload);
+            console.log(result)
             setBookingReference(result.bookingReference || `BK-${Math.floor(100000 + Math.random() * 900000)}`)
             setBookingComplete(true)
             setCurrentStep(3)
