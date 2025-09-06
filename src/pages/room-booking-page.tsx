@@ -193,11 +193,7 @@ const RoomBookingPage: React.FC = () => {
                 }
             };
 
-            console.log("Sending booking payload:", bookingPayload);
-
-
             const result = await createBooking(bookingPayload);
-            console.log(result)
             setBookingReference(result.bookingReference || `BK-${Math.floor(100000 + Math.random() * 900000)}`)
             setBookingComplete(true)
             setCurrentStep(3)
