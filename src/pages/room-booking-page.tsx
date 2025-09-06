@@ -23,8 +23,6 @@ import { createBooking } from "@/services/booking-service"
 import { BookingPayload } from "@/types/boking"
 
 
-
-
 const formatDateTime = (date: Date) => {
     return date.toLocaleString("en-US", {
         weekday: "long",
@@ -35,7 +33,6 @@ const formatDateTime = (date: Date) => {
         minute: "2-digit",
     })
 }
-
 
 const RoomBookingPage: React.FC = () => {
     const [currentStep, setCurrentStep] = useState(0)
@@ -181,11 +178,12 @@ const RoomBookingPage: React.FC = () => {
                     email: newClient.email ?? ""
                 };
             }
-            const bookingPayload1: BookingPayload = {
+
+            const bookingPayload: BookingPayload = {
                 hotelId: 1,
                 checkInDateUtc,
                 checkOutDateUtc,
-                roomIds: [selectedRoom],
+                roomIds: [selectedRoom], 
                 paymentMethod: 0,
                 durationType: bookingDuration === "2h" ? 1 : 2,
                 guest: {
@@ -194,21 +192,8 @@ const RoomBookingPage: React.FC = () => {
                     cin: clientData.cin,
                 }
             };
-            const bookingPayload: BookingPayload = {
-                hotelId: 1,
-                checkInDateUtc,
-                checkOutDateUtc,
-                roomIds: [12],
-                paymentMethod: 0,
-                durationType: 1,
-                guest: {
-                    firstName: clientData.firstName,
-                    lastName: clientData.lastName,
-                    cin: clientData.cin,
-                }
-            };
 
-           console.log(bookingPayload)
+            console.log("Sending booking payload:", bookingPayload);
 
 
             const result = await createBooking(bookingPayload);
@@ -217,8 +202,6 @@ const RoomBookingPage: React.FC = () => {
             setBookingComplete(true)
             setCurrentStep(3)
             alert("Booking completed successful")
-
-
         } catch (error) {
             alert("Booking failed try again.")
         }
@@ -494,7 +477,6 @@ const RoomBookingPage: React.FC = () => {
                                                     <p>
                                                         <span className="font-medium">Email:</span> {client.email}
                                                     </p>
-
                                                 </div>
                                             ) : null
                                         })()}
