@@ -183,7 +183,7 @@ const RoomBookingPage: React.FC = () => {
                 hotelId: 1,
                 checkInDateUtc,
                 checkOutDateUtc,
-                roomIds: [selectedRoom], 
+                roomIds: [selectedRoom],
                 paymentMethod: 0,
                 durationType: bookingDuration === "2h" ? 1 : 2,
                 guest: {
@@ -193,12 +193,15 @@ const RoomBookingPage: React.FC = () => {
                 }
             };
 
+          
+
             const result = await createBooking(bookingPayload);
             setBookingReference(result.bookingReference || `BK-${Math.floor(100000 + Math.random() * 900000)}`)
             setBookingComplete(true)
             setCurrentStep(3)
             alert("Booking completed successful")
         } catch (error) {
+            console.error("Booking error:", error)
             alert("Booking failed try again.")
         }
     }
@@ -468,7 +471,7 @@ const RoomBookingPage: React.FC = () => {
                                                         <span className="font-medium">Name:</span> {client.firstName}
                                                     </p>
                                                     <p>
-                                                        <span className="font-medium">:</span> {client.cin}
+                                                        <span className="font-medium">CIN:</span> {client.cin}
                                                     </p>
                                                     <p>
                                                         <span className="font-medium">Email:</span> {client.email}

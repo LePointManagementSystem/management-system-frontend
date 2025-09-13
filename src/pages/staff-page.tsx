@@ -28,7 +28,7 @@ const StaffPage: React.FC = () => {
 
     const [staff, setStaff] = useState<StaffMember[]>(initialStaff);
 
-    const [searchTerm, setSearchTerm] = useState('');
+    // const [searchTerm, setSearchTerm] = useState('');
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [newStaffMember, setNewStaffMember] = useState<Omit<StaffMember, 'id'>>({
         name: '',
@@ -108,30 +108,30 @@ const StaffPage: React.FC = () => {
         setStaff(staff.filter((member) => member.id !== id));
     };
 
-    const customStyles = {
-        rows: {
-            style: {
-                minHeight: '50px',
-            },
-        },
-        headCells: {
-            style: {
-                backgroundColor: '#f0faf7',
-                fontWeight: 'bold',
-                fontSize: '16px',
-            },
-        },
-        cells: {
-            style: {
-                fontSize: '14px',
-            },
-        },
-    };
+    // const customStyles = {
+    //     rows: {
+    //         style: {
+    //             minHeight: '50px',
+    //         },
+    //     },
+    //     headCells: {
+    //         style: {
+    //             backgroundColor: '#f0faf7',
+    //             fontWeight: 'bold',
+    //             fontSize: '16px',
+    //         },
+    //     },
+    //     cells: {
+    //         style: {
+    //             fontSize: '14px',
+    //         },
+    //     },
+    // };
 
-    const filteredStaff = staff.filter(member =>
-        member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.role.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // const filteredStaff = staff.filter(member =>
+    //     member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    //     member.role.toLowerCase().includes(searchTerm.toLowerCase())
+    // );
 
     const handleAddStaff = () => {
         setStaff([...staff, { ...newStaffMember, id: staff.length + 1 }]);
