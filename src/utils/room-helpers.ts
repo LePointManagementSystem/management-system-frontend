@@ -1,25 +1,25 @@
-// src/utils/roomHelpers.ts
+// roomHelpers.ts
+import { Hotel } from "@/types/hotel";
 import { addRoom } from "../services/room-service";
-
-interface NewRoomData {
-  roomNumber: string;
-  roomClassId: string;
-  price: number;
-  adultsCapacity: number;
-  childrenCapacity: number;
-}
+import { deleteHotel } from "@/services/hotel-service";
 
 export const handleAddRoomToHotelHelper = async (
-  newRoom: NewRoomData,
+  newRoom: {
+    roomNumber: string;
+    roomClassId: string;
+    price: number;
+    adultsCapacity: number;
+    childrenCapacity: number;
+  },
   selectedHotelId: number | null,
   expandedRows: Set<number>,
   fetchRoomsForHotel: (hotelId: number) => Promise<void>,
-  setNewRoom: React.Dispatch<React.SetStateAction<NewRoomData>>,
+  setNewRoom: React.Dispatch<React.SetStateAction<any>>,
   setIsRoomDialogOpen: React.Dispatch<React.SetStateAction<boolean>>
 ) => {
   if (
     !newRoom.roomNumber.trim() ||
-    newRoom.roomClassId === '' ||
+    newRoom.roomClassId === "" ||
     newRoom.price <= 0 ||
     newRoom.adultsCapacity < 0 ||
     newRoom.childrenCapacity < 0 ||
@@ -30,14 +30,15 @@ export const handleAddRoomToHotelHelper = async (
   }
 
   try {
-    await addRoom({
-      number: newRoom.roomNumber,
-      adultsCapacity: newRoom.adultsCapacity,
-      childrenCapacity: newRoom.childrenCapacity,
-      pricePerNight: newRoom.price,
-      hotelId: selectedHotelId,
-      roomClassId: Number(newRoom.roomClassId),
-    });
+    await addRoom(
+      Number(newRoom.roomClassId),
+      {
+        number: newRoom.roomNumber,
+        adultsCapacity: newRoom.adultsCapacity,
+        childrenCapacity: newRoom.childrenCapacity,
+        pricePerNight: newRoom.price,
+      }
+    );
 
     alert("Room added successfully!");
 
@@ -57,4 +58,13 @@ export const handleAddRoomToHotelHelper = async (
     console.error("Add room error:", err);
     alert("Something went wrong while adding the room.");
   }
+};
+
+export const handleDeleteHotelHelper = async (
+  id: number,
+  setHotels: React.Dispatch<React.SetStateAction<Hotel[]>>,
+  hotels: Hotel[]
+) => {
+  await deleteHotel(id);
+  setHotels(hotels.filter((hotel) => hotel.id !== id));
 };

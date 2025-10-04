@@ -18,6 +18,7 @@ import { addHotel, getHotels, deleteHotel } from '@/services/hotel-service';
 import { Hotel, Room, RoomClass } from '@/types/hotel';
 import { addRoom, getRoomsByHotelId } from '@/services/room-service';
 import { getRoomClasses } from '@/services/room-class-service';
+import { handleAddRoomToHotelHelper } from '@/utils/room-helpers';
 
 const HotelManagementPage = () => {
   const [hotels, setHotels] = useState<Hotel[]>([]);
@@ -135,43 +136,15 @@ const HotelManagementPage = () => {
   };
 
   const handleAddRoomToHotel = async () => {
-    if (
-      !newRoom.roomNumber.trim() ||
-      newRoom.roomClassId === '' ||
-      newRoom.price <= 0 ||
-      newRoom.adultsCapacity < 0 ||
-      newRoom.childrenCapacity < 0 ||
-      !selectedHotelId
-    ) {
-      alert('Please fill all room fields correctly.');
-      return;
-    }
-
-    try {
-      await addRoom(
-        Number(newRoom.roomClassId),
-        {
-          number: newRoom.roomNumber,
-          adultsCapacity: newRoom.adultsCapacity,
-          childrenCapacity: newRoom.childrenCapacity,
-          pricePerNight: newRoom.price,
-        }
-      );
-
-      alert('Room added successfully!');
-      setNewRoom({
-        roomNumber: '',
-        roomClassId: '',
-        price: 0,
-        adultsCapacity: 0,
-        childrenCapacity: 0,
-      });
-      setIsRoomDialogOpen(false);
-    } catch (err) {
-      console.error('Add room error:', err);
-      alert('Something went wrong while adding the room.');
-    }
-  };
+  await handleAddRoomToHotelHelper(
+    newRoom,
+    selectedHotelId,
+    expandedRows,
+    fetchRoomsForHotel,
+    setNewRoom,
+    setIsRoomDialogOpen
+  );
+};
 
   const handleDeleteHotel = async (id: number) => {
     await deleteHotel(id);
