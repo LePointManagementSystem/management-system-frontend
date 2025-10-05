@@ -18,6 +18,8 @@ import { addHotel, getHotels, deleteHotel } from '@/services/hotel-service';
 import { Hotel, Room, RoomClass } from '@/types/hotel';
 import { addRoom, getRoomsByHotelId } from '@/services/room-service';
 import { getRoomClasses } from '@/services/room-class-service';
+import { handleAddHotelHelper } from '@/utils/hotel-helpers';
+import { handleDeleteHotelHelper } from '@/utils/room-helpers';
 
 const HotelManagementPage = () => {
   const [hotels, setHotels] = useState<Hotel[]>([]);
@@ -107,27 +109,13 @@ const HotelManagementPage = () => {
   ];
 
   const handleAddHotel = async () => {
-    if (
-      !newHotel.name.trim() ||
-      newHotel.starRating < 1 ||
-      newHotel.starRating > 5 ||
-      !newHotel.phoneNumber ||
-      newHotel.ownerID <= 0
-    ) {
-      alert('Please fill in all fields correctly.');
-      return;
-    }
-
-    try {
-      const createdHotel = await addHotel(newHotel);
-      setHotels((prev) => [...prev, createdHotel]);
-      setNewHotel({ name: '', starRating: 0, description: '', phoneNumber: '', ownerID: 0 });
-      setIsAddDialogOpen(false);
-    } catch (err) {
-      console.error('Add hotel error:', err);
-      alert('Something went wrong while adding the hotel.');
-    }
+    await handleAddHotelHelper(newHotel, setHotels, setNewHotel, setIsAddDialogOpen);
   };
+
+  const handleDeleteHotel = async (id: number) => {
+    await handleDeleteHotelHelper(id, setHotels, hotels);
+  };
+
 
   const handleAddRoom = (hotelId: number) => {
     setSelectedHotelId(hotelId);
@@ -173,11 +161,7 @@ const HotelManagementPage = () => {
     }
   };
 
-  const handleDeleteHotel = async (id: number) => {
-    await deleteHotel(id);
-    setHotels(hotels.filter((hotel) => hotel.id !== id));
-  };
-
+ 
   const fetchRoomsForHotel = async (hotelId: number) => {
     try {
       const rooms = await getRoomsByHotelId(hotelId);
@@ -282,7 +266,7 @@ const HotelManagementPage = () => {
         setLoading(false);
       }
     };
- 
+
     fetchHotels();
   }, []);
 
