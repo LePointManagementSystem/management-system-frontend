@@ -161,7 +161,7 @@ const HotelManagementPage = () => {
     }
   };
 
- 
+
   const fetchRoomsForHotel = async (hotelId: number) => {
     try {
       const rooms = await getRoomsByHotelId(hotelId);
@@ -215,7 +215,7 @@ const HotelManagementPage = () => {
     },
     {
       name: 'Star Rating',
-      selector: (row: Hotel) => row.starRating.toString(),
+     selector: (row: Hotel) => String(row.starRating ?? "-"),
       sortable: true,
     },
     {
@@ -229,7 +229,7 @@ const HotelManagementPage = () => {
     },
     {
       name: 'Owner ID',
-      selector: (row: Hotel) => row.ownerID.toString(),
+      selector: (row: Hotel) => String(row.ownerID ?? "-"),
     },
     {
       name: 'Actions',
