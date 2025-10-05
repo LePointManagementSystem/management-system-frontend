@@ -37,7 +37,7 @@ const HotelManagementPage = () => {
     starRating: 0,
     description: '',
     phoneNumber: '',
-    ownerID: 0,
+    ownerName: '',
   });
 
   const [newRoom, setNewRoom] = useState<{
@@ -229,7 +229,7 @@ const HotelManagementPage = () => {
     },
     {
       name: 'Owner ID',
-      selector: (row: Hotel) => String(row.ownerID ?? "-"),
+      selector: (row: Hotel) => row.ownerName,
     },
     {
       name: 'Actions',
@@ -381,13 +381,13 @@ const HotelManagementPage = () => {
 
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="ownerID" className="text-right">
-                Owner ID
+                Owner Name
               </Label>
               <Input
                 id="ownerID"
                 type="number"
-                value={newHotel.ownerID}
-                onChange={(e) => setNewHotel({ ...newHotel, ownerID: parseInt(e.target.value) || 0 })}
+                value={newHotel.ownerName}
+                onChange={(e) => setNewHotel({ ...newHotel, ownerName: e.target.value })}
                 className="col-span-3"
               />
             </div>

@@ -52,10 +52,10 @@ export const getHotels = async (): Promise<Hotel[]> => {
   return hotels.map((h: any, index: number) => ({
     id: index + 1,
     name: h.name ?? "Unnamed Hotel",
-    starRating: 0,
+    starRating: h.starRating ?? 0,
     description: h.description ?? "",
     phoneNumber: "N/A",
-    ownerID: 0,
+    ownerName: h.ownerName ?? "Unknown Owner",
   }));
 };
 

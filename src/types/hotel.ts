@@ -17,7 +17,7 @@ export interface Hotel {
   starRating: number;
   description: string;
   phoneNumber: string;
-  ownerID: number;
+  ownerName: string;
 }
 
 
