@@ -18,6 +18,7 @@ export interface Hotel {
   description: string;
   phoneNumber: string;
   ownerName: string;
+  ownerID?: number;
 }
 
 

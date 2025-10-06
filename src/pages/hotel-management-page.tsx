@@ -381,13 +381,13 @@ const HotelManagementPage = () => {
 
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="ownerID" className="text-right">
-                Owner Name
+                Owner Id
               </Label>
               <Input
                 id="ownerID"
                 type="number"
-                value={newHotel.ownerName}
-                onChange={(e) => setNewHotel({ ...newHotel, ownerName: e.target.value })}
+                  value={newHotel.ownerID}
+                onChange={(e) => setNewHotel({ ...newHotel, ownerID: Number.parseInt(e.target.value) || 0 })}
                 className="col-span-3"
               />
             </div>
