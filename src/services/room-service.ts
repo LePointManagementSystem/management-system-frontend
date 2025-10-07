@@ -12,8 +12,8 @@ const getAuthHeaders = () => {
 };
 
 export const addRoom = async (
-   roomClassId: number,
-    roomData: {
+  roomClassId: number,
+  roomData: {
     number: string;
     adultsCapacity: number;
     childrenCapacity: number;
@@ -31,7 +31,7 @@ export const addRoom = async (
   });
 
   if (!res.ok) {
-    const errorBody = await res.text(); 
+    const errorBody = await res.text();
     throw new Error(`Failed to add room: ${errorBody}`);
   }
 };
