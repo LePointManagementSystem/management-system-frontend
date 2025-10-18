@@ -3,249 +3,213 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Edit, Plus, Trash2 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import DataTable, { TableColumn } from 'react-data-table-component';
-
-interface StaffMember {
-    id: number;
-    name: string;
-    role: string;
-    email: string;
-    phone: string;
-    status: 'Active' | 'On Leave' | 'Terminated';
-}
+import { fetchStaff, addStaff, updateStaff, deleteStaff } from '@/services/staff-service';
+import { Staff, StaffCreateRequest } from '@/types/staff';
 
 const StaffPage: React.FC = () => {
-    const initialStaff: StaffMember[] = [
-        { id: 1, name: 'John Doe', role: 'Manager', email: 'john@example.com', phone: '123-456-7890', status: 'Active' },
-        { id: 2, name: 'Jane Smith', role: 'Receptionist', email: 'jane@example.com', phone: '234-567-8901', status: 'Active' },
-        { id: 3, name: 'Mike Johnson', role: 'Housekeeper', email: 'mike@example.com', phone: '345-678-9012', status: 'On Leave' },
-        { id: 4, name: 'Sarah Brown', role: 'Chef', email: 'sarah@example.com', phone: '456-789-0123', status: 'Active' },
-        { id: 5, name: 'Tom Wilson', role: 'Maintenance', email: 'tom@example.com', phone: '567-890-1234', status: 'Terminated' },
-    ];
+  const [staff, setStaff] = useState<Staff[]>([]);
+  const [loading, setLoading] = useState(false);
 
-    const [staff, setStaff] = useState<StaffMember[]>(initialStaff);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editingStaffId, setEditingStaffId] = useState<number | null>(null);
+  const [newStaffMember, setNewStaffMember] = useState<StaffCreateRequest>({
+    firstName: '',
+    lastName: '',
+    role: '',
+    email: '',
+    phoneNumber: '',
+    hotelId: 1,
+    isActive: true,
+  });
 
-    // const [searchTerm, setSearchTerm] = useState('');
-    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-    const [newStaffMember, setNewStaffMember] = useState<Omit<StaffMember, 'id'>>({
-        name: '',
+  useEffect(() => {
+    loadStaff();
+  }, []);
+
+  const loadStaff = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchStaff();
+      setStaff(data);
+    } catch (err) {
+      console.error('Failed to fetch staff', err);
+      alert('Failed to load staff.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenAdd = () => {
+    setEditingStaffId(null);
+    setNewStaffMember({
+      firstName: '',
+      lastName: '',
+      role: '',
+      email: '',
+      phoneNumber: '',
+      hotelId: 1,
+      isActive: true,
+    });
+    setIsAddDialogOpen(true);
+  };
+
+  const handleEdit = (row: Staff) => {
+    setEditingStaffId(row.id);
+    setNewStaffMember({
+      firstName: row.firstName,
+      lastName: row.lastName,
+      role: row.role,
+      email: row.email,
+      phoneNumber: row.phoneNumber,
+      hotelId: row.hotelId,
+      isActive: row.isActive,
+    });
+    setIsAddDialogOpen(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Delete this staff member?')) return;
+    try {
+      await deleteStaff(id);
+      setStaff((prev) => prev.filter((s) => s.id !== id));
+    } catch (err) {
+      console.error('Failed to delete staff', err);
+      alert('Failed to delete staff.');
+    }
+  };
+
+  const handleSave = async () => {
+    if (!newStaffMember.firstName.trim() || !newStaffMember.lastName.trim() || !newStaffMember.email.trim()) {
+      alert('First name, last name and email are required.');
+      return;
+    }
+
+    try {
+      if (editingStaffId !== null) {
+        const updated = await updateStaff(editingStaffId, newStaffMember);
+        setStaff((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      } else {
+        const created = await addStaff(newStaffMember);
+        setStaff((prev) => [...prev, created]);
+      }
+      setIsAddDialogOpen(false);
+      setEditingStaffId(null);
+      setNewStaffMember({
+        firstName: '',
+        lastName: '',
         role: '',
         email: '',
-        phone: '',
-        status: 'Active',
-    });
+        phoneNumber: '',
+        hotelId: 1,
+        isActive: true,
+      });
+    } catch (err) {
+      console.error('Failed to save staff', err);
+      alert('Failed to save staff.');
+    }
+  };
 
-
-    const columns: TableColumn<StaffMember>[] = [
-        {
-            name: 'Name',
-            selector: (row: StaffMember) => row.name,
-            sortable: true,
-        },
-        {
-            name: 'Role',
-            selector: (row: StaffMember) => row.role,
-            sortable: true,
-        },
-        {
-            name: 'Email',
-            selector: (row: StaffMember) => row.email,
-            cell: (row: StaffMember) => (
-                <a href={`mailto:${row.email}`} className="text-blue-600 hover:underline">
-                    {row.email}
-                </a>
-            ),
-        },
-        {
-            name: 'Phone',
-            selector: (row: StaffMember) => row.phone,
-            cell: (row: StaffMember) => (
-                <a href={`tel:${row.phone}`} className="text-blue-600 hover:underline">
-                    {row.phone}
-                </a>
-            ),
-        },
-        {
-            name: 'Status',
-            selector: (row: StaffMember) => row.status,
-            cell: (row: StaffMember) => (
-                <span
-                    className={`px-2 py-1 rounded-full text-xs font-semibold ${row.status === 'Active'
-                        ? 'bg-green-100 text-green-800'
-                        : row.status === 'On Leave'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}
-                >
-                    {row.status}
-                </span>
-            ),
-        },
-        {
-            name: 'Actions',
-            cell: (row: StaffMember) => (
-                <div className="flex space-x-2">
-                    <Button variant="outline" size="icon" onClick={() => handleEdit(row)}>
-                        <Edit className='h-4 w-4' />
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={() => handleDelete(row.id)}>
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                </div>
-            ),
-        },
-    ];
-
-    const handleEdit = (row: StaffMember) => {
-        console.log('Edit:', row);
-        // Add your edit logic here
-    };
-
-    const handleDelete = (id: number) => {
-        setStaff(staff.filter((member) => member.id !== id));
-    };
-
-    // const customStyles = {
-    //     rows: {
-    //         style: {
-    //             minHeight: '50px',
-    //         },
-    //     },
-    //     headCells: {
-    //         style: {
-    //             backgroundColor: '#f0faf7',
-    //             fontWeight: 'bold',
-    //             fontSize: '16px',
-    //         },
-    //     },
-    //     cells: {
-    //         style: {
-    //             fontSize: '14px',
-    //         },
-    //     },
-    // };
-
-    // const filteredStaff = staff.filter(member =>
-    //     member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    //     member.role.toLowerCase().includes(searchTerm.toLowerCase())
-    // );
-
-    const handleAddStaff = () => {
-        setStaff([...staff, { ...newStaffMember, id: staff.length + 1 }]);
-        setNewStaffMember({ name: '', role: '', email: '', phone: '', status: 'Active' });
-        setIsAddDialogOpen(false);
-    };
-
-
-
-    return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h2 className="text-3xl font-bold">Staff Management</h2>
-                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button><Plus className="mr-2 h-4 w-4" /> Add Staff</Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                            <DialogTitle>Add New Staff Member</DialogTitle>
-                            <DialogDescription>
-                                Enter the details of the new staff member here. Click save when you're done.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="name" className="text-right">
-                                    Name
-                                </Label>
-                                <Input
-                                    id="name"
-                                    value={newStaffMember.name}
-                                    onChange={(e) => setNewStaffMember({ ...newStaffMember, name: e.target.value })}
-                                    className="col-span-3"
-                                />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="role" className="text-right">
-                                    Role
-                                </Label>
-                                <Input
-                                    id="role"
-                                    value={newStaffMember.role}
-                                    onChange={(e) => setNewStaffMember({ ...newStaffMember, role: e.target.value })}
-                                    className="col-span-3"
-                                />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="email" className="text-right">
-                                    Email
-                                </Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    value={newStaffMember.email}
-                                    onChange={(e) => setNewStaffMember({ ...newStaffMember, email: e.target.value })}
-                                    className="col-span-3"
-                                />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="phone" className="text-right">
-                                    Phone
-                                </Label>
-                                <Input
-                                    id="phone"
-                                    value={newStaffMember.phone}
-                                    onChange={(e) => setNewStaffMember({ ...newStaffMember, phone: e.target.value })}
-                                    className="col-span-3"
-                                />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="status" className="text-right">
-                                    Status
-                                </Label>
-                                <Select
-                                    onValueChange={(value: 'Active' | 'On Leave' | 'Terminated') => setNewStaffMember({ ...newStaffMember, status: value })}
-                                    defaultValue={newStaffMember.status}
-                                >
-                                    <SelectTrigger className="col-span-3">
-                                        <SelectValue placeholder="Select status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Active">Active</SelectItem>
-                                        <SelectItem value="On Leave">On Leave</SelectItem>
-                                        <SelectItem value="Terminated">Terminated</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button type="submit" onClick={handleAddStaff}>Add Staff Member</Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            </div>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Staff List</CardTitle>
-                </CardHeader>
-                <CardContent>
-
-                    <DataTable
-                        columns={columns}
-                        data={staff}
-                        pagination
-                        highlightOnHover
-                        selectableRows
-                    />
-
-                </CardContent>
-            </Card>
+  const columns: TableColumn<Staff>[] = [
+    { name: 'First Name', selector: (row) => row.firstName, sortable: true },
+    { name: 'Last Name', selector: (row) => row.lastName, sortable: true },
+    { name: 'Role', selector: (row) => row.role, sortable: true },
+    { name: 'Email', selector: (row) => row.email, sortable: true },
+    { name: 'Phone', selector: (row) => row.phoneNumber, sortable: true },
+    { name: 'Hotel ID', selector: (row) => String(row.hotelId), sortable: true },
+    { name: 'Active', selector: (row) => (row.isActive ? 'Yes' : 'No'), sortable: true },
+    {
+      name: 'Actions',
+      cell: (row) => (
+        <div className="flex gap-2">
+          <Button size="sm" variant="ghost" onClick={() => handleEdit(row)}>
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button size="sm" variant="destructive" onClick={() => handleDelete(row.id)}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
-    );
+      ),
+      ignoreRowClick: true,
+      allowOverflow: true,
+      button: true,
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-3xl font-bold">Staff Management</h2>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={handleOpenAdd}><Plus className="mr-2 h-4 w-4" /> Add Staff</Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>{editingStaffId !== null ? 'Edit Staff Member' : 'Add New Staff Member'}</DialogTitle>
+              <DialogDescription>
+                Enter the details of the staff member here. Click save when you're done.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="firstName" className="text-right">First Name</Label>
+                <Input id="firstName" value={newStaffMember.firstName} onChange={(e) => setNewStaffMember({ ...newStaffMember, firstName: e.target.value })} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="lastName" className="text-right">Last Name</Label>
+                <Input id="lastName" value={newStaffMember.lastName} onChange={(e) => setNewStaffMember({ ...newStaffMember, lastName: e.target.value })} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="role" className="text-right">Role</Label>
+                <Input id="role" value={newStaffMember.role} onChange={(e) => setNewStaffMember({ ...newStaffMember, role: e.target.value })} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="email" className="text-right">Email</Label>
+                <Input id="email" type="email" value={newStaffMember.email} onChange={(e) => setNewStaffMember({ ...newStaffMember, email: e.target.value })} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="phone" className="text-right">Phone</Label>
+                <Input id="phone" value={newStaffMember.phoneNumber} onChange={(e) => setNewStaffMember({ ...newStaffMember, phoneNumber: e.target.value })} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="hotelId" className="text-right">Hotel ID</Label>
+                <Input id="hotelId" type="number" value={String(newStaffMember.hotelId)} onChange={(e) => setNewStaffMember({ ...newStaffMember, hotelId: Number(e.target.value || 0) })} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="isActive" className="text-right">Active</Label>
+                <div className="col-span-3">
+                  <Checkbox id="isActive" checked={newStaffMember.isActive} onCheckedChange={(v) => setNewStaffMember({ ...newStaffMember, isActive: Boolean(v) })} />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" onClick={handleSave}>{editingStaffId !== null ? 'Save Changes' : 'Add Staff Member'}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Staff List</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={columns}
+            data={staff}
+            pagination
+            highlightOnHover
+            selectableRows
+            progressPending={loading}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  );
 };
 
 export default StaffPage;
