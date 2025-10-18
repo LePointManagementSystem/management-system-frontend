@@ -16,7 +16,7 @@ const StaffPage: React.FC = () => {
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<number | null>(null);
-  const [newStaffMember, setNewStaffMember] = useState<StaffCreateRequest>({
+  const [form, setForm] = useState<StaffCreateRequest>({
     firstName: '',
     lastName: '',
     role: '',
@@ -34,7 +34,17 @@ const StaffPage: React.FC = () => {
     setLoading(true);
     try {
       const data = await fetchStaff();
-      setStaff(data);
+      const items = Array.isArray(data)
+        ? data
+        : (typeof data === 'object' && data !== null && Array.isArray((data as any).data)
+            ? (data as any).data
+            : []);
+      if (!Array.isArray(items)) {
+        console.warn("Unexpected staff response shape:", data);
+        setStaff([]);
+      } else {
+        setStaff(items);
+      }
     } catch (err) {
       console.error('Failed to fetch staff', err);
       alert('Failed to load staff.');
@@ -43,9 +53,9 @@ const StaffPage: React.FC = () => {
     }
   };
 
-  const handleOpenAdd = () => {
+  const openAdd = () => {
     setEditingStaffId(null);
-    setNewStaffMember({
+    setForm({
       firstName: '',
       lastName: '',
       role: '',
@@ -59,7 +69,7 @@ const StaffPage: React.FC = () => {
 
   const handleEdit = (row: Staff) => {
     setEditingStaffId(row.id);
-    setNewStaffMember({
+    setForm({
       firstName: row.firstName,
       lastName: row.lastName,
       role: row.role,
@@ -83,22 +93,22 @@ const StaffPage: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!newStaffMember.firstName.trim() || !newStaffMember.lastName.trim() || !newStaffMember.email.trim()) {
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) {
       alert('First name, last name and email are required.');
       return;
     }
 
     try {
       if (editingStaffId !== null) {
-        const updated = await updateStaff(editingStaffId, newStaffMember);
+        const updated = await updateStaff(editingStaffId, form);
         setStaff((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
       } else {
-        const created = await addStaff(newStaffMember);
+        const created = await addStaff(form);
         setStaff((prev) => [...prev, created]);
       }
       setIsAddDialogOpen(false);
       setEditingStaffId(null);
-      setNewStaffMember({
+      setForm({
         firstName: '',
         lastName: '',
         role: '',
@@ -114,13 +124,13 @@ const StaffPage: React.FC = () => {
   };
 
   const columns: TableColumn<Staff>[] = [
-    { name: 'First Name', selector: (row) => row.firstName, sortable: true },
-    { name: 'Last Name', selector: (row) => row.lastName, sortable: true },
-    { name: 'Role', selector: (row) => row.role, sortable: true },
-    { name: 'Email', selector: (row) => row.email, sortable: true },
-    { name: 'Phone', selector: (row) => row.phoneNumber, sortable: true },
-    { name: 'Hotel ID', selector: (row) => String(row.hotelId), sortable: true },
-    { name: 'Active', selector: (row) => (row.isActive ? 'Yes' : 'No'), sortable: true },
+    { name: 'First Name', selector: (r) => r.firstName, sortable: true },
+    { name: 'Last Name', selector: (r) => r.lastName, sortable: true },
+    { name: 'Role', selector: (r) => r.role, sortable: true },
+    { name: 'Email', selector: (r) => r.email, sortable: true },
+    { name: 'Phone', selector: (r) => r.phoneNumber, sortable: true },
+    { name: 'Hotel ID', selector: (r) => String(r.hotelId), sortable: true },
+    { name: 'Active', selector: (r) => (r.isActive ? 'Yes' : 'No'), sortable: true },
     {
       name: 'Actions',
       cell: (row) => (
@@ -145,47 +155,53 @@ const StaffPage: React.FC = () => {
         <h2 className="text-3xl font-bold">Staff Management</h2>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={handleOpenAdd}><Plus className="mr-2 h-4 w-4" /> Add Staff</Button>
+            <Button onClick={openAdd}><Plus className="mr-2 h-4 w-4" /> Add Staff</Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>{editingStaffId !== null ? 'Edit Staff Member' : 'Add New Staff Member'}</DialogTitle>
-              <DialogDescription>
-                Enter the details of the staff member here. Click save when you're done.
-              </DialogDescription>
+              <DialogDescription>Enter the details and click save.</DialogDescription>
             </DialogHeader>
+
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="firstName" className="text-right">First Name</Label>
-                <Input id="firstName" value={newStaffMember.firstName} onChange={(e) => setNewStaffMember({ ...newStaffMember, firstName: e.target.value })} className="col-span-3" />
+                <Input id="firstName" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} className="col-span-3" />
               </div>
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="lastName" className="text-right">Last Name</Label>
-                <Input id="lastName" value={newStaffMember.lastName} onChange={(e) => setNewStaffMember({ ...newStaffMember, lastName: e.target.value })} className="col-span-3" />
+                <Input id="lastName" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} className="col-span-3" />
               </div>
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="role" className="text-right">Role</Label>
-                <Input id="role" value={newStaffMember.role} onChange={(e) => setNewStaffMember({ ...newStaffMember, role: e.target.value })} className="col-span-3" />
+                <Input id="role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="col-span-3" />
               </div>
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="email" className="text-right">Email</Label>
-                <Input id="email" type="email" value={newStaffMember.email} onChange={(e) => setNewStaffMember({ ...newStaffMember, email: e.target.value })} className="col-span-3" />
+                <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="col-span-3" />
               </div>
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="phone" className="text-right">Phone</Label>
-                <Input id="phone" value={newStaffMember.phoneNumber} onChange={(e) => setNewStaffMember({ ...newStaffMember, phoneNumber: e.target.value })} className="col-span-3" />
+                <Input id="phone" value={form.phoneNumber} onChange={(e) => setForm({ ...form, phoneNumber: e.target.value })} className="col-span-3" />
               </div>
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="hotelId" className="text-right">Hotel ID</Label>
-                <Input id="hotelId" type="number" value={String(newStaffMember.hotelId)} onChange={(e) => setNewStaffMember({ ...newStaffMember, hotelId: Number(e.target.value || 0) })} className="col-span-3" />
+                <Input id="hotelId" type="number" value={String(form.hotelId)} onChange={(e) => setForm({ ...form, hotelId: Number(e.target.value || 0) })} className="col-span-3" />
               </div>
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="isActive" className="text-right">Active</Label>
                 <div className="col-span-3">
-                  <Checkbox id="isActive" checked={newStaffMember.isActive} onCheckedChange={(v) => setNewStaffMember({ ...newStaffMember, isActive: Boolean(v) })} />
+                  <Checkbox id="isActive" checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: Boolean(v) })} />
                 </div>
               </div>
             </div>
+
             <DialogFooter>
               <Button type="button" onClick={handleSave}>{editingStaffId !== null ? 'Save Changes' : 'Add Staff Member'}</Button>
             </DialogFooter>
@@ -199,8 +215,8 @@ const StaffPage: React.FC = () => {
         </CardHeader>
         <CardContent>
           <DataTable
-            columns={columns}
-            data={staff}
+            columns={Array.isArray(columns) ? columns : []}
+            data={Array.isArray(staff) ? staff : []}
             pagination
             highlightOnHover
             selectableRows
