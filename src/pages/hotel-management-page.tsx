@@ -13,13 +13,12 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-
-import { addHotel, getHotels, deleteHotel } from '@/services/hotel-service';
+import { getHotels} from '@/services/hotel-service';
 import { Hotel, Room, RoomClass } from '@/types/hotel';
 import { addRoom, getRoomsByHotelId } from '@/services/room-service';
 import { getRoomClasses } from '@/services/room-class-service';
-import { handleAddHotelHelper } from '@/utils/hotel-helpers';
-import { handleDeleteHotelHelper } from '@/utils/room-helpers';
+import { handleAddHotelHelper, handleDeleteHotelHelper } from '@/utils/hotel-helpers';
+
 
 const HotelManagementPage = () => {
   const [hotels, setHotels] = useState<Hotel[]>([]);

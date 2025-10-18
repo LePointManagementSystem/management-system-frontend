@@ -61,7 +61,6 @@ export const fetchAllBookings = async () => {
   }
 
   const data = await res.json();
-  console.log("Bookings API response:", data);
 
   if (Array.isArray(data)) return data;
   if (Array.isArray(data.data)) return data.data;
@@ -69,3 +68,8 @@ export const fetchAllBookings = async () => {
 
   return [];
 };
+
+export const freeBooking = async (id: string) => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("User is not authenticated. Token not found.");
+}

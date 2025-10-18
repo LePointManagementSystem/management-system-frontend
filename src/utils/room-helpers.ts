@@ -45,7 +45,6 @@ export const handleAddRoomToHotelHelper = async (
     if (expandedRows.has(selectedHotelId)) {
       await fetchRoomsForHotel(selectedHotelId);
     }
-
     setNewRoom({
       roomNumber: "",
       roomClassId: "",
