@@ -69,7 +69,3 @@ export const fetchAllBookings = async () => {
   return [];
 };
 
-export const freeBooking = async (id: string) => {
-  const token = localStorage.getItem("token");
-  if (!token) throw new Error("User is not authenticated. Token not found.");
-}

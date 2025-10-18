@@ -3,14 +3,6 @@ import { AvailableRoom, Room } from "@/types/hotel";
 
 const API_BASE = 'http://localhost:5004/api';
 
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  if (!token) throw new Error("No auth token");
-  return {
-    'Authorization': `Bearer ${token}`,
-  };
-};
-
 export const addRoom = async (
   roomClassId: number,
   roomData: {
