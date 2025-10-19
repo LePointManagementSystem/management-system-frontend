@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { CalendarIcon, CheckCircle, Loader2 } from "lucide-react"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -23,7 +23,9 @@ import { createBooking } from "@/services/booking-service"
 import { BookingPayload } from "@/types/boking"
 
 
-const formatDateTime = (date: Date) => {
+
+
+const formatDateTime = (date: Date): string => {
     return date.toLocaleString("en-US", {
         weekday: "long",
         year: "numeric",
@@ -36,26 +38,23 @@ const formatDateTime = (date: Date) => {
 
 const RoomBookingPage: React.FC = () => {
     const [currentStep, setCurrentStep] = useState(0)
+    const [isLoading, setIsLoading] = useState(false)
+
+
+
     const [roomType, setRoomType] = useState("")
     const [guests, setGuests] = useState(1)
     const [date, setDate] = useState<Date | undefined>(new Date())
     const [bookingDuration, setBookingDuration] = useState<"2h" | "overnight">("overnight")
     const [availableRooms, setAvailableRooms] = useState<Room[]>([])
     const [selectedRoom, setSelectedRoom] = useState<number | null>(null)
-    const [isLoading, setIsLoading] = useState(false)
     const [clientTab, setClientTab] = useState("existing")
-    const [selectedClientId, setSelectedClientId] = useState<string | null>(null)
+    const [selectedClientId, setSelectedClientId] = useState<string>("")
     const [newClient, setNewClient] = useState({ firstName: "", lastName: "", cin: "", email: "" })
     const [bookingComplete, setBookingComplete] = useState(false)
     const [bookingReference, setBookingReference] = useState("")
     const [notification, setNotification] = useState("")
     const [existingClients, setExistingClients] = useState<Guest[]>([]);
-
-    const [time, setTime] = useState({
-        hours: new Date().getHours(),
-        minutes: new Date().getMinutes(),
-    });
-
     const { roomClasses, loading: loadingRoomClasses } = useRoomClasses();
 
     useEffect(() => {
@@ -115,17 +114,19 @@ const RoomBookingPage: React.FC = () => {
         setCurrentStep(2)
     }
 
-    const handleClientSelect = (clientId: string) => {
-        setSelectedClientId(clientId)
-    }
+    const selectedClient = useMemo(
+        () => existingClients.find((c) => String(c.id) === selectedClientId) ?? null,
+        [existingClients, selectedClientId]
+    );
 
-    const isClientFormValid = () => {
-        if (clientTab === "existing") {
-            return selectedClientId !== null
-        } else {
-            return newClient.email
-        }
-    }
+    const handleClientSelect = useCallback((clientId: string) =>{
+        setSelectedClientId(clientId ?? "")
+    }, []);
+
+    const isClientFormValid = useCallback((): boolean =>{
+        if(clientTab === "existing") return selectedClientId.trim().length > 0;
+        return newClient.email.trim().length >0;
+    }, [clientTab,selectedClient]);
 
     const handleSubmitBooking = async () => {
         if (!selectedRoom || !date || !isClientFormValid()) {
@@ -193,7 +194,7 @@ const RoomBookingPage: React.FC = () => {
                 }
             };
 
-          
+
 
             const result = await createBooking(bookingPayload);
             setBookingReference(result.bookingReference || `BK-${Math.floor(100000 + Math.random() * 900000)}`)
@@ -214,7 +215,7 @@ const RoomBookingPage: React.FC = () => {
         setDate(new Date())
         setBookingDuration("overnight")
         setSelectedRoom(null)
-        setSelectedClientId(null)
+        setSelectedClientId("")
         setNewClient({ firstName: "", lastName: "", cin: "", email: "" })
         setBookingComplete(false)
         setBookingReference("")
@@ -301,38 +302,14 @@ const RoomBookingPage: React.FC = () => {
                                         mode="single"
                                         selected={date}
                                         onSelect={(selectedDate) => {
-                                            if (selectedDate) {
-                                                const newDate = new Date(selectedDate);
-                                                newDate.setHours(time.hours, time.minutes); // merge with selected time
-                                                setDate(newDate);
-                                            }
+                                            if (selectedDate) setDate(new Date(selectedDate));
                                         }}
                                         initialFocus
-                                        disabled={(date) => date < new Date()}
+                                        disabled={(d) => d < new Date()}
                                     />
                                 </PopoverContent>
                             </Popover>
                         </div>
-
-                        <div className="space-y-2">
-                            <Label>Check-in Time</Label>
-                            <input
-                                type="time"
-                                value={`${String(time.hours).padStart(2, "0")}:${String(time.minutes).padStart(2, "0")}`}
-                                onChange={(e) => {
-                                    const [hours, minutes] = e.target.value.split(":").map(Number);
-                                    setTime({ hours, minutes });
-
-                                    if (date) {
-                                        const updatedDate = new Date(date);
-                                        updatedDate.setHours(hours, minutes);
-                                        setDate(updatedDate);
-                                    }
-                                }}
-                                className="border rounded p-2 w-full"
-                            />
-                        </div>
-
 
                         <div className="space-y-2">
                             <Label>Booking Duration</Label>
