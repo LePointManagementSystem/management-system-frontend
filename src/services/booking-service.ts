@@ -1,8 +1,16 @@
 // services/booking-service.ts
 
 import { BookingPayload } from "@/types/boking";
+import { get } from "http";
 
 const BASE_URL = "http://localhost:5004/api";
+
+function getAuthHeader(): string {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("User is not authenticated. Token not found.");
+  return `Bearer ${token}`;
+}
+
 
 export const createBooking = async (bookingPayload: BookingPayload) => {
   const token = localStorage.getItem("token");
@@ -15,7 +23,7 @@ export const createBooking = async (bookingPayload: BookingPayload) => {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+      Authorization: getAuthHeader(),
     },
     body: JSON.stringify(bookingPayload),
   });
@@ -35,7 +43,7 @@ export const fetchBookingById = async (id: string) => {
   const res = await fetch(`${BASE_URL}/Booking/${id}`, {
     method: "GET",
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: getAuthHeader(),
     },
   });
 
@@ -52,7 +60,7 @@ export const fetchAllBookings = async () => {
   const res = await fetch(`${BASE_URL}/Booking/all`, {
     method: "GET",
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: getAuthHeader(),
     },
   });
 

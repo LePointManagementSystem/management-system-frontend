@@ -3,6 +3,13 @@ import { AvailableRoom, Room } from "@/types/hotel";
 
 const API_BASE = 'http://localhost:5004/api';
 
+function getAuthHeader(): string {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("User is not authenticated. Token not found.");
+  return `Bearer ${token}`;
+}
+
+
 export const addRoom = async (
   roomClassId: number,
   roomData: {
