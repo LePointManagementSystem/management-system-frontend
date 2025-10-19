@@ -12,8 +12,9 @@ export const handleAddHotelHelper = async (
     !newHotel.name.trim() ||
     newHotel.starRating < 1 ||
     newHotel.starRating > 5 ||
-    !newHotel.phoneNumber ||
-    newHotel.ownerID <= 0
+    !newHotel.phoneNumber?.trim() ||
+    !("ownerName" in newHotel) ||
+    !newHotel.ownerName?.trim()
   ) {
     alert("Please fill in all fields correctly.");
     return;
@@ -22,7 +23,7 @@ export const handleAddHotelHelper = async (
   try {
     const createdHotel = await addHotel(newHotel);
     setHotels((prev) => [...prev, createdHotel]);
-    setNewHotel({ name: "", starRating: 0, description: "", phoneNumber: "", ownerID: 0 });
+    setNewHotel({ name: "", starRating: 0, description: "", phoneNumber: "", ownerName: "" } as Omit<Hotel, "id">);
     setIsAddDialogOpen(false);
   } catch (err) {
     console.error("Add hotel error:", err);
@@ -33,8 +34,15 @@ export const handleAddHotelHelper = async (
 export const handleDeleteHotelHelper = async (
   id: number,
   setHotels: React.Dispatch<React.SetStateAction<Hotel[]>>,
-  hotels: Hotel[]
+  hotels?: Hotel[]
 ) => {
-  await deleteHotel(id);
-  setHotels(hotels.filter((hotel) => hotel.id !== id));
+  try {
+    await deleteHotel(id);
+    setHotels((prev) => prev.filter((hotel) => hotel.id !== id ));
+  }
+  catch (err) {
+    console.error("Delete hotel error:", err);
+    alert("Failed to delete the hotel.");
+  }
+
 };

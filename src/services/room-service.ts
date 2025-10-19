@@ -1,4 +1,3 @@
-
 import { AvailableRoom, Room } from "@/types/hotel";
 
 const API_BASE = 'http://localhost:5004/api';
@@ -19,12 +18,11 @@ export const addRoom = async (
     pricePerNight: number;
   }
 ) => {
-  const token = localStorage.getItem('token');
   const res = await fetch(`${API_BASE}/RoomClass/${roomClassId}/rooms`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      'Authorization': getAuthHeader(),
     },
     body: JSON.stringify(roomData),
   });
@@ -96,14 +94,13 @@ export const updateRoom = async (
     pricePerNight?: number;
   }
 ) => {
-  const token = localStorage.getItem('token');
-  if (!token) throw new Error("No auth token");
+  
 
   const res = await fetch(`${API_BASE}/Room/${roomId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      'Authorization': getAuthHeader(),
     },
     body: JSON.stringify(updatedRoomData),
   });
@@ -115,13 +112,10 @@ export const updateRoom = async (
 };
 
 export const deleteRoom = async (roomId: number) => {
-  const token = localStorage.getItem('token');
-  if (!token) throw new Error("No auth token");
-
   const res = await fetch(`${API_BASE}/Room/${roomId}`, {
     method: 'DELETE',
     headers: {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': getAuthHeader(),
     },
   });
 
