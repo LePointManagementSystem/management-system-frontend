@@ -1,7 +1,6 @@
 // services/booking-service.ts
 
 import { BookingPayload } from "@/types/boking";
-import { get } from "http";
 
 const BASE_URL = "http://localhost:5004/api";
 
@@ -75,5 +74,31 @@ export const fetchAllBookings = async () => {
   if (Array.isArray(data.bookings)) return data.bookings;
 
   return [];
+};
+
+
+export const updateBookingStatus = async (
+  bookingId: number,
+  statusId: number
+): Promise<void> => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("User is not authenticated. Token not found.");
+
+  const res = await fetch(
+    `http://localhost:5004/api/Booking/${bookingId}/Update_status`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(statusId),
+    }
+  );
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Failed to update booking status: ${errText}`);
+  }
 };
 

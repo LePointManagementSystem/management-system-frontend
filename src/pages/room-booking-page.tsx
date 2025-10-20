@@ -19,9 +19,8 @@ import { fetchAvailableRooms } from "@/services/room-service"
 import { Guest } from "@/types/client"
 import { useRoomClasses } from "@/hooks/use-room-classes"
 import { addGuest, fetchGuest } from "@/services/client-service"
-import { createBooking } from "@/services/booking-service"
+import { createBooking, updateBookingStatus } from "@/services/booking-service"
 import { BookingPayload } from "@/types/boking"
-
 
 
 
@@ -39,9 +38,6 @@ const formatDateTime = (date: Date): string => {
 const RoomBookingPage: React.FC = () => {
     const [currentStep, setCurrentStep] = useState(0)
     const [isLoading, setIsLoading] = useState(false)
-
-
-
     const [roomType, setRoomType] = useState("")
     const [guests, setGuests] = useState(1)
     const [date, setDate] = useState<Date | undefined>(new Date())
@@ -55,14 +51,15 @@ const RoomBookingPage: React.FC = () => {
     const [bookingReference, setBookingReference] = useState("")
     const [notification, setNotification] = useState("")
     const [existingClients, setExistingClients] = useState<Guest[]>([]);
+    const [bookingId, setBookingId] = useState<number | null>(null);
     const { roomClasses, loading: loadingRoomClasses } = useRoomClasses();
 
     useEffect(() => {
         let timeout: NodeJS.Timeout
-        if (bookingComplete && bookingDuration === "2h") {
+        if (bookingComplete && bookingDuration === "2h" ) {
             timeout = setTimeout(() => {
                 setNotification("⏰ The 2-hour booking is now over.")
-            }, 2 * 60 * 60 * 1000)
+            }, 9000)
         }
         return () => clearTimeout(timeout)
     }, [bookingComplete, bookingDuration])

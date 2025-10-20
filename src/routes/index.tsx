@@ -1,1 +1,3 @@
-export default function RoutesPlaceholder(){ return null }
+export default function RoutesPlaceholder() {
+    return null
+}
