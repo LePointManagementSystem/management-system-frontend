@@ -21,6 +21,8 @@ import { useRoomClasses } from "@/hooks/use-room-classes"
 import { addGuest, fetchGuest } from "@/services/client-service"
 import { createBooking, updateBookingStatus } from "@/services/booking-service"
 import { BookingPayload } from "@/types/boking"
+import { useBooking } from "@/hooks/use-booking"
+import { calculateCheckInOut } from "@/utils/booking-helpers"
 
 
 
@@ -53,6 +55,7 @@ const RoomBookingPage: React.FC = () => {
     const [existingClients, setExistingClients] = useState<Guest[]>([]);
     const [bookingId, setBookingId] = useState<number | null>(null);
     const { roomClasses, loading: loadingRoomClasses } = useRoomClasses();
+
 
     useEffect(() => {
         let timeout: NodeJS.Timeout
@@ -131,20 +134,9 @@ const RoomBookingPage: React.FC = () => {
             return
         }
 
-        const checkInDate = new Date(date);
-        const checkOutDate = new Date(checkInDate);
+        const { checkInDateUtc, checkOutDateUtc } = calculateCheckInOut(date, bookingDuration);
 
-        if (bookingDuration === "2h") {
-            checkInDate.setHours(checkInDate.getHours(), 0, 0);
-            checkOutDate.setHours(checkInDate.getHours() + 2, 0, 0);
-        } else if (bookingDuration === "overnight") {
-            checkInDate.setHours(21, 0, 0);
-            checkOutDate.setDate(checkOutDate.getDate() + 1);
-            checkOutDate.setHours(7, 0, 0);
-        }
 
-        const checkInDateUtc = checkInDate.toISOString();
-        const checkOutDateUtc = checkOutDate.toISOString();
 
         try {
             let guestId: string | null = null;
@@ -190,8 +182,6 @@ const RoomBookingPage: React.FC = () => {
                     cin: clientData.cin,
                 }
             };
-
-
 
             const result = await createBooking(bookingPayload);
             setBookingReference(result.bookingReference || `BK-${Math.floor(100000 + Math.random() * 900000)}`)
