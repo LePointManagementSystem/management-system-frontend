@@ -25,10 +25,17 @@ export function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+
+      const trimmedEmail = email.trim()
+    if (!trimmedEmail || !password) {
+      setError("Please enter email and password.")
+      return
+    }
+
     setIsLoading(true)
 
     try {
-      const result = await login({ email, password });
+      const result = await login({ email: trimmedEmail, password });
     
       if (result.succeeded && result.token) {
         localStorage.setItem('role', result.role ?? '');

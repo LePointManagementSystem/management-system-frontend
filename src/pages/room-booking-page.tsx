@@ -19,7 +19,7 @@ import { fetchAvailableRooms } from "@/services/room-service"
 import { Guest } from "@/types/client"
 import { useRoomClasses } from "@/hooks/use-room-classes"
 import { addGuest, fetchGuest } from "@/services/client-service"
-import { createBooking, updateBookingStatus } from "@/services/booking-service"
+import { createBooking } from "@/services/booking-service"
 import { BookingPayload } from "@/types/boking"
 import { useBooking } from "@/hooks/use-booking"
 import { calculateCheckInOut } from "@/utils/booking-helpers"
@@ -60,9 +60,10 @@ const RoomBookingPage: React.FC = () => {
     useEffect(() => {
         let timeout: NodeJS.Timeout
         if (bookingComplete && bookingDuration === "2h" ) {
+            // show notification after 2 hours
             timeout = setTimeout(() => {
                 setNotification("⏰ The 2-hour booking is now over.")
-            }, 9000)
+            },  2 * 60 * 60 * 1000)
         }
         return () => clearTimeout(timeout)
     }, [bookingComplete, bookingDuration])
@@ -93,8 +94,10 @@ const RoomBookingPage: React.FC = () => {
                     roomId: room.roomId,
                     roomClassName: room.roomClassName,
                     number: room.number,
-                    adultsCapacity: room.adultsCapacity + room.childrenCapacity,
-                    hotelId: room.hotelId
+                    adultsCapacity: (room.adultsCapacity ?? 0) + (room.childrenCapacity ?? 0),
+                    hotelId: room.hotelId,
+                    // include price used by the table; fallback to 0 if not provided
+                    pricePerNight: room.pricePerNight ?? room.price ?? 0
                 }));
                 setAvailableRooms(mappedRooms);
                 setCurrentStep(1);
