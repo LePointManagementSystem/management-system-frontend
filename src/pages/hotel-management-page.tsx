@@ -112,7 +112,7 @@ const HotelManagementPage = () => {
   };
 
   const handleDeleteHotel = async (id: number) => {
-    await handleDeleteHotelHelper(id, setHotels, hotels);
+    await handleDeleteHotelHelper(id, setHotels);
   };
 
 

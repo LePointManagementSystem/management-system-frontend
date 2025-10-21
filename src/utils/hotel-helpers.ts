@@ -34,15 +34,21 @@ export const handleAddHotelHelper = async (
 export const handleDeleteHotelHelper = async (
   id: number,
   setHotels: React.Dispatch<React.SetStateAction<Hotel[]>>,
-  hotels?: Hotel[]
-) => {
+):  Promise<boolean> => {
+  // Optimistic update
+  let previous: Hotel[] = [];
+  setHotels((prev) => {
+    previous = prev;
+    return prev.filter((h) => h.id !== id);
+  });
+
   try {
     await deleteHotel(id);
-    setHotels((prev) => prev.filter((hotel) => hotel.id !== id ));
-  }
-  catch (err) {
+    return true;
+  } catch (err) {
+    // rollback
     console.error("Delete hotel error:", err);
-    alert("Failed to delete the hotel.");
+    setHotels(previous);
+    throw err;
   }
-
 };
