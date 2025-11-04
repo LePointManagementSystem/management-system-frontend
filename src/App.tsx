@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Outlet } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Outlet, Navigate } from "react-router-dom";
 import { LoginPage } from "./pages/login-page";
 import DashboardPage from "./pages/dashboard-page";
 import Layout from "./components/Layout";
@@ -18,11 +18,12 @@ function App() {
     <Router>
       <Routes>
         {/* Public Route */}
-        <Route path="/" element={<LoginPage />} />
         <Route path="/login" element={<LoginPage />} />
 
         {/* Protected Routes */}
         <Route path="/" element={<Layout><Outlet /></Layout>} >
+          <Route index element={<Navigate to="/dashboard" replace />} />
+
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/hotel-management" element={<HotelManagementPage />} />
           <Route path="/restaurant" element={<RestaurantPage />} />
