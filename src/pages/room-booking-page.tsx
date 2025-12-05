@@ -178,7 +178,7 @@ const RoomBookingPage: React.FC = () => {
                 checkOutDateUtc,
                 roomIds: [selectedRoom],
                 paymentMethod: 0,
-                durationType: bookingDuration === "2h" ? 1 : 2,
+                durationType: bookingDuration === "2h" ? 0 : 2,
                 guest: {
                     firstName: clientData.firstName,
                     lastName: clientData.lastName,

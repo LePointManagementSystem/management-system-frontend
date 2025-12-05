@@ -13,15 +13,39 @@ const DashboardPage = () => {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
 
+  // useEffect(() => {
+  //   const loadBookings = async () => {
+  //     try {
+  //       const data = await fetchAllBookings()
+  //       console.log("data:", data)
+  //       setBookings(data || [])
+  //     } catch (err) {
+  //       console.error("Failed to fetch bookings:", err)
+  //     } finally {
+  //       setLoading(false)
+  //     }
+  //   }
+  //   loadBookings()
+  // }, [])
+
   useEffect(() => {
     const loadBookings = async () => {
       try {
         const data = await fetchAllBookings()
-        console.log("data:", data)
-        setBookings(data || [])
-      } catch (err) {
-        console.error("Failed to fetch bookings:", err)
-      } finally {
+        console.log("data", data)
+
+        const bookingList: Booking[] = (data || []) as Booking[]
+
+        const sorted = [...bookingList].sort((a, b) =>  {
+          const dateA = new Date(a.checkOutDateUtc).getTime()
+          const dateB = new Date (b.checkOutDateUtc).getTime()
+          return dateB - dateA
+        })
+        setBookings(sorted)
+      }catch(err) {
+        console.error("Failed to fetch bookings", err)
+
+      }finally {
         setLoading(false)
       }
     }
