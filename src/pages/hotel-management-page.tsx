@@ -37,6 +37,7 @@ const HotelManagementPage = () => {
     description: '',
     phoneNumber: '',
     ownerName: '',
+    ownerID: 0,
   });
 
   const [newRoom, setNewRoom] = useState<{
@@ -199,6 +200,7 @@ const HotelManagementPage = () => {
   }
 
   const RoomsExpandedComponent = ({ data }: { data: Hotel }) => {
+    if (!data?.id) return <div className="p-4 text-red-500">Hotel id missing.</div>;
     return (
       <div className="p-4 bg-gray-50">
         <RoomList hotelId={data.id} />
@@ -379,15 +381,15 @@ const HotelManagementPage = () => {
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="ownerID" className="text-right">
-                Owner Id
+              <Label htmlFor="ownerName" className="text-right">
+                Owner Name
               </Label>
               <Input
-                id="ownerID"
-                type="number"
-                  value={newHotel.ownerID}
-                onChange={(e) => setNewHotel({ ...newHotel, ownerID: Number.parseInt(e.target.value) || 0 })}
+                id="ownerName"
+                value={newHotel.ownerName}
+                onChange={(e) => setNewHotel({ ...newHotel, ownerName: e.target.value})}
                 className="col-span-3"
+                placeholder='Jhon Doe'
               />
             </div>
           </div>

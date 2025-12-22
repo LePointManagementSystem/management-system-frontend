@@ -2,6 +2,13 @@ import { AvailableRoom, Room } from "@/types/hotel";
 
 const API_BASE = 'http://localhost:5004/api';
 
+type ApiResponse<T> = {
+  succeeded?: boolean
+  isSuccess?: boolean
+  message?: string
+  data?: T
+}
+
 function getAuthHeader(): string {
   const token = localStorage.getItem("token");
   if (!token) throw new Error("User is not authenticated. Token not found.");
@@ -50,11 +57,19 @@ export const getRoomsByHotelId = async (hotelId: number): Promise<Room[]> => {
 
   const result = await response.json();
 
-  if (!result || !Array.isArray(result.data.result)) {
+  const root = result?.data ?? result;
+  const roomsCandidate = 
+    root?.result ??
+    root?.data ??
+    root?.rooms ??
+    root;
+
+  if (!Array.isArray(roomsCandidate)) {
+    console.error("Unexpected rooms response:", result);
     throw new Error('Invalid response format: expected object with `data` as array');
   }
 
-  return result.data.result;
+  return roomsCandidate as Room[];
 };
 
 
@@ -62,11 +77,16 @@ export const getRoomsByHotelId = async (hotelId: number): Promise<Room[]> => {
 export const fetchAvailableRooms = async (
   roomClassId: number
 ): Promise<AvailableRoom[]> => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("User is not authenticated.");
+
   const res = await fetch(
     `${API_BASE}/Room/available-without-bookings?roomClassId=${roomClassId}`,
     {
+      method: "GET",
       headers: {
-        'Accept': 'application/json',
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`, // ✅ ICI
       },
     }
   );
@@ -78,12 +98,15 @@ export const fetchAvailableRooms = async (
 
   const result = await res.json();
 
-  if (!result.succeeded) {
+  // adapte selon ton API: parfois c'est "succeeded", parfois "isSuccess"
+  if (result.succeeded === false) {
     throw new Error(`API error: ${result.message}`);
   }
 
   return result.data;
 };
+
+
 
 export const updateRoom = async (
   roomId: number,

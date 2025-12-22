@@ -40,6 +40,7 @@ export interface RoomClass {
   name: string;
   description: string;
   hotelName: string;
+  hotelId: number;
 }
 
 export type AvailableRoom = {

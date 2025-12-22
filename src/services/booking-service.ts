@@ -1,23 +1,19 @@
 // services/booking-service.ts
 
-import { BookingPayload } from "@/types/boking";
+import { BookingPayload } from "@/types/boking"; // ⚠️ Vérifie l'orthographe du chemin (boking vs booking)
 
 const BASE_URL = "http://localhost:5004/api";
 
+/** Récupère l'en-tête Authorization avec le token stocké en local */
 function getAuthHeader(): string {
   const token = localStorage.getItem("token");
-  if (!token) throw new Error("User is not authenticated. Token not found.");
+  if (!token) throw new Error("Utilisateur non authentifié : token introuvable.");
   return `Bearer ${token}`;
 }
 
-
+/** Crée une réservation (booking) */
 export const createBooking = async (bookingPayload: BookingPayload) => {
-  const token = localStorage.getItem("token");
-
-  if (!token) {
-    throw new Error("User is not authenticated. Token not found.");
-  }
-
+  // (Optionnel) inutile de relire le token ici puisque getAuthHeader() le fait déjà
   const res = await fetch(`${BASE_URL}/Booking/create`, {
     method: "POST",
     headers: {
@@ -29,16 +25,14 @@ export const createBooking = async (bookingPayload: BookingPayload) => {
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Failed to create booking: ${errText}`);
+    throw new Error(`Échec de création du booking : ${errText}`);
   }
 
   return await res.json();
 };
 
+/** Récupère un booking par son id */
 export const fetchBookingById = async (id: string) => {
-  const token = localStorage.getItem("token");
-  if (!token) throw new Error("User is not authenticated. Token not found.");
-
   const res = await fetch(`${BASE_URL}/Booking/${id}`, {
     method: "GET",
     headers: {
@@ -47,15 +41,15 @@ export const fetchBookingById = async (id: string) => {
   });
 
   if (!res.ok) {
-    throw new Error("Failed to fetch booking");
+    const errText = await res.text();
+    throw new Error(`Échec de récupération du booking : ${errText}`);
   }
+
   return await res.json();
 };
 
+/** Récupère tous les bookings */
 export const fetchAllBookings = async () => {
-  const token = localStorage.getItem("token");
-  if (!token) throw new Error("User is not authenticated. Token not found.");
-
   const res = await fetch(`${BASE_URL}/Booking/all`, {
     method: "GET",
     headers: {
@@ -64,7 +58,8 @@ export const fetchAllBookings = async () => {
   });
 
   if (!res.ok) {
-    throw new Error("Failed to fetch bookings");
+    const errText = await res.text();
+    throw new Error(`Échec de récupération des bookings : ${errText}`);
   }
 
   const data = await res.json();
@@ -76,29 +71,22 @@ export const fetchAllBookings = async () => {
   return [];
 };
 
-
+/** Met à jour le statut d'un booking */
 export const updateBookingStatus = async (
   bookingId: number,
   statusId: number
 ): Promise<void> => {
-  const token = localStorage.getItem("token");
-  if (!token) throw new Error("User is not authenticated. Token not found.");
-
-  const res = await fetch(
-    `http://localhost:5004/api/Booking/${bookingId}/Update_status`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(statusId),
-    }
-  );
+  const res = await fetch(`${BASE_URL}/Booking/${bookingId}/Update_status`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: getAuthHeader(),
+    },
+    body: JSON.stringify(statusId),
+  });
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Failed to update booking status: ${errText}`);
+    throw new Error(`Échec de mise à jour du statut : ${errText}`);
   }
 };
-
