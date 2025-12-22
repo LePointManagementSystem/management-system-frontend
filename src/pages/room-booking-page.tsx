@@ -59,6 +59,7 @@ const RoomBookingPage: React.FC = () => {
 
   const [bookingComplete, setBookingComplete] = useState(false)
   const [bookingReference, setBookingReference] = useState("")
+  const [bookingGuestName, setBookingGuestName] = useState("")
   const [notification, setNotification] = useState("")
 
   const [existingClients, setExistingClients] = useState<Guest[]>([])
@@ -281,7 +282,14 @@ const RoomBookingPage: React.FC = () => {
 
       const result = await createBooking(bookingPayload)
 
+      // Booking reference (keep existing behavior)
       setBookingReference(result?.bookingReference || `BK-${Math.floor(100000 + Math.random() * 900000)}`)
+
+      // Guest name (prefer backend response, fallback to the form data)
+      const apiGuestFirst = result?.data?.guestFirstName ?? result?.data?.GuestFirstName
+      const apiGuestLast = result?.data?.guestLastName ?? result?.data?.GuestLastName
+      const guestFullName = `${apiGuestFirst ?? clientData.firstName} ${apiGuestLast ?? clientData.lastName}`.trim()
+      setBookingGuestName(guestFullName)
       setBookingComplete(true)
       setCurrentStep(3)
       alert("Booking completed successfully")
@@ -312,6 +320,7 @@ const RoomBookingPage: React.FC = () => {
     setNewClient({ firstName: "", lastName: "", cin: "", email: "" })
     setBookingComplete(false)
     setBookingReference("")
+    setBookingGuestName("")
     setNotification("")
   }
 
@@ -633,6 +642,11 @@ const RoomBookingPage: React.FC = () => {
                 <p>
                   <span className="font-medium">Booking Reference:</span> {bookingReference}
                 </p>
+                {bookingGuestName && (
+                  <p>
+                    <span className="font-medium">Client:</span> {bookingGuestName}
+                  </p>
+                )}
                 <p>
                   <span className="font-medium">Room:</span>{" "}
                   {(() => {
