@@ -30,10 +30,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen)
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/login');
-  };
+ const handleLogout = () => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("role");
+  localStorage.removeItem("roles");
+  localStorage.removeItem("hotelId");
+  navigate("/login");
+};
+
 
   const roleUser = localStorage.getItem('role') as 'Admin' | 'Staff' | null;
 const userRole: 'Admin' | 'Staff' = roleUser === 'Admin' ? 'Admin' : 'Staff';

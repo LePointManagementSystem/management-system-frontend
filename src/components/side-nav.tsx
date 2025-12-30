@@ -10,6 +10,7 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
+    { path: '/user-accounts', label: 'Access Management', icon: <Users className="h-5 w-5" /> },
     { path: '/restaurant', label: 'Restaurant Management', icon: <Utensils className="h-5 w-5" /> },
     { path: '/room-booking', label: 'Bookings', icon: <Users className="h-5 w-5" /> },
     { path: '/staff', label: 'Staff Management', icon: <Briefcase className="h-5 w-5" /> },

@@ -3,8 +3,8 @@ export interface Staff {
   firstName: string;
   lastName: string;
   role: string;
-  email: string;
-  phoneNumber: string;
+  email?: string | null;
+  phoneNumber?: string | null;
   hotelId: number;
   isActive: boolean;
 }
@@ -13,8 +13,8 @@ export interface StaffCreateRequest {
   firstName: string;
   lastName: string;
   role: string;
-  email: string;
-  phoneNumber: string;
+  email?: string | null;       // ✅ optionnel pour RH-only
+  phoneNumber?: string | null;
   hotelId: number;
   isActive: boolean;
 }

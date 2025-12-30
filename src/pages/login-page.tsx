@@ -9,11 +9,10 @@ import { decodeJwt, getRolesFromClaims, pickPrimaryRole } from '@/utils/jwt'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-
 // {
 //   "email": "test@testuser.com",
 //   "password": "Test231!"
-// }    
+// }
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
@@ -27,7 +26,7 @@ export function LoginPage() {
     e.preventDefault()
     setError(null)
 
-      const trimmedEmail = email.trim()
+    const trimmedEmail = email.trim()
     if (!trimmedEmail || !password) {
       setError("Please enter email and password.")
       return
@@ -36,19 +35,42 @@ export function LoginPage() {
     setIsLoading(true)
 
     try {
-      const result = await login({ email: trimmedEmail, password });
-    
-      if (result.succeeded && result.token) {
-        localStorage.setItem("token", result.token)
-        const claims = decodeJwt(result.token)
-        const rolesFromToken = getRolesFromClaims(claims)
-        const primaryRole = pickPrimaryRole(result.roles ?? rolesFromToken)
+      const result = await login({ email: trimmedEmail, password })
 
-        //const normalizedRole = (result.role ?? "").trim();
-        localStorage.setItem('roles', JSON.stringify(result.roles ?? rolesFromToken))
-        localStorage.setItem('role', primaryRole)
-        if (claims?.hotelId != null) localStorage.setItem("hotelId", String(claims.hotelId))
-        navigate('/dashboard')
+      if (result.succeeded && result.token) {
+        // ✅ clear old auth state
+        localStorage.removeItem("token")
+        localStorage.removeItem("roles")
+        localStorage.removeItem("role")
+        localStorage.removeItem("hotelId")
+        localStorage.removeItem("email")
+
+        localStorage.setItem("token", result.token)
+        localStorage.setItem("email", trimmedEmail)
+
+        const claims = decodeJwt(result.token)
+
+        // roles: prefer token claims, fallback to backend response
+        const rolesFromToken = getRolesFromClaims(claims)
+        const roles = (result.roles && result.roles.length > 0) ? result.roles : rolesFromToken
+
+        const primaryRole = pickPrimaryRole(roles)
+
+        localStorage.setItem("roles", JSON.stringify(roles))
+        localStorage.setItem("role", primaryRole)
+
+        // ✅ hotelId fallback (handles different claim names)
+        const hotelId =
+          (claims as any)?.hotelId ??
+          (claims as any)?.HotelId ??
+          (claims as any)?.hotel_id ??
+          (claims as any)?.staffHotelId
+
+        if (hotelId != null && String(hotelId).trim() !== "") {
+          localStorage.setItem("hotelId", String(hotelId))
+        }
+
+        navigate("/dashboard")
       } else {
         setError(result.message || "Invalid email or password")
       }
@@ -66,6 +88,7 @@ export function LoginPage() {
           <CardTitle>Management System</CardTitle>
           <CardDescription>Login to access your dashboard</CardDescription>
         </CardHeader>
+
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -79,6 +102,7 @@ export function LoginPage() {
                 required
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
@@ -108,6 +132,7 @@ export function LoginPage() {
                 </Button>
               </div>
             </div>
+
             {error && (
               <Alert variant="destructive">
                 <AlertTitle>Error</AlertTitle>
@@ -115,6 +140,7 @@ export function LoginPage() {
               </Alert>
             )}
           </CardContent>
+
           <CardFooter>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Logging in..." : "Login"}
@@ -125,4 +151,3 @@ export function LoginPage() {
     </div>
   )
 }
-
