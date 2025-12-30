@@ -37,6 +37,19 @@ function normalizeStaffPayload<T extends Record<string, any>>(payload: T): T {
   return copy;
 }
 
+function mapStaff(s: any): Staff {
+  return {
+    id: s.id ?? s.staffId ?? s.StaffId,              // ✅ KEY FIX
+    firstName: s.firstName ?? s.FirstName,
+    lastName: s.lastName ?? s.LastName,
+    role: s.role ?? s.Role,
+    email: s.email ?? s.Email ?? null,
+    phoneNumber: s.phoneNumber ?? s.PhoneNumber ?? null,
+    hotelId: s.hotelId ?? s.HotelId,
+    isActive: s.isActive ?? s.IsActive ?? true,
+  }
+}
+
 // 🔹 Récupérer le profil du staff connecté (endpoint: GET /api/Staff/me)
 export async function fetchMyStaffProfile(): Promise<Staff> {
   const token = getTokenOrThrow();
@@ -57,14 +70,14 @@ export async function fetchMyStaffProfile(): Promise<Staff> {
     );
   }
 
-  // ✅ si le backend renvoie directement Staff
-  if (json && (json.hotelId !== undefined || json.isActive !== undefined || json.id !== undefined)) {
-    return json as Staff;
+  // direct staff
+  if (json && (json.hotelId !== undefined || json.HotelId !== undefined)) {
+    return mapStaff(json);
   }
 
-  // ✅ si le backend renvoie ApiResponse<Staff> (wrapped)
-  const wrapped = json as ApiResponse<Staff>;
-  if (wrapped?.data) return wrapped.data;
+  // wrapped
+  const wrapped = json as ApiResponse<any>;
+  if (wrapped?.data) return mapStaff(wrapped.data);
 
   throw new Error("Staff profile response format is not recognized.");
 }
@@ -87,14 +100,17 @@ export async function fetchStaff(): Promise<Staff[]> {
     throw new Error(`Failed to fetch staff list: ${response.status} - ${JSON.stringify(json)}`);
   }
 
-  // ✅ backend renvoie directement Staff[]
-  if (Array.isArray(json)) return json as Staff[];
+  // backend renvoie tableau direct
+  if (Array.isArray(json)) {
+    return json.map(mapStaff);
+  }
 
-  // ✅ backend renvoie ApiResponse<Staff[]>
-  const wrapped = json as ApiResponse<Staff[]>;
-  if (wrapped?.data && Array.isArray(wrapped.data)) return wrapped.data;
+  // backend renvoie { data: [...] }
+  const wrapped = json as ApiResponse<any[]>;
+  if (wrapped?.data && Array.isArray(wrapped.data)) {
+    return wrapped.data.map(mapStaff);
+  }
 
-  // fallback
   return [];
 }
 
@@ -117,15 +133,18 @@ export async function addStaff(staff: StaffCreateRequest): Promise<Staff> {
     throw new Error(`Failed to add staff: ${response.status} - ${JSON.stringify(json)}`);
   }
 
-  // ✅ Staff direct
-  if (json && (json.id !== undefined || json.hotelId !== undefined)) return json as Staff;
+  // direct
+  if (json && (json.id !== undefined || json.staffId !== undefined || json.StaffId !== undefined)) {
+    return mapStaff(json);
+  }
 
-  // ✅ ApiResponse<Staff>
-  const wrapped = json as ApiResponse<Staff>;
-  if (wrapped?.data) return wrapped.data;
+  // wrapped
+  const wrapped = json as ApiResponse<any>;
+  if (wrapped?.data) return mapStaff(wrapped.data);
 
   throw new Error("Add staff response format is not recognized.");
 }
+
 
 export async function updateStaff(
   id: number,
@@ -149,15 +168,18 @@ export async function updateStaff(
     throw new Error(`Failed to update staff: ${response.status} - ${JSON.stringify(json)}`);
   }
 
-  // ✅ Staff direct
-  if (json && (json.id !== undefined || json.hotelId !== undefined)) return json as Staff;
+  // direct
+  if (json && (json.id !== undefined || json.staffId !== undefined || json.StaffId !== undefined)) {
+    return mapStaff(json);
+  }
 
-  // ✅ ApiResponse<Staff>
-  const wrapped = json as ApiResponse<Staff>;
-  if (wrapped?.data) return wrapped.data;
+  // wrapped
+  const wrapped = json as ApiResponse<any>;
+  if (wrapped?.data) return mapStaff(wrapped.data);
 
   throw new Error("Update staff response format is not recognized.");
 }
+
 
 export async function deleteStaff(id: number): Promise<void> {
   const token = getTokenOrThrow();
