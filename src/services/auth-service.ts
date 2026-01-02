@@ -12,7 +12,20 @@ export interface LoginResponse {
   roles?: string[]
 }
 
+export interface AuthMeDto {
+  id: string
+  email: string
+  userName: string
+  roles: string[]
+}
+
 const BASE_URL = "http://localhost:5004/api"
+
+function getTokenOrThrow(): string {
+  const token = localStorage.getItem("token")
+  if (!token) throw new Error("No auth token found. Please log in again.")
+  return token
+}
 
 export const login = async (credentials: LoginCredentials): Promise<LoginResponse> => {
   try {
@@ -57,5 +70,40 @@ export const login = async (credentials: LoginCredentials): Promise<LoginRespons
     }
   } catch (error) {
     return { succeeded: false, message: "Network error" }
+  }
+}
+
+// 🔹 Profil Identity du user connecté (GET /api/auth/me)
+export const fetchAuthMe = async (): Promise<AuthMeDto> => {
+  const token = getTokenOrThrow()
+
+  const response = await fetch(`${BASE_URL}/auth/me`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  const rawText = await response.text()
+  let payload: any = null
+  try {
+    payload = rawText ? JSON.parse(rawText) : null
+  } catch {
+    payload = null
+  }
+
+  if (!response.ok) {
+    const msg = payload?.message || payload?.error || rawText || `Request failed (${response.status})`
+    throw new Error(msg)
+  }
+
+  const root = payload?.data ?? payload
+
+  return {
+    id: root?.id ?? root?.Id,
+    email: root?.email ?? root?.Email,
+    userName: root?.userName ?? root?.UserName,
+    roles: root?.roles ?? root?.Roles ?? [],
   }
 }
