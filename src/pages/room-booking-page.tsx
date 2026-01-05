@@ -249,14 +249,14 @@ const RoomBookingPage: React.FC = () => {
           cin: existing.cin ?? "",
           email: existing.email ?? "",
         }
-      } else {
-        const addedGuest = await addGuest({
+	      } else {
+	        await addGuest({
           firstName: newClient.firstName,
           lastName: newClient.lastName,
           cin: newClient.cin,
           email: newClient.email,
         })
-        // (si tu veux utiliser addedGuest.id côté backend, ajoute-le dans payload si le backend le supporte)
+	        // (si tu veux utiliser l'id retourné par le backend, récupère-le ici et ajoute-le au payload si supporté)
         clientData = {
           firstName: newClient.firstName ?? "",
           lastName: newClient.lastName ?? "",

@@ -10,29 +10,33 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
-    { path: '/user-accounts', label: 'Access Management', icon: <Users className="h-5 w-5" /> },
     { path: '/restaurant', label: 'Restaurant Management', icon: <Utensils className="h-5 w-5" /> },
     { path: '/room-booking', label: 'Bookings', icon: <Users className="h-5 w-5" /> },
+    { path: '/bookings', label: 'Manage Bookings', icon: <ClipboardList className="h-5 w-5" /> },
     { path: '/staff', label: 'Staff Management', icon: <Briefcase className="h-5 w-5" /> },
     { path: '/clients', label: ' Client Management', icon: <Users className="h-5 w-5" /> }
 ];
 
 
-const adjustedMenuItems = (role: 'Admin' | 'Staff') => {
+type Role = 'Admin' | 'Manager' | 'Staff' | 'Receptionist' | string;
+
+const adjustedMenuItems = (role: Role) => {
     const adminMenuItems = menuItems.concat([
         { path: '/hotel-management', label: 'Hotel Management', icon: <Hotel className="h-5 w-5" /> },
+        { path: '/user-accounts', label: 'Access Management', icon: <Users className="h-5 w-5" /> },
         { path: '/inventory', label: 'Inventory', icon: <ClipboardList className="h-5 w-5" /> },
         { path: '/reports/restaurant', label: 'Restaurant Report', icon: <FileText className="h-5 w-5" /> },
         { path: '/reports/occupancy', label: 'Occupancy Reports', icon: <FileText className="h-5 w-5" /> },
         { path: '/reports/financial', label: 'Financial Reports', icon: <FileText className="h-5 w-5" /> },
     ]);
 
-    return role === 'Admin' ? adminMenuItems : menuItems;
+    // Treat Manager like Admin for menu access by default
+    return (role === 'Admin' || role === 'Manager') ? adminMenuItems : menuItems;
 };
 
 interface SidenavProps {
     isSidebarOpen: boolean;
-    role: 'Admin' | 'Staff';
+    role: Role;
 }
 
 const Sidenav: React.FC<SidenavProps> = ({ isSidebarOpen, role }) => {

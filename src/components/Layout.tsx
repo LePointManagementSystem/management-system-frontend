@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { Bell, ChevronDown, Menu, Search } from "lucide-react"
+import { ChevronDown, Menu, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -16,6 +16,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import Sidenav from "./side-nav"
 import UserProfile from "./user-profile"
+
+// ✅ NEW: Notifications Bell component
+import { NotificationsBell } from "@/components/notifications-bell"
 
 interface LayoutProps {
   children: React.ReactNode
@@ -78,9 +81,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               </div>
 
-              <Button variant="ghost" size="icon">
-                <Bell className="h-5 w-5" />
-              </Button>
+              {/* ✅ REPLACED: bell button -> notifications center */}
+              <NotificationsBell />
 
               {/* ✅ Profile dialog */}
               <Dialog>
@@ -111,7 +113,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem disabled>Settings</DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600">
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="text-red-600 focus:text-red-600"
+                  >
                     Logout
                   </DropdownMenuItem>
                 </DropdownMenuContent>

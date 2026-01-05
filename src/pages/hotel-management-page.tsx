@@ -195,10 +195,6 @@ const HotelManagementPage = () => {
     setExpandedRows(newExpandedRows)
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString()
-  }
-
   const RoomsExpandedComponent = ({ data }: { data: Hotel }) => {
     if (!data?.id) return <div className="p-4 text-red-500">Hotel id missing.</div>;
     return (
@@ -318,7 +314,7 @@ const HotelManagementPage = () => {
         expandableRows
         expandableRowsComponent={RoomsExpandedComponent}
         expandableRowExpanded={(row) => expandedRows.has(row.id)}
-        onRowExpandToggled={(expanded, row) => handleToggleExpand(row.id)}
+	      onRowExpandToggled={(_expanded, row) => handleToggleExpand(row.id)}
       />
 
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>

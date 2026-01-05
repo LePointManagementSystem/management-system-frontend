@@ -2,13 +2,6 @@ import { AvailableRoom, Room } from "@/types/hotel";
 
 const API_BASE = 'http://localhost:5004/api';
 
-type ApiResponse<T> = {
-  succeeded?: boolean
-  isSuccess?: boolean
-  message?: string
-  data?: T
-}
-
 function getAuthHeader(): string {
   const token = localStorage.getItem("token");
   if (!token) throw new Error("User is not authenticated. Token not found.");

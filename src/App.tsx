@@ -11,6 +11,7 @@ import RestaurantReportPage from "./pages/reports/restaurant-report-page";
 import FinancialReportPage from "./pages/reports/financial-report-page";
 import OccupancyReportPage from "./pages/reports/occupancy-report-page";
 import RoomBookingPage from "./pages/room-booking-page";
+import BookingsPage from "./pages/bookings-page";
 
 // ✅ NEW
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -39,6 +40,7 @@ function App() {
             <Route path="/reports/financial" element={<FinancialReportPage />} />
             <Route path="/reports/occupancy" element={<OccupancyReportPage />} />
             <Route path="/room-booking" element={<RoomBookingPage />} />
+            <Route path="/bookings" element={<BookingsPage />} />
 
             {/* Admin only */}
             <Route element={<RequireRole allowed={["Admin"]} />}>
