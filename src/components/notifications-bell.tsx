@@ -1,6 +1,6 @@
 // (ex: src/components/NotificationsBell.tsx) — adapte le path selon ton projet
 import { useEffect, useState } from "react"
-import { Bell, Check, Loader2 } from "lucide-react"
+import { Bell, Check, Loader2, BadgeCheck, CheckCircle2, BellRing } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
@@ -45,15 +45,61 @@ function formatDateTimeHaiti(date: Date): string {
   }).format(date)
 }
 
-function shortCode(code: string | null | undefined): string {
-  if (!code) return ""
-  return code.length <= 8 ? code : `${code.slice(0, 8)}…`
+function formatBookingRef(ref?: string | null): string {
+  const r = (ref || "").trim()
+  if (!r) return ""
+
+  // Already user-friendly (BK-123456)
+  if (/^BK-\d+$/i.test(r)) return r.toUpperCase()
+
+  // GUID/UUID -> BK-XXXXXX
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(r)) {
+    return `BK-${r.slice(0, 6).toUpperCase()}`
+  }
+
+  // Fallback: short
+  return r.length <= 12 ? r : `${r.slice(0, 12)}…`
 }
 
-function formatNotificationMessage(n: NotificationDto): { title: string; message: string } {
+function normalizeDurationLabel(raw?: string | null): string {
+  const s = (raw || "").replace(/[()]/g, "").trim().toLowerCase()
+  if (!s) return ""
+  if (s.includes("hours2") || s === "2h") return "2h"
+  if (s.includes("hours4") || s === "4h") return "4h"
+  if (s.includes("overnight")) return "Overnight"
+  return raw!.replace(/[()]/g, "").trim()
+}
+
+function formatTimeHaiti(date: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: HAITI_TIMEZONE,
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date)
+}
+
+function formatDateShortHaiti(date: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: HAITI_TIMEZONE,
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  }).format(date)
+}
+
+function getKindFromTitle(title: string): "confirmed" | "completed" | "other" {
+  const t = (title || "").toLowerCase()
+  if (t.includes("confirmed")) return "confirmed"
+  if (t.includes("completed")) return "completed"
+  return "other"
+}
+
+function formatNotificationMessage(
+  n: NotificationDto,
+): { title: string; primary: string; secondary?: string } {
   const title = (n.title || "Notification").trim()
   const raw = (n.message || "").trim()
-  if (!raw) return { title, message: "" }
+  if (!raw) return { title, primary: "", secondary: undefined }
 
   // Example (confirmed):
   // Booking <uuid> for <Guest> - Rooms #333. Check-in: 2026-01-04 02:00:00Z, Check-out: 2026-01-04 04:00:00Z (Hours2).
@@ -75,7 +121,9 @@ function formatNotificationMessage(n: NotificationDto): { title: string; message
         .filter(Boolean)
     : []
 
-  const checkMatch = raw.match(/Check-in:\s*([^,]+),\s*Check-out:\s*([^\s]+\s*[^\(]*?)\s*(\([^\)]+\))?\.?$/i)
+  const checkMatch = raw.match(
+    /Check-in:\s*([^,]+),\s*Check-out:\s*([^\s]+\s*[^\(]*?)\s*(\([^\)]+\))?\.?$/i,
+  )
   const checkInStr = checkMatch?.[1]?.trim()
   const checkOutStr = checkMatch?.[2]?.trim()
   const duration = checkMatch?.[3]?.trim() // includes parentheses
@@ -90,40 +138,50 @@ function formatNotificationMessage(n: NotificationDto): { title: string; message
         ? `Room ${rooms[0].replace(/^0+/, "") || rooms[0]}`
         : `Rooms ${rooms.map((r) => r.replace(/^0+/, "") || r).join(", ")}`
 
-  // Humanize by notification type/title (keep English)
-  if (/booking\s+confirmed/i.test(title) || /confirmed/i.test(title)) {
-    const parts: string[] = ["Reservation confirmed"]
-    if (guest) parts.push(`for ${guest}`)
-    if (roomsLabel) parts.push(`(${roomsLabel})`)
-    const header = parts.join(" ")
+  const kind = getKindFromTitle(title)
+  const ref = formatBookingRef(bookingCode)
+  const dur = normalizeDurationLabel(duration)
 
-    const timePart =
-      checkIn && checkOut
-        ? `Check-in: ${formatDateTimeHaiti(checkIn)} · Check-out: ${formatDateTimeHaiti(checkOut)}`
-        : null
+  // ✅ User-friendly: 2 lines max
+  // Line 1: who + room + time range
+  // Line 2: Ref + type (short)
 
-    const bookingPart = bookingCode ? `Booking: ${shortCode(bookingCode)}` : null
+  if (kind === "confirmed") {
+    const who = guest || "Reservation"
+    const where = roomsLabel || ""
 
-    const message = [timePart, duration?.replace(/[()]/g, "") ? `Type: ${duration.replace(/[()]/g, "")}` : null, bookingPart]
-      .filter(Boolean)
-      .join(" · ")
+    let when = ""
+    if (checkIn && checkOut) {
+      const sameDay = formatDateShortHaiti(checkIn) === formatDateShortHaiti(checkOut)
+      const start = formatTimeHaiti(checkIn)
+      const end = formatTimeHaiti(checkOut)
+      when = sameDay ? `${start} → ${end}` : `${formatDateTimeHaiti(checkIn)} → ${formatDateTimeHaiti(checkOut)}`
+    }
 
-    return { title, message: message ? `${header}. ${message}` : header }
+    const primary = [who, where, when].filter(Boolean).join(" • ")
+    const secondary = [ref ? `Ref ${ref}` : null, dur ? dur : null].filter(Boolean).join(" • ") || undefined
+
+    return { title, primary, secondary }
   }
 
-  if (/booking\s+completed/i.test(title) || /completed/i.test(title)) {
-    const base = roomsLabel ? `Reservation completed (${roomsLabel})` : "Reservation completed"
-    const bookingPart = bookingCode ? `Booking: ${shortCode(bookingCode)}` : null
-    return { title, message: bookingPart ? `${base}. ${bookingPart}` : base }
+  if (kind === "completed") {
+    const primary = roomsLabel ? `${roomsLabel} is now available` : "Booking completed"
+    const secondary = [ref ? `Ref ${ref}` : null].filter(Boolean).join(" • ") || undefined
+    return { title, primary, secondary }
   }
 
   // Fallback: if we can at least convert embedded dates to Haiti timezone
   if (checkIn && checkOut) {
-    const msg = `Check-in: ${formatDateTimeHaiti(checkIn)} · Check-out: ${formatDateTimeHaiti(checkOut)}${duration ? ` · Type: ${duration.replace(/[()]/g, "")}` : ""}`
-    return { title, message: bookingCode ? `${msg} · Booking: ${shortCode(bookingCode)}` : msg }
+    const sameDay = formatDateShortHaiti(checkIn) === formatDateShortHaiti(checkOut)
+    const when = sameDay
+      ? `${formatTimeHaiti(checkIn)} → ${formatTimeHaiti(checkOut)}`
+      : `${formatDateTimeHaiti(checkIn)} → ${formatDateTimeHaiti(checkOut)}`
+    const primary = [roomsLabel, when].filter(Boolean).join(" • ")
+    const secondary = [ref ? `Ref ${ref}` : null, dur ? dur : null].filter(Boolean).join(" • ") || undefined
+    return { title, primary, secondary }
   }
 
-  return { title, message: raw }
+  return { title, primary: raw, secondary: undefined }
 }
 
 function timeAgo(isoUtc: string): string {
@@ -268,31 +326,43 @@ export function NotificationsBell() {
               >
                 {(() => {
                   const fm = formatNotificationMessage(n)
+                  const kind = getKindFromTitle(fm.title)
+                  const Icon = kind === "confirmed" ? BadgeCheck : kind === "completed" ? CheckCircle2 : BellRing
                   return (
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">{fm.title}</div>
-                    <div className="text-xs text-muted-foreground mt-1 break-words">{fm.message}</div>
-                    <div className="text-[11px] text-muted-foreground mt-2">
-                      {timeAgo(n.createdAtUtc)} · {n.isRead ? "Lu" : "Non lu"}
-                    </div>
-                  </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className={cn("mt-0.5 shrink-0", !n.isRead && "text-primary")}>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">{fm.title}</div>
+                          {fm.primary && (
+                            <div className="text-xs text-muted-foreground mt-1 break-words">{fm.primary}</div>
+                          )}
+                          {fm.secondary && (
+                            <div className="text-xs text-muted-foreground mt-1 break-words">{fm.secondary}</div>
+                          )}
+                          <div className="text-[11px] text-muted-foreground mt-2">
+                            {timeAgo(n.createdAtUtc)} · {n.isRead ? "Lu" : "Non lu"}
+                          </div>
+                        </div>
+                      </div>
 
-                  {!n.isRead && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onMarkOne(n)
-                      }}
-                      title="Marquer comme lu"
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
+                      {!n.isRead && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onMarkOne(n)
+                          }}
+                          title="Marquer comme lu"
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   )
                 })()}
               </div>
