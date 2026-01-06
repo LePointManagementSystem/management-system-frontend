@@ -3,33 +3,48 @@ import { Users, ShoppingCart, Utensils, Calendar, BarChart } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchAllBookings, type BookingDto } from "@/services/booking-service";
 import { useEffect, useState } from "react";
+import { onBookingsChanged } from "@/utils/events";
+
 
 const DashboardPage = () => {
   const [bookings, setBookings] = useState<BookingDto[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadBookings = async () => {
-      try {
-        const data = await fetchAllBookings();
+  let mounted = true;
 
-        const sorted = [...(data || [])].sort((a, b) => {
-          const dateA = new Date(a.checkOutDateUtc).getTime();
-          const dateB = new Date(b.checkOutDateUtc).getTime();
-          return dateB - dateA;
-        });
+  const loadBookings = async () => {
+    try {
+      const data = await fetchAllBookings();
+      const sorted = [...(data || [])].sort((a, b) => {
+        const dateA = new Date(a.checkOutDateUtc).getTime();
+        const dateB = new Date(b.checkOutDateUtc).getTime();
+        return dateB - dateA;
+      });
 
-        setBookings(sorted);
-      } catch (err) {
-        console.error("Failed to fetch bookings", err);
-        setBookings([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+      if (mounted) setBookings(sorted);
+    } catch (err) {
+      console.error("Failed to fetch bookings", err);
+      if (mounted) setBookings([]);
+    } finally {
+      if (mounted) setLoading(false);
+    }
+  };
 
+  loadBookings();
+
+  // ✅ Auto refresh when booking changes
+  const unsubscribe = onBookingsChanged(() => {
+    // Option: setLoading(true); (si tu veux afficher "Loading...")
     loadBookings();
-  }, []);
+  });
+
+  return () => {
+    mounted = false;
+    unsubscribe();
+  };
+}, []);
+
 
   return (
     <div className="space-y-6">

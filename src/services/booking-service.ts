@@ -3,6 +3,9 @@ import { API_BASE_URL } from "@/config/api-base";
 
 import type { BookingPayload } from "@/types/boking";
 
+import { emitBookingsChanged } from "@/utils/events";
+
+
 // ...
 
 /**
@@ -20,7 +23,12 @@ export async function createBooking(payload: BookingPayload): Promise<any> {
     body: JSON.stringify(payload),
   });
 
-  return await unwrap<any>(res);
+  const data = await unwrap<any>(res);
+
+  // ✅ Notify the app that bookings changed
+  emitBookingsChanged({ type: "created" });
+
+  return data;
 }
 
 
@@ -207,7 +215,11 @@ export async function updateBookingStatus(bookingId: number, statusId: number): 
   });
 
   await unwrap<void>(res);
+
+  // ✅ Notify the app that bookings changed
+  emitBookingsChanged({ type: "status-updated", bookingId, statusId });
 }
+
 
 /**
  * ✅ Annulation
