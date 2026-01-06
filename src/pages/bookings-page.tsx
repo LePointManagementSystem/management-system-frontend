@@ -43,6 +43,27 @@ function statusVariant(status: string): "default" | "secondary" | "destructive" 
 }
 
 /**
+ * Affichage user-friendly du booking reference
+ * - Si BK-123456 => BK-123456
+ * - Si GUID => BK-XXXXXX (6 chars)
+ * - Sinon => laisse tel quel
+ */
+function formatBookingRef(ref?: string) {
+  if (!ref) return "—";
+
+  // BK-123456
+  if (/^BK-\d+$/i.test(ref)) return ref.toUpperCase();
+
+  // GUID
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref)) {
+    return `BK-${ref.slice(0, 6).toUpperCase()}`;
+  }
+
+  // fallback
+  return ref;
+}
+
+/**
  * Filtre "range overlap" :
  * On garde une réservation si son intervalle [checkIn, checkOut] chevauche la fenêtre [from, to]
  * - si from est défini: checkOut >= from
@@ -61,15 +82,14 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ On garde la liste complète ici
   const [rows, setRows] = useState<BookingDto[]>([]);
 
-  // ✅ Filters
+  // Filters
   const [fromDateStr, setFromDateStr] = useState<string>(""); // YYYY-MM-DD
   const [toDateStr, setToDateStr] = useState<string>(""); // YYYY-MM-DD
   const [statusFilter, setStatusFilter] = useState<string>("all"); // all|pending|confirmed|cancelled|completed
 
-  // ✅ Pagination
+  // Pagination
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState<number>(1);
 
@@ -95,7 +115,6 @@ export default function BookingsPage() {
     try {
       const data = await fetchBookingsByHotel(hotelId ?? undefined);
 
-      // tri récent
       const sorted = [...(data || [])].sort((a, b) => {
         const aT = new Date(a.checkInDateUtc).getTime();
         const bT = new Date(b.checkInDateUtc).getTime();
@@ -111,7 +130,7 @@ export default function BookingsPage() {
     }
   };
 
-  // ✅ Auto-refresh via event
+  // Auto-refresh via event
   useEffect(() => {
     void load();
     const unsubscribe = onBookingsChanged(() => {
@@ -121,7 +140,7 @@ export default function BookingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ Reset page when filters/pageSize change
+  // Reset page when filters/pageSize change
   useEffect(() => {
     setPage(1);
   }, [fromDateStr, toDateStr, statusFilter, pageSize]);
@@ -130,10 +149,8 @@ export default function BookingsPage() {
     const s = (statusFilter || "all").toLowerCase();
 
     return rows.filter((b) => {
-      // Date overlap
       if (!overlapsDateWindow(b.checkInDateUtc, b.checkOutDateUtc, fromDate, toDate)) return false;
 
-      // Status
       const bs = (b.status || "").toLowerCase();
       if (s === "all") return true;
       if (s === "pending") return bs.includes("pending");
@@ -158,7 +175,7 @@ export default function BookingsPage() {
     if (isDone) return;
 
     const ok = window.confirm(
-      `Cancel booking ${b.confirmationNumber} for ${b.guestName} (Room(s): ${b.roomNumbers})?`,
+      `Cancel booking ${formatBookingRef(b.confirmationNumber)} for ${b.guestName} (Room(s): ${b.roomNumbers})?`,
     );
     if (!ok) return;
 
@@ -175,7 +192,7 @@ export default function BookingsPage() {
     if (isDone) return;
 
     const ok = window.confirm(
-      `Mark booking ${b.confirmationNumber} as COMPLETED now?\nGuest: ${b.guestName}\nRoom(s): ${b.roomNumbers}`
+      `Mark booking ${formatBookingRef(b.confirmationNumber)} as COMPLETED now?\nGuest: ${b.guestName}\nRoom(s): ${b.roomNumbers}`
     );
     if (!ok) return;
 
@@ -197,7 +214,6 @@ export default function BookingsPage() {
           </Button>
         </div>
 
-        {/* Filters + Pagination Controls */}
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
             <div className="flex flex-col gap-1">
@@ -323,7 +339,9 @@ export default function BookingsPage() {
                   <TableRow key={b.bookingId}>
                     <TableCell className="font-medium">
                       {b.guestName}
-                      <div className="text-xs text-muted-foreground">{b.confirmationNumber}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Booking Ref: {formatBookingRef(b.confirmationNumber)}
+                      </div>
                     </TableCell>
                     <TableCell>{b.roomNumbers}</TableCell>
                     <TableCell>{toHaitiLocal(b.checkInDateUtc)}</TableCell>
@@ -332,25 +350,14 @@ export default function BookingsPage() {
                       <Badge variant={statusVariant(b.status)}>{b.status}</Badge>
                     </TableCell>
 
-                    {/* ✅ Action buttons IN the row */}
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onComplete(b)}
-                          disabled={isDone}
-                        >
+                        <Button variant="outline" size="sm" onClick={() => onComplete(b)} disabled={isDone}>
                           <CheckCircle2 className="h-4 w-4 mr-2" />
                           Complete
                         </Button>
 
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => onCancel(b)}
-                          disabled={isDone}
-                        >
+                        <Button variant="destructive" size="sm" onClick={() => onCancel(b)} disabled={isDone}>
                           <XCircle className="h-4 w-4 mr-2" />
                           Cancel
                         </Button>
