@@ -220,6 +220,12 @@ export async function updateBookingStatus(bookingId: number, statusId: number): 
   emitBookingsChanged({ type: "status-updated", bookingId, statusId });
 }
 
+const COMPLETED_STATUS_ID = 3;
+
+export async function completeBooking(bookingId: number): Promise<void> {
+  await updateBookingStatus(bookingId, COMPLETED_STATUS_ID);
+}
+
 
 /**
  * ✅ Annulation

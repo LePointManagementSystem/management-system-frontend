@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
-import { cancelBooking, fetchBookingsByHotel, type BookingDto } from "@/services/booking-service";
+import { Loader2, XCircle, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { onBookingsChanged } from "@/utils/events";
+import { cancelBooking, completeBooking, fetchBookingsByHotel, type BookingDto } from "@/services/booking-service";
+
 import {
   Select,
   SelectContent,
@@ -80,13 +81,11 @@ export default function BookingsPage() {
 
   const fromDate = useMemo(() => {
     if (!fromDateStr) return null;
-    // input type="date" -> on considère minuit local
     return new Date(`${fromDateStr}T00:00:00`);
   }, [fromDateStr]);
 
   const toDate = useMemo(() => {
     if (!toDateStr) return null;
-    // fin de journée local (23:59:59) pour inclure la date entière
     return new Date(`${toDateStr}T23:59:59`);
   }, [toDateStr]);
 
@@ -96,7 +95,7 @@ export default function BookingsPage() {
     try {
       const data = await fetchBookingsByHotel(hotelId ?? undefined);
 
-      // Optionnel: tri récent (par checkIn / checkOut)
+      // tri récent
       const sorted = [...(data || [])].sort((a, b) => {
         const aT = new Date(a.checkInDateUtc).getTime();
         const bT = new Date(b.checkInDateUtc).getTime();
@@ -131,17 +130,16 @@ export default function BookingsPage() {
     const s = (statusFilter || "all").toLowerCase();
 
     return rows.filter((b) => {
-      // 1) Date overlap filter (checkIn/checkOut)
+      // Date overlap
       if (!overlapsDateWindow(b.checkInDateUtc, b.checkOutDateUtc, fromDate, toDate)) return false;
 
-      // 2) Status filter
+      // Status
       const bs = (b.status || "").toLowerCase();
       if (s === "all") return true;
       if (s === "pending") return bs.includes("pending");
       if (s === "confirmed") return bs.includes("confirmed");
       if (s === "cancelled") return bs.includes("cancel");
       if (s === "completed") return bs.includes("completed");
-
       return true;
     });
   }, [rows, fromDate, toDate, statusFilter]);
@@ -166,10 +164,26 @@ export default function BookingsPage() {
 
     try {
       await cancelBooking(b.bookingId);
-      // update UI immediately
       setRows((prev) => prev.map((x) => (x.bookingId === b.bookingId ? { ...x, status: "Cancelled" } : x)));
     } catch (e: any) {
       alert(e?.message ?? "Failed to cancel booking");
+    }
+  };
+
+  const onComplete = async (b: BookingDto) => {
+    const isDone = ["cancelled", "completed"].includes((b.status || "").toLowerCase());
+    if (isDone) return;
+
+    const ok = window.confirm(
+      `Mark booking ${b.confirmationNumber} as COMPLETED now?\nGuest: ${b.guestName}\nRoom(s): ${b.roomNumbers}`
+    );
+    if (!ok) return;
+
+    try {
+      await completeBooking(b.bookingId);
+      setRows((prev) => prev.map((x) => (x.bookingId === b.bookingId ? { ...x, status: "Completed" } : x)));
+    } catch (e: any) {
+      alert(e?.message ?? "Failed to complete booking");
     }
   };
 
@@ -183,7 +197,7 @@ export default function BookingsPage() {
           </Button>
         </div>
 
-        {/* ✅ Filters + Pagination Controls */}
+        {/* Filters + Pagination Controls */}
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
             <div className="flex flex-col gap-1">
@@ -241,10 +255,7 @@ export default function BookingsPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Select
-                value={String(pageSize)}
-                onValueChange={(v) => setPageSize(Number(v))}
-              >
+              <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
                 <SelectTrigger className="w-[120px]">
                   <SelectValue placeholder="Page size" />
                 </SelectTrigger>
@@ -307,6 +318,7 @@ export default function BookingsPage() {
             <TableBody>
               {pagedRows.map((b) => {
                 const isDone = ["cancelled", "completed"].includes((b.status || "").toLowerCase());
+
                 return (
                   <TableRow key={b.bookingId}>
                     <TableCell className="font-medium">
@@ -319,11 +331,30 @@ export default function BookingsPage() {
                     <TableCell>
                       <Badge variant={statusVariant(b.status)}>{b.status}</Badge>
                     </TableCell>
+
+                    {/* ✅ Action buttons IN the row */}
                     <TableCell className="text-right">
-                      <Button variant="destructive" size="sm" onClick={() => onCancel(b)} disabled={isDone}>
-                        <XCircle className="h-4 w-4 mr-2" />
-                        Cancel
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onComplete(b)}
+                          disabled={isDone}
+                        >
+                          <CheckCircle2 className="h-4 w-4 mr-2" />
+                          Complete
+                        </Button>
+
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => onCancel(b)}
+                          disabled={isDone}
+                        >
+                          <XCircle className="h-4 w-4 mr-2" />
+                          Cancel
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
