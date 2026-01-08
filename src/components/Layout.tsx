@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import Sidenav from "./side-nav"
 import UserProfile from "./user-profile"
 
-// ✅ NEW: Notifications Bell component
+// ✅ Notifications Bell component
 import { NotificationsBell } from "@/components/notifications-bell"
 
 interface LayoutProps {
@@ -28,9 +28,12 @@ type Role = "Admin" | "Manager" | "Receptionist" | "Staff" | "HR" | "User"
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen)
+  const toggleSidebar = () => setIsSidebarOpen((v) => !v)
 
   const navigate = useNavigate()
+
+  // ✅ Search state (MUST be here, not inside JSX)
+  const [searchText, setSearchText] = useState("")
 
   const handleLogout = () => {
     localStorage.removeItem("token")
@@ -61,6 +64,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     return (parts[0][0] + parts[1][0]).toUpperCase()
   }, [displayName])
 
+  const submitSearch = () => {
+    const q = searchText.trim()
+    if (!q) return
+    navigate(`/search?q=${encodeURIComponent(q)}`)
+  }
+
   return (
     <div className="flex h-screen bg-gray-100">
       <Sidenav isSidebarOpen={isSidebarOpen} role={userRole} />
@@ -68,20 +77,32 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white shadow-md">
           <div className="flex items-center justify-between p-4">
-            <div className="flex items-center">
-              <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mr-4">
+            {/* Left */}
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" onClick={toggleSidebar}>
                 <Menu className="h-6 w-6" />
               </Button>
               <h2 className="text-xl font-semibold">Le Point 95</h2>
             </div>
 
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Input type="search" placeholder="Search..." className="pl-8" />
-                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            {/* Right */}
+            <div className="flex items-center gap-3">
+              {/* ✅ Real Search */}
+              <div className="relative w-[260px] md:w-[340px]">
+                <Input
+                  type="search"
+                  placeholder="Search bookings, guests, rooms…"
+                  className="pl-8"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") submitSearch()
+                  }}
+                />
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
               </div>
 
-              {/* ✅ REPLACED: bell button -> notifications center */}
+              {/* ✅ Notifications */}
               <NotificationsBell />
 
               {/* ✅ Profile dialog */}

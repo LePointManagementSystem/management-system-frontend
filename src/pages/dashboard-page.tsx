@@ -4,47 +4,44 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchAllBookings, type BookingDto } from "@/services/booking-service";
 import { useEffect, useState } from "react";
 import { onBookingsChanged } from "@/utils/events";
-
+import { formatIsoUtcToHaitiShort } from "@/utils/datetime";
 
 const DashboardPage = () => {
   const [bookings, setBookings] = useState<BookingDto[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-  let mounted = true;
+    let mounted = true;
 
-  const loadBookings = async () => {
-    try {
-      const data = await fetchAllBookings();
-      const sorted = [...(data || [])].sort((a, b) => {
-        const dateA = new Date(a.checkOutDateUtc).getTime();
-        const dateB = new Date(b.checkOutDateUtc).getTime();
-        return dateB - dateA;
-      });
+    const loadBookings = async () => {
+      try {
+        const data = await fetchAllBookings();
+        const sorted = [...(data || [])].sort((a, b) => {
+          const dateA = new Date(a.checkOutDateUtc).getTime();
+          const dateB = new Date(b.checkOutDateUtc).getTime();
+          return dateB - dateA;
+        });
 
-      if (mounted) setBookings(sorted);
-    } catch (err) {
-      console.error("Failed to fetch bookings", err);
-      if (mounted) setBookings([]);
-    } finally {
-      if (mounted) setLoading(false);
-    }
-  };
+        if (mounted) setBookings(sorted);
+      } catch (err) {
+        console.error("Failed to fetch bookings", err);
+        if (mounted) setBookings([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
 
-  loadBookings();
-
-  // ✅ Auto refresh when booking changes
-  const unsubscribe = onBookingsChanged(() => {
-    // Option: setLoading(true); (si tu veux afficher "Loading...")
     loadBookings();
-  });
 
-  return () => {
-    mounted = false;
-    unsubscribe();
-  };
-}, []);
+    const unsubscribe = onBookingsChanged(() => {
+      loadBookings();
+    });
 
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -112,7 +109,9 @@ const DashboardPage = () => {
               <div className="space-y-4">
                 {bookings.slice(0, 5).map((b) => {
                   const roomLabel = b.roomNumbers || "—";
-                  const when = new Date(b.checkOutDateUtc);
+
+                  // ✅ Haiti timezone everywhere
+                  const whenLabel = formatIsoUtcToHaitiShort(b.checkOutDateUtc);
 
                   return (
                     <div key={b.bookingId} className="flex items-center">
@@ -120,9 +119,7 @@ const DashboardPage = () => {
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{b.guestName || "Guest"}</p>
                         <p className="text-xs text-gray-500">
-                          Rooms: {roomLabel} —{" "}
-                          {when.toLocaleDateString()}{" "}
-                          {when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          Rooms: {roomLabel} — {whenLabel}
                         </p>
                       </div>
                     </div>

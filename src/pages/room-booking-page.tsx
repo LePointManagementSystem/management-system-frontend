@@ -24,21 +24,17 @@ import { useRoomClasses } from "@/hooks/use-room-classes"
 import { addGuest, fetchGuest } from "@/services/client-service"
 import { createBooking } from "@/services/booking-service"
 import { calculateCheckInOut } from "@/utils/booking-helpers"
+import { formatHaitiLongDateTime } from "@/utils/datetime";
+
 
 // staff profile (hotelId scope)
 import { fetchMyStaffProfile } from "@/services/staff-service"
 import type { Staff } from "@/types/staff"
 
 const formatDateTime = (date: Date): string => {
-  return date.toLocaleString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
+  return formatHaitiLongDateTime(date);
+};
+
 
 const RoomBookingPage: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0)

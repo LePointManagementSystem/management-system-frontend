@@ -12,6 +12,8 @@ import FinancialReportPage from "./pages/reports/financial-report-page";
 import OccupancyReportPage from "./pages/reports/occupancy-report-page";
 import RoomBookingPage from "./pages/room-booking-page";
 import BookingsPage from "./pages/bookings-page";
+import SearchPage from "./pages/search-page";
+
 
 // ✅ NEW
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -31,6 +33,8 @@ function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
 
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/search" element={<SearchPage />} />
+
             <Route path="/hotel-management" element={<HotelManagementPage />} />
             <Route path="/restaurant" element={<RestaurantPage />} />
             <Route path="/staff" element={<StaffPage />} />
