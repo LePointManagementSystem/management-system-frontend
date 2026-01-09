@@ -1,5 +1,3 @@
-"use client"
-
 import type React from "react"
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { CalendarIcon, CheckCircle, Loader2 } from "lucide-react"
@@ -7,7 +5,13 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -15,26 +19,62 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
 
-import { Room, RoomClass } from "@/types/hotel"
-import { Guest } from "@/types/client"
-import { BookingPayload } from "@/types/boking"
+import type { Room, RoomClass } from "@/types/hotel"
+import type { Guest } from "@/types/client"
+import type { BookingPayload } from "@/types/boking"
 
 import { fetchAvailableRooms } from "@/services/room-service"
 import { useRoomClasses } from "@/hooks/use-room-classes"
 import { addGuest, fetchGuest } from "@/services/client-service"
 import { createBooking } from "@/services/booking-service"
-import { calculateCheckInOut } from "@/utils/booking-helpers"
-import { formatHaitiLongDateTime } from "@/utils/datetime";
 
+import { formatHaitiLongDateTime } from "@/utils/datetime"
+import { calculateCheckInOut, type BookingDurationUI } from "@/utils/booking-helpers"
 
 // staff profile (hotelId scope)
 import { fetchMyStaffProfile } from "@/services/staff-service"
 import type { Staff } from "@/types/staff"
 
-const formatDateTime = (date: Date): string => {
-  return formatHaitiLongDateTime(date);
-};
+// ✅ Safe parse roles: supports JSON array OR "Staff" OR "Staff,Admin"
+function safeParseRoles(raw: string | null): string[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+  }
+}
 
+const formatDateTime = (date: Date): string => formatHaitiLongDateTime(date)
+
+// ✅ Must match backend enum numeric values (do NOT change)
+const DURATION_TYPE_MAP: Record<BookingDurationUI, number> = {
+  "2h": 0,        // Hours2
+  "4h": 1,        // Hours4
+  "overnight": 2, // Overnight
+  "1h": 3,        // Hours1
+  "3h": 4,        // Hours3
+  "5h": 5,        // Hours5
+  "6h": 6,        // Hours6
+  "7h": 7,        // Hours7
+  "8h": 8,        // Hours8
+}
+
+function getDurationHours(duration: BookingDurationUI): number | null {
+  if (duration === "overnight") return null
+  const n = parseInt(duration.replace("h", ""), 10)
+  return Number.isFinite(n) ? n : null
+}
+
+function durationLabel(duration: BookingDurationUI) {
+  if (duration === "overnight") return "Overnight"
+  const h = getDurationHours(duration) ?? 0
+  return `${h} Hour${h > 1 ? "s" : ""}`
+}
 
 const RoomBookingPage: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0)
@@ -43,7 +83,7 @@ const RoomBookingPage: React.FC = () => {
   const [roomType, setRoomType] = useState("")
   const [guests, setGuests] = useState(1)
   const [date, setDate] = useState<Date | undefined>(new Date())
-  const [bookingDuration, setBookingDuration] = useState<"2h" | "overnight">("overnight")
+  const [bookingDuration, setBookingDuration] = useState<BookingDurationUI>("overnight")
 
   const [availableRooms, setAvailableRooms] = useState<Room[]>([])
   const [selectedRoom, setSelectedRoom] = useState<number | null>(null)
@@ -59,7 +99,6 @@ const RoomBookingPage: React.FC = () => {
   const [notification, setNotification] = useState("")
 
   const [existingClients, setExistingClients] = useState<Guest[]>([])
-
   const { roomClasses, loading: loadingRoomClasses } = useRoomClasses()
 
   // staff scope
@@ -68,15 +107,20 @@ const RoomBookingPage: React.FC = () => {
   const [staffError, setStaffError] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
 
-  // ⏰ Notification 2h
+  // ⏰ Notification: hourly bookings (1h..8h)
   useEffect(() => {
-    let timeout: NodeJS.Timeout
-    if (bookingComplete && bookingDuration === "2h") {
+    let timeout: ReturnType<typeof setTimeout> | undefined
+
+    const hours = getDurationHours(bookingDuration)
+    if (bookingComplete && hours && hours > 0) {
       timeout = setTimeout(() => {
-        setNotification("⏰ The 2-hour booking is now over.")
-      }, 2 * 60 * 60 * 1000)
+        setNotification(`⏰ The ${hours}-hour booking is now over.`)
+      }, hours * 60 * 60 * 1000)
     }
-    return () => clearTimeout(timeout)
+
+    return () => {
+      if (timeout) clearTimeout(timeout)
+    }
   }, [bookingComplete, bookingDuration])
 
   // 👤 Load guests
@@ -89,22 +133,31 @@ const RoomBookingPage: React.FC = () => {
         console.error("Error fetching guests", e)
       }
     }
-    load()
+    void load()
   }, [])
 
   // 👤 Load staff profile (if Staff/Receptionist)
   useEffect(() => {
-    const storedRole = localStorage.getItem("role")
-    setUserRole(storedRole)
+    try {
+      const storedRole = localStorage.getItem("role")
+      setUserRole(storedRole)
 
-    const rolesRaw = localStorage.getItem("roles")
-    const roles = rolesRaw ? JSON.parse(rolesRaw) : []
+      const roles = safeParseRoles(localStorage.getItem("roles"))
+      const isStaffUser =
+        storedRole === "Staff" ||
+        storedRole === "Receptionist" ||
+        roles.includes("Staff") ||
+        roles.includes("Receptionist")
 
-    const isStaff = storedRole === "Staff" || roles.includes("Staff") || storedRole === "Receptionist"
+      if (!isStaffUser) {
+        setStaffLoading(false)
+        setStaffError(null)
+        setCurrentHotelId(null)
+        return
+      }
 
-    if(isStaff) {
       const hotelIdFromToken = localStorage.getItem("hotelId")
-      if (hotelIdFromToken) {
+      if (hotelIdFromToken && Number.isFinite(Number(hotelIdFromToken))) {
         setCurrentHotelId(Number(hotelIdFromToken))
         setStaffLoading(false)
         setStaffError(null)
@@ -116,26 +169,23 @@ const RoomBookingPage: React.FC = () => {
           setStaffLoading(true)
           const staff: Staff = await fetchMyStaffProfile()
           setCurrentHotelId(staff.hotelId ?? null)
-        } catch(err) {
+          setStaffError(null)
+        } catch (err) {
           console.error("Failed to load staff profile", err)
-          setStaffError(
-            err instanceof Error ? err.message : "Could not load your staff profile."
-          )
+          setStaffError(err instanceof Error ? err.message : "Could not load your staff profile.")
         } finally {
           setStaffLoading(false)
         }
       }
-      loadStaff()
-    } else {
-      setStaffLoading(false)
-      setStaffError(null)
-      setCurrentHotelId(null)
-    }
 
-    
+      void loadStaff()
+    } catch (err) {
+      console.error("RoomBookingPage init error:", err)
+      setStaffLoading(false)
+      setStaffError("Unexpected error while loading booking page. Please re-login.")
+    }
   }, [])
 
-  // ✅ Filter room classes by staff hotel
   const filteredRoomClasses = useMemo(() => {
     return roomClasses.filter((rc) => (currentHotelId == null ? true : rc.hotelId === currentHotelId))
   }, [roomClasses, currentHotelId])
@@ -213,18 +263,13 @@ const RoomBookingPage: React.FC = () => {
     const { checkInDateUtc, checkOutDateUtc } = calculateCheckInOut(date, bookingDuration)
     const selectedRoomData = availableRooms.find((r) => r.roomId === selectedRoom)
 
-    // ✅ HOTEL ID: best source = selected room (then staff hotel, then selected room class)
-    let hotelIdForRequest: number | null =
-      selectedRoomData?.hotelId ?? null
-
+    let hotelIdForRequest: number | null = selectedRoomData?.hotelId ?? null
     if ((userRole === "Staff" || userRole === "Receptionist") && currentHotelId != null) {
       hotelIdForRequest = currentHotelId
     }
-
     if (hotelIdForRequest == null) {
       hotelIdForRequest = selectedRoomClass?.hotelId ?? null
     }
-
     if (hotelIdForRequest == null) {
       alert("Cannot determine hotel. Please go back and select the room type again.")
       return
@@ -245,14 +290,14 @@ const RoomBookingPage: React.FC = () => {
           cin: existing.cin ?? "",
           email: existing.email ?? "",
         }
-	      } else {
-	        await addGuest({
+      } else {
+        await addGuest({
           firstName: newClient.firstName,
           lastName: newClient.lastName,
           cin: newClient.cin,
           email: newClient.email,
         })
-	        // (si tu veux utiliser l'id retourné par le backend, récupère-le ici et ajoute-le au payload si supporté)
+
         clientData = {
           firstName: newClient.firstName ?? "",
           lastName: newClient.lastName ?? "",
@@ -267,8 +312,7 @@ const RoomBookingPage: React.FC = () => {
         checkOutDateUtc,
         roomIds: [selectedRoom],
         paymentMethod: 0,
-        // ⚠️ garde tes valeurs EXACTES backend (ici je conserve ton mapping “2h => 0, overnight => 2”)
-        durationType: bookingDuration === "2h" ? 0 : 2,
+        durationType: DURATION_TYPE_MAP[bookingDuration],
         guest: {
           firstName: clientData.firstName,
           lastName: clientData.lastName,
@@ -278,28 +322,20 @@ const RoomBookingPage: React.FC = () => {
 
       const result = await createBooking(bookingPayload)
 
-      // Booking reference (keep existing behavior)
       setBookingReference(result?.bookingReference || `BK-${Math.floor(100000 + Math.random() * 900000)}`)
 
-      // Guest name (prefer backend response, fallback to the form data)
-      const apiGuestFirst = result?.data?.guestFirstName ?? result?.data?.GuestFirstName
-      const apiGuestLast = result?.data?.guestLastName ?? result?.data?.GuestLastName
+      const apiGuestFirst = (result as any)?.data?.guestFirstName ?? (result as any)?.data?.GuestFirstName
+      const apiGuestLast = (result as any)?.data?.guestLastName ?? (result as any)?.data?.GuestLastName
       const guestFullName = `${apiGuestFirst ?? clientData.firstName} ${apiGuestLast ?? clientData.lastName}`.trim()
+
       setBookingGuestName(guestFullName)
       setBookingComplete(true)
       setCurrentStep(3)
-      alert("Booking completed successfully")
-    } catch(error: unknown) {
-      console.error("Booking error",error)
-
-      const message = 
-        error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : "Booking failed, try again."
-
-  alert(message)
+    } catch (error: unknown) {
+      console.error("Booking error", error)
+      const message =
+        error instanceof Error ? error.message : typeof error === "string" ? error : "Booking failed, try again."
+      alert(message)
     }
   }
 
@@ -422,15 +458,29 @@ const RoomBookingPage: React.FC = () => {
               </Popover>
             </div>
 
+            {/* ✅ Duration selector WITHOUT SelectLabel/SelectSeparator */}
             <div className="space-y-2">
               <Label>Booking Duration</Label>
-              <Select value={bookingDuration} onValueChange={(val) => setBookingDuration(val as "2h" | "overnight")}>
+              <Select value={bookingDuration} onValueChange={(val) => setBookingDuration(val as BookingDurationUI)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Choose duration" />
                 </SelectTrigger>
+
                 <SelectContent>
+                  <div className="px-2 py-1 text-xs text-muted-foreground">Overnight</div>
+                  <SelectItem value="overnight">Overnight (9:00 PM → 9:00 AM)</SelectItem>
+
+                  <div className="my-1 h-px bg-muted" />
+
+                  <div className="px-2 py-1 text-xs text-muted-foreground">Hourly</div>
+                  <SelectItem value="1h">1 Hour</SelectItem>
                   <SelectItem value="2h">2 Hours</SelectItem>
-                  <SelectItem value="overnight">Overnight</SelectItem>
+                  <SelectItem value="3h">3 Hours</SelectItem>
+                  <SelectItem value="4h">4 Hours</SelectItem>
+                  <SelectItem value="5h">5 Hours</SelectItem>
+                  <SelectItem value="6h">6 Hours</SelectItem>
+                  <SelectItem value="7h">7 Hours</SelectItem>
+                  <SelectItem value="8h">8 Hours</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -654,7 +704,7 @@ const RoomBookingPage: React.FC = () => {
                   <span className="font-medium">Date:</span> {date ? formatDateTime(date) : ""}
                 </p>
                 <p>
-                  <span className="font-medium">Duration:</span> {bookingDuration === "2h" ? "2 Hours" : "Overnight"}
+                  <span className="font-medium">Duration:</span> {durationLabel(bookingDuration)}
                 </p>
                 <p>
                   <span className="font-medium">Guests:</span> {guests}
@@ -662,10 +712,11 @@ const RoomBookingPage: React.FC = () => {
               </div>
             </div>
 
-            {bookingDuration === "2h" && (
+            {getDurationHours(bookingDuration) && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
                 <p className="text-yellow-800 text-sm">
-                  This is a 2-hour booking. A notification will appear when the time is up.
+                  This is a {durationLabel(bookingDuration).toLowerCase()} booking. A notification will appear when the
+                  time is up.
                 </p>
               </div>
             )}

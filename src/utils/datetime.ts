@@ -13,31 +13,73 @@ export function parseIsoUtc(isoUtc: string): Date | null {
 /**
  * Formats: "Tuesday, January 6, 2026 at 07:16 AM" (Haiti timezone)
  */
+// export function formatHaitiLongDateTime(date: Date): string {
+//   const parts = new Intl.DateTimeFormat("en-US", {
+//     timeZone: HAITI_TIMEZONE,
+//     weekday: "long",
+//     year: "numeric",
+//     month: "long",
+//     day: "numeric",
+//     hour: "2-digit",
+//     minute: "2-digit",
+//     hour12: true,
+//   }).formatToParts(date);
+
+//   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+
+//   // Build: Tuesday, January 6, 2026 at 07:16 AM
+//   const weekday = get("weekday");
+//   const month = get("month");
+//   const day = get("day");
+//   const year = get("year");
+//   const hour = get("hour");
+//   const minute = get("minute");
+//   const dayPeriod = get("dayPeriod");
+
+//   return `${weekday}, ${month} ${day}, ${year} at ${hour}:${minute} ${dayPeriod}`.replace(/\s+/g, " ").trim();
+// }
+
 export function formatHaitiLongDateTime(date: Date): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: HAITI_TIMEZONE,
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).formatToParts(date);
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: HAITI_TIMEZONE,
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }).formatToParts(date)
 
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+    const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ""
 
-  // Build: Tuesday, January 6, 2026 at 07:16 AM
-  const weekday = get("weekday");
-  const month = get("month");
-  const day = get("day");
-  const year = get("year");
-  const hour = get("hour");
-  const minute = get("minute");
-  const dayPeriod = get("dayPeriod");
+    const weekday = get("weekday")
+    const month = get("month")
+    const day = get("day")
+    const year = get("year")
+    const hour = get("hour")
+    const minute = get("minute")
+    const dayPeriod = get("dayPeriod")
 
-  return `${weekday}, ${month} ${day}, ${year} at ${hour}:${minute} ${dayPeriod}`.replace(/\s+/g, " ").trim();
+    return `${weekday}, ${month} ${day}, ${year} at ${hour}:${minute} ${dayPeriod}`
+      .replace(/\s+/g, " ")
+      .trim()
+  } catch (e) {
+    // ✅ fallback sûr: pas de timezone forcée
+    console.error("Timezone formatting failed, fallback used:", e)
+    return date.toLocaleString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    })
+  }
 }
+
 
 /**
  * Formats: "Jan 06, 2026, 07:16 AM" (Haiti timezone)
