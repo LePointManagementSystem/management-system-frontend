@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils"
 
 import type { Room, RoomClass } from "@/types/hotel"
 import type { Guest } from "@/types/client"
-import type { BookingPayload } from "@/types/boking"
+import type { BookingPayload } from "@/types/boking" // ✅ garde ça si ton projet l’utilise encore
 
 import { fetchAvailableRooms } from "@/services/room-service"
 import { useRoomClasses } from "@/hooks/use-room-classes"
@@ -53,24 +53,26 @@ const formatDateTime = (date: Date): string => formatHaitiLongDateTime(date)
 
 // ✅ Must match backend enum numeric values (do NOT change)
 const DURATION_TYPE_MAP: Record<BookingDurationUI, number> = {
-  "2h": 0,        // Hours2
-  "4h": 1,        // Hours4
-  "overnight": 2, // Overnight
-  "1h": 3,        // Hours1
-  "3h": 4,        // Hours3
-  "5h": 5,        // Hours5
-  "6h": 6,        // Hours6
-  "7h": 7,        // Hours7
-  "8h": 8,        // Hours8
+  "2h": 0,         // Hours2
+  "4h": 1,         // Hours4
+  "overnight": 2,  // Overnight
+  "1h": 3,         // Hours1
+  "3h": 4,         // Hours3
+  "5h": 5,         // Hours5
+  "6h": 6,         // Hours6
+  "7h": 7,         // Hours7
+  "8h": 8,         // Hours8
+  "stay": 9,       // ✅ Stay (24h+)  <-- assure-toi que le backend a bien cette valeur
 }
 
 function getDurationHours(duration: BookingDurationUI): number | null {
-  if (duration === "overnight") return null
+  if (duration === "overnight" || duration === "stay") return null
   const n = parseInt(duration.replace("h", ""), 10)
   return Number.isFinite(n) ? n : null
 }
 
 function durationLabel(duration: BookingDurationUI) {
+  if (duration === "stay") return "Stay"
   if (duration === "overnight") return "Overnight"
   const h = getDurationHours(duration) ?? 0
   return `${h} Hour${h > 1 ? "s" : ""}`
@@ -83,6 +85,10 @@ const RoomBookingPage: React.FC = () => {
   const [roomType, setRoomType] = useState("")
   const [guests, setGuests] = useState(1)
   const [date, setDate] = useState<Date | undefined>(new Date())
+
+  // ✅ Stay needs check-out date
+  const [stayCheckOutDate, setStayCheckOutDate] = useState<Date | undefined>(undefined)
+
   const [bookingDuration, setBookingDuration] = useState<BookingDurationUI>("overnight")
 
   const [availableRooms, setAvailableRooms] = useState<Room[]>([])
@@ -196,6 +202,20 @@ const RoomBookingPage: React.FC = () => {
       return
     }
 
+    // ✅ Stay requires check-out
+    if (bookingDuration === "stay") {
+      if (!stayCheckOutDate) {
+        alert("Please select a check-out date for a stay.")
+        return
+      }
+      const inDate = new Date(date)
+      const outDate = new Date(stayCheckOutDate)
+      if (outDate.getTime() <= inDate.getTime()) {
+        alert("Check-out date must be after check-in date.")
+        return
+      }
+    }
+
     if ((userRole === "Staff" || userRole === "Receptionist") && currentHotelId == null) {
       alert("Your staff profile has no hotel assigned. Please contact an administrator.")
       return
@@ -260,7 +280,12 @@ const RoomBookingPage: React.FC = () => {
       return
     }
 
-    const { checkInDateUtc, checkOutDateUtc } = calculateCheckInOut(date, bookingDuration)
+    if (bookingDuration === "stay" && !stayCheckOutDate) {
+      alert("Please select a check-out date for a stay.")
+      return
+    }
+
+    const { checkInDateUtc, checkOutDateUtc } = calculateCheckInOut(date, bookingDuration, stayCheckOutDate)
     const selectedRoomData = availableRooms.find((r) => r.roomId === selectedRoom)
 
     let hotelIdForRequest: number | null = selectedRoomData?.hotelId ?? null
@@ -344,6 +369,7 @@ const RoomBookingPage: React.FC = () => {
     setRoomType("")
     setGuests(1)
     setDate(new Date())
+    setStayCheckOutDate(undefined)
     setBookingDuration("overnight")
     setAvailableRooms([])
     setSelectedRoom(null)
@@ -458,17 +484,64 @@ const RoomBookingPage: React.FC = () => {
               </Popover>
             </div>
 
+            {/* ✅ Check-out date for Stay */}
+            {bookingDuration === "stay" && (
+              <div className="space-y-2">
+                <Label>Check-out Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !stayCheckOutDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {stayCheckOutDate ? formatDateTime(stayCheckOutDate) : "Select check-out date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={stayCheckOutDate}
+                      onSelect={(d) => d && setStayCheckOutDate(new Date(d))}
+                      initialFocus
+                      disabled={(d) => {
+                        const today = new Date()
+                        if (d < today) return true
+                        if (!date) return false
+                        return d <= date
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+
             {/* ✅ Duration selector WITHOUT SelectLabel/SelectSeparator */}
             <div className="space-y-2">
               <Label>Booking Duration</Label>
-              <Select value={bookingDuration} onValueChange={(val) => setBookingDuration(val as BookingDurationUI)}>
+              <Select
+                value={bookingDuration}
+                onValueChange={(val) => {
+                  const next = val as BookingDurationUI
+                  setBookingDuration(next)
+                  if (next !== "stay") setStayCheckOutDate(undefined)
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Choose duration" />
                 </SelectTrigger>
 
                 <SelectContent>
+                  <div className="px-2 py-1 text-xs text-muted-foreground">Stay (24h+)</div>
+                  <SelectItem value="stay">Stay (Choose check-out date)</SelectItem>
+
+                  <div className="my-1 h-px bg-muted" />
+
                   <div className="px-2 py-1 text-xs text-muted-foreground">Overnight</div>
-                  <SelectItem value="overnight">Overnight (9:00 PM → 9:00 AM)</SelectItem>
+                  <SelectItem value="overnight">Overnight (21:00 → 09:00)</SelectItem>
 
                   <div className="my-1 h-px bg-muted" />
 
@@ -492,6 +565,7 @@ const RoomBookingPage: React.FC = () => {
               disabled={
                 !roomType ||
                 !date ||
+                (bookingDuration === "stay" && !stayCheckOutDate) ||
                 isLoading ||
                 ((userRole === "Staff" || userRole === "Receptionist") && currentHotelId == null)
               }
@@ -510,6 +584,7 @@ const RoomBookingPage: React.FC = () => {
         </Card>
       )}
 
+      {/* step 1 */}
       {currentStep === 1 && (
         <Card>
           <CardHeader>
@@ -574,6 +649,7 @@ const RoomBookingPage: React.FC = () => {
         </Card>
       )}
 
+      {/* step 2 */}
       {currentStep === 2 && (
         <Card>
           <CardHeader>
@@ -674,6 +750,7 @@ const RoomBookingPage: React.FC = () => {
         </Card>
       )}
 
+      {/* step 3 */}
       {currentStep === 3 && bookingComplete && (
         <Card>
           <CardHeader className="text-center">
@@ -701,8 +778,14 @@ const RoomBookingPage: React.FC = () => {
                   })()}
                 </p>
                 <p>
-                  <span className="font-medium">Date:</span> {date ? formatDateTime(date) : ""}
+                  <span className="font-medium">Check-in:</span> {date ? formatDateTime(date) : ""}
                 </p>
+                {bookingDuration === "stay" && (
+                  <p>
+                    <span className="font-medium">Check-out:</span>{" "}
+                    {stayCheckOutDate ? formatDateTime(stayCheckOutDate) : ""}
+                  </p>
+                )}
                 <p>
                   <span className="font-medium">Duration:</span> {durationLabel(bookingDuration)}
                 </p>
