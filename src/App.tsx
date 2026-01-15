@@ -13,8 +13,8 @@ import OccupancyReportPage from "./pages/reports/occupancy-report-page";
 import RoomBookingPage from "./pages/room-booking-page";
 import BookingsPage from "./pages/bookings-page";
 import SearchPage from "./pages/search-page";
-
-
+import CashTransactionsPage from "./pages/cash-transactions-page";
+import ReportsDashboardPage from "./pages/reports/reports-dashboard-page";
 // ✅ NEW
 import ProtectedRoute from "./components/ProtectedRoute";
 import RequireRole from "./components/RequireRole";
@@ -43,8 +43,12 @@ function App() {
             <Route path="/reports/restaurant" element={<RestaurantReportPage />} />
             <Route path="/reports/financial" element={<FinancialReportPage />} />
             <Route path="/reports/occupancy" element={<OccupancyReportPage />} />
+            <Route path="/reports" element={<ReportsDashboardPage />} />
             <Route path="/room-booking" element={<RoomBookingPage />} />
             <Route path="/bookings" element={<BookingsPage />} />
+
+            {/* ✅ Petty cash */}
+            <Route path="/cash" element={<CashTransactionsPage />} />
 
             {/* Admin only */}
             <Route element={<RequireRole allowed={["Admin"]} />}>

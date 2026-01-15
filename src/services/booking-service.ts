@@ -1,36 +1,6 @@
-
 import { API_BASE_URL } from "@/config/api-base";
-
 import type { BookingPayload } from "@/types/boking";
-
 import { emitBookingsChanged } from "@/utils/events";
-
-
-// ...
-
-/**
- * Backend: POST /api/Booking/create
- */
-export async function createBooking(payload: BookingPayload): Promise<any> {
-  const token = tokenOrThrow();
-
-  const res = await fetch(`${API_BASE_URL}/Booking/create`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const data = await unwrap<any>(res);
-
-  // ✅ Notify the app that bookings changed
-  emitBookingsChanged({ type: "created" });
-
-  return data;
-}
-
 
 export type BookingDto = {
   bookingId: number;
@@ -46,6 +16,11 @@ export type BookingDto = {
   status: string;
   guestName: string;
   roomNumbers: string;
+
+  // Cancellation audit (optional)
+  cancellationReason?: string | null;
+  cancelledAtUtc?: string | null;
+  cancelledByUserId?: string | null;
 };
 
 type ApiEnvelope<T> = {
@@ -55,6 +30,30 @@ type ApiEnvelope<T> = {
   Message?: string;
   data?: T;
   Data?: T;
+};
+
+type ApiBookingDto = {
+  bookingId: number;
+  hotelId: number;
+  userName?: string;
+  confirmationNumber: string;
+  totalPrice: number;
+  bookingDateUtc: string;
+  paymentMethod: string;
+  afterDiscountedPrice?: number | null;
+  hotelName?: string;
+  checkInDateUtc: string;
+  checkOutDateUtc: string;
+  status: string;
+  numbers?: string[]; // vient du backend (Numbers)
+  guestFirstName?: string | null;
+  guestLastName?: string | null;
+  guestCin?: string | null;
+
+  // Cancellation audit (camelCase if backend uses JsonNamingPolicy.CamelCase)
+  cancellationReason?: string | null;
+  cancelledAtUtc?: string | null;
+  cancelledByUserId?: string | null;
 };
 
 function tokenOrThrow(): string {
@@ -77,7 +76,7 @@ async function unwrap<T>(res: Response): Promise<T> {
   try {
     json = text ? JSON.parse(text) : null;
   } catch {
-    // non-json
+    // réponse non JSON
   }
 
   if (!res.ok) {
@@ -94,46 +93,9 @@ async function unwrap<T>(res: Response): Promise<T> {
   return json as T;
 }
 
-/**
- * Backend: GET /api/Booking/all_bookings_by_hotel?hotelId=1
- */
-//  export async function fetchBookingsByHotel(hotelId?: number): Promise<BookingDto[]> {
-//   const token = tokenOrThrow();
-//    const hid = hotelId ?? getOptionalHotelId();
-//    if (!hid) return [];
-
-//    const q = new URLSearchParams({ hotelId: String(hid) });
-
-//    const res = await fetch(`${API_BASE_URL}/Booking/all_bookings_by_hotel?${q.toString()}`, {
-//      headers: { Authorization: `Bearer ${token}` },
-//   });
-
-//    return (await unwrap<BookingDto[]>(res)) || [];
-//  }
-
-
-type ApiBookingDto = {
-  bookingId: number;
-  hotelId: number;
-  userName?: string;
-  confirmationNumber: string;
-  totalPrice: number;
-  bookingDateUtc: string;
-  paymentMethod: string;
-  afterDiscountedPrice?: number | null;
-  hotelName?: string;
-  checkInDateUtc: string;
-  checkOutDateUtc: string;
-  status: string;
-  numbers?: string[]; // <-- vient du backend (Numbers)
-  guestFirstName?: string | null;
-  guestLastName?: string | null;
-  guestCin?: string | null;
-};
-
 function normalizeBooking(b: ApiBookingDto): BookingDto {
   const guestName = `${b.guestFirstName ?? ""} ${b.guestLastName ?? ""}`.trim() || "Guest";
-  const roomNumbers = (b.numbers && b.numbers.length > 0) ? b.numbers.join(", ") : "—";
+  const roomNumbers = b.numbers && b.numbers.length > 0 ? b.numbers.join(", ") : "—";
 
   return {
     bookingId: b.bookingId,
@@ -149,42 +111,41 @@ function normalizeBooking(b: ApiBookingDto): BookingDto {
     status: b.status,
     guestName,
     roomNumbers,
+
+    cancellationReason: b.cancellationReason ?? null,
+    cancelledAtUtc: b.cancelledAtUtc ?? null,
+    cancelledByUserId: b.cancelledByUserId ?? null,
   };
 }
 
 /**
- * ✅ Source unique: Backend GET /api/Booking/all
+ * Backend: POST /api/Booking/create
  */
-// export async function fetchAllBookings(): Promise<BookingDto[]> {
-//   const token = tokenOrThrow();
+export async function createBooking(payload: BookingPayload): Promise<any> {
+  const token = tokenOrThrow();
 
-//   const res = await fetch(`${API_BASE_URL}/Booking/all`, {
-//     headers: { Authorization: `Bearer ${token}` },
-//     cache: "no-store", // 🔥 important pour éviter la réponse cachée
-//   });
+  const res = await fetch(`${API_BASE_URL}/Booking/create`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
 
-//   const raw = (await unwrap<ApiBookingDto[]>(res)) || [];
-//   return raw.map(normalizeBooking);
-// }
+  const data = await unwrap<any>(res);
 
-/**
- * (Optionnel) si tu veux filtrer côté UI pour Admin/Manager
- */
-export async function fetchBookingsByHotel(hotelId?: number): Promise<BookingDto[]> {
-  const all = await fetchAllBookings();
-  if (!hotelId) return all;
-  return all.filter((b) => b.hotelId === hotelId);
+  emitBookingsChanged({ type: "created" });
+  return data;
 }
 
-
 /**
- * ✅ Compat: ton Dashboard importait fetchAllBookings
- * On le mappe sur fetchBookingsByHotel() (hotelId pris depuis localStorage)
+ * Backend: GET /api/Booking/all
  */
 export async function fetchAllBookings(): Promise<BookingDto[]> {
   const token = tokenOrThrow();
 
-  // Anti-cache (au cas où ResponseCache côté backend)
+  // anti-cache côté front (au cas où backend cache)
   const url = `${API_BASE_URL}/Booking/all?t=${Date.now()}`;
 
   const res = await fetch(url, {
@@ -196,7 +157,15 @@ export async function fetchAllBookings(): Promise<BookingDto[]> {
   return raw.map(normalizeBooking);
 }
 
-
+/**
+ * Filtrage côté UI par hôtel (optionnel)
+ */
+export async function fetchBookingsByHotel(hotelId?: number): Promise<BookingDto[]> {
+  const all = await fetchAllBookings();
+  const hid = hotelId ?? getOptionalHotelId();
+  if (!hid) return all;
+  return all.filter((b) => b.hotelId === hid);
+}
 
 /**
  * Backend: PUT /api/Booking/{bookingId}/Update_status
@@ -216,7 +185,6 @@ export async function updateBookingStatus(bookingId: number, statusId: number): 
 
   await unwrap<void>(res);
 
-  // ✅ Notify the app that bookings changed
   emitBookingsChanged({ type: "status-updated", bookingId, statusId });
 }
 
@@ -226,13 +194,29 @@ export async function completeBooking(bookingId: number): Promise<void> {
   await updateBookingStatus(bookingId, COMPLETED_STATUS_ID);
 }
 
-
 /**
- * ✅ Annulation
- * IMPORTANT: tu dois mettre ici la vraie valeur enum "Cancelled" de ton backend.
- * Chez toi tu as déjà hésité (2 vs 3). Mets la valeur correcte.
+ * ✅ Annulation (backend 21)
+ * Backend: PUT /api/Booking/{id}/cancel
+ * Body: { reason: string }
+ *
+ * IMPORTANT: on n'utilise PAS le fallback "update-status Cancelled"
+ * car côté backend ça peut supprimer le booking si pas corrigé.
  */
-export async function cancelBooking(bookingId: number): Promise<void> {
-  const CANCELLED_STATUS_ID = 2; // <-- change si ton enum Cancelled = 2
-  return updateBookingStatus(bookingId, CANCELLED_STATUS_ID);
+export async function cancelBooking(bookingId: number, reason: string): Promise<void> {
+  const token = tokenOrThrow();
+  const trimmedReason = (reason ?? "").trim();
+  if (!trimmedReason) throw new Error("Cancellation reason is required.");
+
+  const res = await fetch(`${API_BASE_URL}/Booking/${bookingId}/cancel`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ reason: trimmedReason }),
+  });
+
+  await unwrap<void>(res);
+
+  emitBookingsChanged({ type: "cancelled", bookingId });
 }
