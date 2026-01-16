@@ -2,6 +2,7 @@ import { API_BASE_URL } from "@/config/api-base";
 
 export type CashTransactionType = 1 | 2; // 1 = In, 2 = Out
 export type CurrencyCode = 1 | 2; // 1 = HTG, 2 = USD
+export type CashShift = 1 | 2; // 1 = Morning, 2 = Afternoon
 
 export type CashTransactionDto = {
   cashTransactionId: number;
@@ -13,17 +14,19 @@ export type CashTransactionDto = {
   note: string;
   category?: string | null;
   reference?: string | null;
+  shift?: CashShift | null; // ✅ new (backend may return it)
   createdAtUtc: string;
 };
 
 export type CreateCashTransactionPayload = {
-  hotelId: number;
+  hotelId: number; // for Staff we can send 0, backend will enforce scope
   type: CashTransactionType;
   currency: CurrencyCode;
   amount: number;
   note: string;
   category?: string | null;
   reference?: string | null;
+  shift?: CashShift; // ✅ new
 };
 
 type ApiEnvelope<T> = {
@@ -80,6 +83,11 @@ export function currencyLabel(c: CurrencyCode): string {
   return c === 1 ? "HTG" : "USD";
 }
 
+export function shiftLabel(s?: CashShift | null): string {
+  if (s === 2) return "Afternoon";
+  return "Morning"; // default
+}
+
 /**
  * Backend: POST /api/CashTransactions
  */
@@ -99,27 +107,33 @@ export async function createCashTransaction(payload: CreateCashTransactionPayloa
 }
 
 export type CashTransactionsQuery = {
-  hotelId: number;
+  hotelId?: number; // ✅ optional (Staff can omit; Admin/Manager must pass)
   fromUtc?: string;
   toUtc?: string;
   type?: CashTransactionType;
   currency?: CurrencyCode;
+  shift?: CashShift;
   page?: number;
   pageSize?: number;
 };
 
 /**
- * Backend: GET /api/CashTransactions?hotelId=...&fromUtc=...&toUtc=...&type=...&currency=...
+ * Backend: GET /api/CashTransactions?hotelId=...&fromUtc=...&toUtc=...&type=...&currency=...&shift=...
  */
 export async function fetchCashTransactions(q: CashTransactionsQuery): Promise<CashTransactionDto[]> {
   const token = tokenOrThrow();
 
   const params = new URLSearchParams();
-  params.set("hotelId", String(q.hotelId));
+
+  // ✅ Only set hotelId if provided (Admin/Manager). Staff can omit; backend uses token scope.
+  if (q.hotelId && q.hotelId > 0) params.set("hotelId", String(q.hotelId));
+
   if (q.fromUtc) params.set("fromUtc", q.fromUtc);
   if (q.toUtc) params.set("toUtc", q.toUtc);
   if (q.type) params.set("type", String(q.type));
   if (q.currency) params.set("currency", String(q.currency));
+  if (q.shift) params.set("shift", String(q.shift));
+
   params.set("page", String(q.page ?? 1));
   params.set("pageSize", String(q.pageSize ?? 100));
 
@@ -127,9 +141,7 @@ export async function fetchCashTransactions(q: CashTransactionsQuery): Promise<C
   params.set("t", String(Date.now()));
 
   const res = await fetch(`${API_BASE_URL}/CashTransactions?${params.toString()}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
 

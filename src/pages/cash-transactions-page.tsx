@@ -33,13 +33,14 @@ import {
   createCashTransaction,
   fetchCashTransactions,
   getOptionalHotelId,
+  shiftLabel,
+  type CashShift,
   type CashTransactionDto,
   type CashTransactionType,
   type CurrencyCode,
 } from "@/services/cash-transactions-service";
 
 function toUtcIso(dateStr: string, endOfDay: boolean): string {
-  // dateStr: YYYY-MM-DD (local)
   const dt = new Date(`${dateStr}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`);
   return dt.toISOString();
 }
@@ -53,28 +54,36 @@ function formatLocal(dtUtc: string): string {
 type CreateFormState = {
   type: CashTransactionType;
   currency: CurrencyCode;
+  shift: CashShift;
   amount: string;
   note: string;
   category: string;
   reference: string;
+  hotelIdInput: string; // only used when no scoped hotelId
 };
 
 const DEFAULT_FORM: CreateFormState = {
   type: 2,
   currency: 1,
+  shift: 1,
   amount: "",
   note: "",
   category: "",
   reference: "",
+  hotelIdInput: "",
 };
 
 export default function CashTransactionsPage() {
-  const hotelId = getOptionalHotelId();
+  const scopedHotelId = getOptionalHotelId();
+
+  // ✅ If user has no localStorage hotelId (Admin/Manager or some staff cases), allow manual input
+  const [hotelIdInput, setHotelIdInput] = useState<string>(scopedHotelId ? String(scopedHotelId) : "");
 
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
   const [typeFilter, setTypeFilter] = useState<"all" | CashTransactionType>("all");
   const [currencyFilter, setCurrencyFilter] = useState<"all" | CurrencyCode>("all");
+  const [shiftFilter, setShiftFilter] = useState<"all" | CashShift>("all");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +94,17 @@ export default function CashTransactionsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [form, setForm] = useState<CreateFormState>(DEFAULT_FORM);
+  const [form, setForm] = useState<CreateFormState>({
+    ...DEFAULT_FORM,
+    hotelIdInput: scopedHotelId ? String(scopedHotelId) : "",
+  });
+
+  const effectiveHotelId = useMemo(() => {
+    // prefer scoped hotelId if present (Staff typical)
+    if (scopedHotelId && scopedHotelId > 0) return scopedHotelId;
+    const n = Number(hotelIdInput);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [hotelIdInput, scopedHotelId]);
 
   const totals = useMemo(() => {
     let totalIn = 0;
@@ -98,27 +117,29 @@ export default function CashTransactionsPage() {
   }, [rows]);
 
   const load = async () => {
-    if (!hotelId) {
-      setRows([]);
-      return;
-    }
     setLoading(true);
     setError(null);
+
     try {
       const fromUtc = fromDate ? toUtcIso(fromDate, false) : undefined;
       const toUtc = toDate ? toUtcIso(toDate, true) : undefined;
 
+      // ✅ For staff (token scoped), we can omit hotelId.
+      // ✅ For admin/manager, backend requires hotelId; if not provided, it will return a 400 with message.
       const list = await fetchCashTransactions({
-        hotelId,
+        hotelId: effectiveHotelId ?? undefined,
         fromUtc,
         toUtc,
         type: typeFilter === "all" ? undefined : typeFilter,
         currency: currencyFilter === "all" ? undefined : currencyFilter,
+        shift: shiftFilter === "all" ? undefined : shiftFilter,
         page: 1,
         pageSize: 200,
       });
+
       setRows(list);
     } catch (e: any) {
+      setRows([]);
       setError(e?.message || "Failed to load cash transactions.");
     } finally {
       setLoading(false);
@@ -129,17 +150,27 @@ export default function CashTransactionsPage() {
     // initial load
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hotelId]);
+  }, [scopedHotelId]);
 
   const openCreate = (type: CashTransactionType) => {
     setCreateError(null);
-    setForm({ ...DEFAULT_FORM, type });
+    setForm((s) => ({
+      ...DEFAULT_FORM,
+      type,
+      hotelIdInput: scopedHotelId ? String(scopedHotelId) : s.hotelIdInput,
+      shift: 1,
+    }));
     setIsCreateOpen(true);
   };
 
   const submitCreate = async () => {
-    if (!hotelId) {
-      setCreateError("No hotel scope found. Please contact an administrator.");
+    // Determine hotel id to send:
+    // - If staff token scoped, backend will enforce anyway; sending 0 is OK as fallback.
+    // - If admin/manager, we must send a valid hotelId.
+    const hid = scopedHotelId && scopedHotelId > 0 ? scopedHotelId : Number(form.hotelIdInput);
+
+    if (!Number.isFinite(hid) || hid <= 0) {
+      setCreateError("Hotel ID is required.");
       return;
     }
 
@@ -157,11 +188,13 @@ export default function CashTransactionsPage() {
 
     setCreateLoading(true);
     setCreateError(null);
+
     try {
       await createCashTransaction({
-        hotelId,
+        hotelId: hid,
         type: form.type,
         currency: form.currency,
+        shift: form.shift,
         amount: amt,
         note: note,
         category: form.category.trim() || null,
@@ -169,7 +202,6 @@ export default function CashTransactionsPage() {
       });
 
       setIsCreateOpen(false);
-      setForm(DEFAULT_FORM);
       await load();
     } catch (e: any) {
       setCreateError(e?.message || "Failed to create cash transaction.");
@@ -190,133 +222,175 @@ export default function CashTransactionsPage() {
             <Button onClick={() => openCreate(2)}>New OUT</Button>
           </div>
         </CardHeader>
+
         <CardContent>
-          {!hotelId ? (
-            <div className="text-sm text-red-600">
-              No hotelId found in your session. Please log in again or contact an administrator.
+          <div className="space-y-4">
+            {/* Hotel scope (only shown if no scopedHotelId) */}
+            {!scopedHotelId ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>Hotel ID</Label>
+                  <Input
+                    value={hotelIdInput}
+                    onChange={(e) => setHotelIdInput(e.target.value)}
+                    placeholder="e.g. 1"
+                  />
+                  <div className="text-xs text-muted-foreground">
+                    Admin/Manager must provide a Hotel ID. Staff users normally have it scoped from the token.
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Filters */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-6">
+              <div className="space-y-2">
+                <Label>From</Label>
+                <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+              </div>
+
+              <div className="space-y-2">
+                <Label>To</Label>
+                <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select
+                  value={typeFilter === "all" ? "all" : String(typeFilter)}
+                  onValueChange={(v) =>
+                    setTypeFilter(v === "all" ? "all" : (Number(v) as CashTransactionType))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="1">IN</SelectItem>
+                    <SelectItem value="2">OUT</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Currency</Label>
+                <Select
+                  value={currencyFilter === "all" ? "all" : String(currencyFilter)}
+                  onValueChange={(v) =>
+                    setCurrencyFilter(v === "all" ? "all" : (Number(v) as CurrencyCode))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="1">HTG</SelectItem>
+                    <SelectItem value="2">USD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Shift</Label>
+                <Select
+                  value={shiftFilter === "all" ? "all" : String(shiftFilter)}
+                  onValueChange={(v) =>
+                    setShiftFilter(v === "all" ? "all" : (Number(v) as CashShift))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="1">Morning</SelectItem>
+                    <SelectItem value="2">Afternoon</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-end">
+                <Button variant="secondary" onClick={load} disabled={loading} className="w-full">
+                  {loading ? "Loading..." : "Apply"}
+                </Button>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Filters */}
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
-                <div className="space-y-2">
-                  <Label>From</Label>
-                  <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>To</Label>
-                  <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Type</Label>
-                  <Select
-                    value={typeFilter === "all" ? "all" : String(typeFilter)}
-                    onValueChange={(v) => setTypeFilter(v === "all" ? "all" : (Number(v) as CashTransactionType))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="1">IN</SelectItem>
-                      <SelectItem value="2">OUT</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Currency</Label>
-                  <Select
-                    value={currencyFilter === "all" ? "all" : String(currencyFilter)}
-                    onValueChange={(v) =>
-                      setCurrencyFilter(v === "all" ? "all" : (Number(v) as CurrencyCode))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="1">HTG</SelectItem>
-                      <SelectItem value="2">USD</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-end">
-                  <Button variant="secondary" onClick={load} disabled={loading} className="w-full">
-                    {loading ? "Loading..." : "Apply"}
-                  </Button>
-                </div>
-              </div>
 
-              {/* Totals */}
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="text-sm text-muted-foreground">Total IN</div>
-                    <div className="text-2xl font-semibold">{totals.totalIn.toFixed(2)}</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="text-sm text-muted-foreground">Total OUT</div>
-                    <div className="text-2xl font-semibold">{totals.totalOut.toFixed(2)}</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="text-sm text-muted-foreground">Net</div>
-                    <div className="text-2xl font-semibold">{totals.net.toFixed(2)}</div>
-                  </CardContent>
-                </Card>
-              </div>
+            {/* Totals */}
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-muted-foreground">Total IN</div>
+                  <div className="text-2xl font-semibold">{totals.totalIn.toFixed(2)}</div>
+                </CardContent>
+              </Card>
 
-              {error && <div className="text-sm text-red-600">{error}</div>}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-muted-foreground">Total OUT</div>
+                  <div className="text-2xl font-semibold">{totals.totalOut.toFixed(2)}</div>
+                </CardContent>
+              </Card>
 
-              {/* Table */}
-              <div className="rounded-md border bg-white">
-                <Table>
-                  <TableHeader>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-muted-foreground">Net</div>
+                  <div className="text-2xl font-semibold">{totals.net.toFixed(2)}</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {error && <div className="text-sm text-red-600">{error}</div>}
+
+            {/* Table */}
+            <div className="rounded-md border bg-white">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Shift</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Currency</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Note</TableHead>
+                    <TableHead>Reference</TableHead>
+                  </TableRow>
+                </TableHeader>
+
+                <TableBody>
+                  {rows.length === 0 ? (
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Currency</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Note</TableHead>
-                      <TableHead>Reference</TableHead>
+                      <TableCell colSpan={8} className="text-center text-sm text-muted-foreground">
+                        No cash transactions found.
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center text-sm text-muted-foreground">
-                          No cash transactions found.
+                  ) : (
+                    rows.map((r) => (
+                      <TableRow key={r.cashTransactionId}>
+                        <TableCell>{formatLocal(r.createdAtUtc)}</TableCell>
+                        <TableCell>{shiftLabel(r.shift)}</TableCell>
+                        <TableCell>
+                          <Badge variant={r.type === 2 ? "destructive" : "secondary"}>
+                            {cashTypeLabel(r.type)}
+                          </Badge>
                         </TableCell>
+                        <TableCell className="text-right">{r.amount.toFixed(2)}</TableCell>
+                        <TableCell>{currencyLabel(r.currency)}</TableCell>
+                        <TableCell>{r.category || "—"}</TableCell>
+                        <TableCell className="max-w-[320px] truncate" title={r.note}>
+                          {r.note || "—"}
+                        </TableCell>
+                        <TableCell>{r.reference || "—"}</TableCell>
                       </TableRow>
-                    ) : (
-                      rows.map((r) => (
-                        <TableRow key={r.cashTransactionId}>
-                          <TableCell>{formatLocal(r.createdAtUtc)}</TableCell>
-                          <TableCell>
-                            <Badge variant={r.type === 2 ? "destructive" : "secondary"}>
-                              {cashTypeLabel(r.type)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">{r.amount.toFixed(2)}</TableCell>
-                          <TableCell>{currencyLabel(r.currency)}</TableCell>
-                          <TableCell>{r.category || "—"}</TableCell>
-                          <TableCell className="max-w-[320px] truncate" title={r.note}>
-                            {r.note || "—"}
-                          </TableCell>
-                          <TableCell>{r.reference || "—"}</TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 
@@ -328,9 +402,23 @@ export default function CashTransactionsPage() {
           </DialogHeader>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {!scopedHotelId ? (
+              <div className="space-y-2 md:col-span-2">
+                <Label>Hotel ID</Label>
+                <Input
+                  value={form.hotelIdInput}
+                  onChange={(e) => setForm((s) => ({ ...s, hotelIdInput: e.target.value }))}
+                  placeholder="e.g. 1"
+                />
+              </div>
+            ) : null}
+
             <div className="space-y-2">
               <Label>Type</Label>
-              <Select value={String(form.type)} onValueChange={(v) => setForm((s) => ({ ...s, type: Number(v) as CashTransactionType }))}>
+              <Select
+                value={String(form.type)}
+                onValueChange={(v) => setForm((s) => ({ ...s, type: Number(v) as CashTransactionType }))}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -342,8 +430,27 @@ export default function CashTransactionsPage() {
             </div>
 
             <div className="space-y-2">
+              <Label>Shift</Label>
+              <Select
+                value={String(form.shift)}
+                onValueChange={(v) => setForm((s) => ({ ...s, shift: Number(v) as CashShift }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Morning</SelectItem>
+                  <SelectItem value="2">Afternoon</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label>Currency</Label>
-              <Select value={String(form.currency)} onValueChange={(v) => setForm((s) => ({ ...s, currency: Number(v) as CurrencyCode }))}>
+              <Select
+                value={String(form.currency)}
+                onValueChange={(v) => setForm((s) => ({ ...s, currency: Number(v) as CurrencyCode }))}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -392,7 +499,7 @@ export default function CashTransactionsPage() {
               <Input
                 value={form.reference}
                 onChange={(e) => setForm((s) => ({ ...s, reference: e.target.value }))}
-                placeholder="Receipt #, Invoice #, ..."
+                placeholder="Receipt #, Invoice #, Booking #, ..."
               />
             </div>
           </div>
