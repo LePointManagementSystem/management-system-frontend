@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Loader2, XCircle, ChevronLeft, ChevronRight, CheckCircle2, Eye } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -77,6 +78,12 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<BookingDto[]>([]);
+
+  const [searchParams] = useSearchParams();
+  const lastAutoOpenedIdRef = useRef<number | null>(null);
+
+  
+
 
   // Filters
   const [fromDateStr, setFromDateStr] = useState<string>("");
@@ -188,6 +195,26 @@ export default function BookingsPage() {
     setDetailsBooking(b);
     setDetailsOpen(true);
   };
+
+    // ✅ Auto-open details when coming from NotificationsBell
+  useEffect(() => {
+    const raw = searchParams.get("bookingId");
+    const id = raw ? Number(raw) : NaN;
+
+    if (!Number.isFinite(id)) return;
+    if (loading) return;
+
+    // Prevent reopening on every render/state change
+    if (lastAutoOpenedIdRef.current === id) return;
+
+    const found = rows.find((r) => r.bookingId === id);
+    if (!found) return;
+
+    openDetails(found);
+    lastAutoOpenedIdRef.current = id;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, rows, loading]);
+
 
   const doCancel = async () => {
     if (!activeBooking) return;
