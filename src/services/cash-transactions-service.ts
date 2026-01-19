@@ -8,6 +8,7 @@ export type CashTransactionDto = {
   cashTransactionId: number;
   hotelId: number;
   actorUserId: string;
+  cashSessionId?: number | null;
   type: CashTransactionType;
   currency: CurrencyCode;
   amount: number;
@@ -20,6 +21,7 @@ export type CashTransactionDto = {
 
 export type CreateCashTransactionPayload = {
   hotelId: number; // for Staff we can send 0, backend will enforce scope
+  cashSessionId?: number | null;
   type: CashTransactionType;
   currency: CurrencyCode;
   amount: number;

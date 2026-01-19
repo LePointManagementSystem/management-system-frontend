@@ -228,7 +228,7 @@ const cashTotals = useMemo(() => {
                               </TableCell>
                               <TableCell className="text-right">{formatMoney(c.totalIn)}</TableCell>
                               <TableCell className="text-right">{formatMoney(c.totalOut)}</TableCell>
-                              <TableCell className="text-right font-medium">{formatMoney(c.net)}</TableCell>
+                              <TableCell className="text-right font-medium">{formatMoney(c.net ?? (c.totalIn - c.totalOut))}</TableCell>
                             </TableRow>
                           ))
                         )}
