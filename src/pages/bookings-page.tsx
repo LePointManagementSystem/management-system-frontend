@@ -196,6 +196,22 @@ export default function BookingsPage() {
     setDetailsOpen(true);
   };
 
+  useEffect(() => {
+    const raw = searchParams.get("bookingId");
+    const id = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(id)) return;
+    if (loading) return;
+
+    // Prevent repeated re-opening on every re-render
+    if (lastAutoOpenedIdRef.current === id) return;
+
+    const found = rows.find((r) => r.bookingId === id);
+    if (!found) return;
+
+    openDetails(found);
+    lastAutoOpenedIdRef.current = id;
+  }, [searchParams, rows, loading]);
+
     // ✅ Auto-open details when coming from NotificationsBell
   useEffect(() => {
     const raw = searchParams.get("bookingId");
