@@ -100,12 +100,18 @@ async function unwrapEnvelope<T>(res: Response): Promise<T> {
 
 const CASH_SESSIONS_BASE = `${API_BASE_URL}/CashSessions`;
 
+function authHeaders() {
+  return {
+    Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+  };
+}
+
 export async function openCashSession(payload: OpenCashSessionPayload): Promise<CashSessionDto> {
   const res = await fetch(`${CASH_SESSIONS_BASE}/open`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+      ...authHeaders(),
     },
     body: JSON.stringify(payload),
   });
@@ -118,7 +124,7 @@ export async function closeCashSession(payload: CloseCashSessionPayload): Promis
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+      ...authHeaders(),
     },
     body: JSON.stringify({ closingCounted: payload.closingCounted }),
   });
@@ -137,17 +143,28 @@ export async function listCashSessions(params: ListCashSessionsParams): Promise<
   qs.set("pageSize", String(params.pageSize ?? 50));
 
   const res = await fetch(`${CASH_SESSIONS_BASE}?${qs.toString()}`, {
-    headers: { Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
+    headers: { ...authHeaders() },
   });
 
   const raw: any = await unwrapEnvelope<any>(res);
 
-  // ✅ support camelCase OR PascalCase
+  // ✅ IMPORTANT: support backend returning LIST OR PAGED OBJECT
+  if (Array.isArray(raw)) {
+    return {
+      total: raw.length,
+      page: params.page ?? 1,
+      pageSize: params.pageSize ?? raw.length,
+      items: raw,
+    };
+  }
+
+  // ✅ support camelCase OR PascalCase object
+  const items = raw?.items ?? raw?.Items ?? [];
   return {
-    total: raw?.total ?? raw?.Total ?? 0,
-    page: raw?.page ?? raw?.Page ?? 1,
-    pageSize: raw?.pageSize ?? raw?.PageSize ?? 50,
-    items: raw?.items ?? raw?.Items ?? [],
+    total: raw?.total ?? raw?.Total ?? (Array.isArray(items) ? items.length : 0),
+    page: raw?.page ?? raw?.Page ?? (params.page ?? 1),
+    pageSize: raw?.pageSize ?? raw?.PageSize ?? (params.pageSize ?? 50),
+    items,
   };
 }
 

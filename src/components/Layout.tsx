@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react"
-import { ChevronDown, Menu, Search } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+// Path: src/components/Layout.tsx
+import { useMemo, useState } from "react";
+import { ChevronDown, Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,66 +10,62 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { useNavigate } from "react-router-dom"
+} from "@/components/ui/dropdown-menu";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
-import Sidenav from "./side-nav"
-import UserProfile from "./user-profile"
+import { useNavigate } from "react-router-dom";
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+
+import Sidenav from "./side-nav";
+import UserProfile from "./user-profile";
 
 // ✅ Notifications Bell component
-import { NotificationsBell } from "@/components/notifications-bell"
+import { NotificationsBell } from "@/components/notifications-bell";
+
+// ✅ Global Search (new)
+import { GlobalSearch } from "@/components/global-search";
 
 interface LayoutProps {
-  children: React.ReactNode
+  children: React.ReactNode;
 }
 
-type Role = "Admin" | "Manager" | "Receptionist" | "Staff" | "HR" | "User"
+type Role = "Admin" | "Manager" | "Receptionist" | "Staff" | "HR" | "User";
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-  const toggleSidebar = () => setIsSidebarOpen((v) => !v)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const toggleSidebar = () => setIsSidebarOpen((v) => !v);
 
-  const navigate = useNavigate()
-
-  // ✅ Search state (MUST be here, not inside JSX)
-  const [searchText, setSearchText] = useState("")
+  const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem("token")
-    localStorage.removeItem("role")
-    localStorage.removeItem("roles")
-    localStorage.removeItem("hotelId")
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    localStorage.removeItem("roles");
+    localStorage.removeItem("hotelId");
 
     // ✅ important pour le dropdown + avatar
-    localStorage.removeItem("displayName")
-    localStorage.removeItem("email")
+    localStorage.removeItem("displayName");
+    localStorage.removeItem("email");
 
-    navigate("/login")
-  }
+    navigate("/login");
+  };
 
   // ✅ rôle dynamique (pas seulement Admin/Staff)
-  const userRole = (localStorage.getItem("role") || "Staff") as Role
+  const userRole = (localStorage.getItem("role") || "Staff") as Role;
 
   // ✅ nom/email pour avatar
   const displayName = useMemo(
     () => localStorage.getItem("displayName") || localStorage.getItem("email") || "User",
     []
-  )
+  );
 
   const initials = useMemo(() => {
-    const txt = (displayName || "User").trim()
-    const parts = txt.split(" ").filter(Boolean)
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-    return (parts[0][0] + parts[1][0]).toUpperCase()
-  }, [displayName])
-
-  const submitSearch = () => {
-    const q = searchText.trim()
-    if (!q) return
-    navigate(`/search?q=${encodeURIComponent(q)}`)
-  }
+    const txt = (displayName || "User").trim();
+    const parts = txt.split(" ").filter(Boolean);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }, [displayName]);
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -87,20 +84,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             {/* Right */}
             <div className="flex items-center gap-3">
-              {/* ✅ Real Search */}
-              <div className="relative w-[260px] md:w-[340px]">
-                <Input
-                  type="search"
-                  placeholder="Search bookings, guests, rooms…"
-                  className="pl-8"
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") submitSearch()
-                  }}
-                />
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-              </div>
+              {/* ✅ Global Search */}
+              <GlobalSearch />
 
               {/* ✅ Notifications */}
               <NotificationsBell />
@@ -110,7 +95,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <DialogTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src="/placeholder.svg?height=32&width=32" alt={displayName} />
+                      <AvatarImage
+                        src="/placeholder.svg?height=32&width=32"
+                        alt={displayName}
+                      />
                       <AvatarFallback>{initials}</AvatarFallback>
                     </Avatar>
                   </Button>
@@ -151,7 +139,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </main>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Layout
+export default Layout;

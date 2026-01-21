@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "react-router-dom";
 
 import {
   cashTypeLabel,
@@ -32,6 +33,15 @@ import {
 import { API_BASE_URL } from "@/config/api-base";
 import type { Hotel } from "@/types/hotel";
 
+function bookingIdFromReference(ref?: string | null): number | null {
+  if (!ref) return null;
+  const m1 = ref.match(/booking\s*#\s*(\d+)/i);
+  if (m1?.[1]) return Number(m1[1]);
+  const m2 = ref.match(/\bbk[-\s]?(\d+)\b/i);
+  if (m2?.[1]) return Number(m2[1]);
+  return null;
+}
+
 function toUtcIso(dateStr: string, endOfDay: boolean): string {
   const dt = new Date(`${dateStr}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`);
   return dt.toISOString();
@@ -51,6 +61,7 @@ type CreateFormState = {
   note: string;
   category: string;
   reference: string;
+  bookingIdInput: string;
   hotelIdInput: string;
 };
 
@@ -62,6 +73,7 @@ const DEFAULT_FORM: CreateFormState = {
   note: "",
   category: "",
   reference: "",
+  bookingIdInput: "",
   hotelIdInput: "",
 };
 
@@ -69,14 +81,11 @@ async function fetchHotelsForAdmin(): Promise<Hotel[]> {
   const token = localStorage.getItem("token") || "";
 
   const qs = new URLSearchParams();
-  // ✅ Backend validation requires non-empty `name` and `desc`
-  // Using a single space satisfies [Required] and usually returns all hotels.
   qs.set("name", " ");
   qs.set("desc", " ");
   qs.set("pageSize", "200");
   qs.set("pageNumber", "1");
 
-  // ✅ Backend route: GET /api/Hotel/search
   const res = await fetch(`${API_BASE_URL}/Hotel/search?${qs.toString()}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -109,13 +118,10 @@ async function fetchHotelsForAdmin(): Promise<Hotel[]> {
     .filter((h: Hotel) => Number.isFinite(h.id) && h.id > 0);
 }
 
-
-
 export default function CashTransactionsPage() {
   const scopedHotelId = getOptionalHotelId(); // staff usually has it
   const isAdminLike = !scopedHotelId;
 
-  // Admin dropdown hotels
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [hotelsLoading, setHotelsLoading] = useState(false);
   const [hotelsError, setHotelsError] = useState<string | null>(null);
@@ -127,7 +133,6 @@ export default function CashTransactionsPage() {
   const [currencyFilter, setCurrencyFilter] = useState<"all" | CurrencyCode>("all");
   const [shiftFilter, setShiftFilter] = useState<"all" | CashShift>("all");
 
-  // Cash Session
   const [sessionLoading, setSessionLoading] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [activeSession, setActiveSession] = useState<CashSessionDto | null>(null);
@@ -140,7 +145,6 @@ export default function CashTransactionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<CashTransactionDto[]>([]);
 
-  // Create modal
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -155,7 +159,7 @@ export default function CashTransactionsPage() {
     return Number.isFinite(n) && n > 0 ? n : null;
   }, [scopedHotelId, selectedHotelId]);
 
-  // Load hotels for Admin
+  // ✅ Load hotels for Admin
   useEffect(() => {
     if (!isAdminLike) return;
 
@@ -166,7 +170,6 @@ export default function CashTransactionsPage() {
         const list = await fetchHotelsForAdmin();
         setHotels(list);
 
-        // auto select first if none selected
         if ((!selectedHotelId || Number(selectedHotelId) <= 0) && list.length > 0) {
           setSelectedHotelId(String(list[0].id));
         }
@@ -183,7 +186,6 @@ export default function CashTransactionsPage() {
   }, [isAdminLike]);
 
   const load = async () => {
-    // ✅ prevent backend error for Admin
     if (!effectiveHotelId) {
       setRows([]);
       setError("Please select a Hotel first.");
@@ -217,6 +219,12 @@ export default function CashTransactionsPage() {
     }
   };
 
+  /**
+   * ✅ IMPORTANT:
+   * - On cherche d'abord la session OUVERTE du hotel (sans filtrer currency/shift)
+   * - Si elle existe: activeSession = openOne + sync des selects
+   * - Ça évite le blocage "shift ouvert mais je ne peux plus le fermer"
+   */
   const loadActiveSession = async () => {
     if (!effectiveHotelId) {
       setActiveSession(null);
@@ -229,20 +237,30 @@ export default function CashTransactionsPage() {
 
       const now = new Date();
       const from = new Date();
-      from.setDate(from.getDate() - 14);
+      from.setDate(from.getDate() - 30);
 
       const result = await listCashSessions({
         hotelId: effectiveHotelId,
-        currency: form.currency,
-        shift: form.shift,
         fromUtc: from.toISOString(),
         toUtc: now.toISOString(),
         page: 1,
-        pageSize: 50,
+        pageSize: 200,
+        // ✅ PAS de currency/shift ici
       });
 
       const openOne = (result.items || []).find((s) => !s.closedAtUtc);
-      setActiveSession(openOne ?? null);
+
+      if (openOne) {
+        setActiveSession(openOne);
+        // ✅ lock UI sur la session ouverte
+        setForm((prev) => ({
+          ...prev,
+          currency: openOne.currency,
+          shift: openOne.shift,
+        }));
+      } else {
+        setActiveSession(null);
+      }
     } catch (e: any) {
       setActiveSession(null);
       setSessionError(e?.message || "Failed to load shift session.");
@@ -256,10 +274,11 @@ export default function CashTransactionsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveHotelId]);
 
+  // ✅ ne dépend QUE du hotel
   useEffect(() => {
     void loadActiveSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveHotelId, form.currency, form.shift]);
+  }, [effectiveHotelId]);
 
   const totals = useMemo(() => {
     let totalIn = 0;
@@ -276,33 +295,25 @@ export default function CashTransactionsPage() {
     return activeSession.expected ?? activeSession.openingBalance ?? 0;
   }, [activeSession]);
 
-  const sessionDifference = useMemo(() => {
-    if (!activeSession) return null;
-    if (!activeSession.closedAtUtc) return null;
-    return activeSession.difference ?? 0;
-  }, [activeSession]);
-
   const openCreate = (type: CashTransactionType) => {
     setCreateError(null);
     setForm((s) => ({
       ...DEFAULT_FORM,
       type,
       hotelIdInput: effectiveHotelId ? String(effectiveHotelId) : s.hotelIdInput,
-      currency: activeSession?.currency ?? form.currency,
-      shift: activeSession?.shift ?? form.shift,
+      currency: activeSession?.currency ?? s.currency,
+      shift: activeSession?.shift ?? s.shift,
     }));
     setIsCreateOpen(true);
   };
 
   const submitCreate = async () => {
     const hid = effectiveHotelId;
-
     if (!hid) {
       setCreateError("Please select a Hotel first.");
       return;
     }
-
-    if (!activeSession) {
+    if (!activeSession || activeSession.closedAtUtc) {
       setCreateError("Please open a shift before creating cash transactions.");
       return;
     }
@@ -350,6 +361,10 @@ export default function CashTransactionsPage() {
       setSessionError("Please select a Hotel first.");
       return;
     }
+    if (activeSession && !activeSession.closedAtUtc) {
+      setSessionError("A shift is already open. Close it first.");
+      return;
+    }
 
     const opening = Number(openBalanceInput);
     if (!Number.isFinite(opening) || opening < 0) {
@@ -372,6 +387,13 @@ export default function CashTransactionsPage() {
       setIsOpenShiftDialogOpen(false);
       setOpenBalanceInput("");
 
+      // verrouille selects sur la session ouverte
+      setForm((prev) => ({
+        ...prev,
+        currency: opened.currency,
+        shift: opened.shift,
+      }));
+
       await load();
     } catch (e: any) {
       setSessionError(e?.message || "Failed to open shift.");
@@ -381,7 +403,7 @@ export default function CashTransactionsPage() {
   };
 
   const submitCloseShift = async () => {
-    if (!activeSession) {
+    if (!activeSession || activeSession.closedAtUtc) {
       setSessionError("No open shift to close.");
       return;
     }
@@ -401,11 +423,13 @@ export default function CashTransactionsPage() {
         closingCounted: counted,
       });
 
-      setActiveSession(closed);
+      setActiveSession(closed); // reste visible comme "Closed"
       setIsCloseShiftDialogOpen(false);
       setCloseCountedInput("");
 
       await load();
+      // (optionnel) si tu veux revenir à null après fermeture:
+      // await loadActiveSession();
     } catch (e: any) {
       setSessionError(e?.message || "Failed to close shift.");
     } finally {
@@ -413,13 +437,11 @@ export default function CashTransactionsPage() {
     }
   };
 
-  
-
   const canCreateTransactions = !!activeSession && !activeSession.closedAtUtc;
+  const lockShiftSelectors = !!activeSession && !activeSession.closedAtUtc; // ✅ clé du fix
 
   return (
     <div className="space-y-6">
-      {/* ADMIN HOTEL DROPDOWN */}
       {isAdminLike ? (
         <Card>
           <CardHeader>
@@ -429,11 +451,7 @@ export default function CashTransactionsPage() {
             {hotelsError ? <div className="text-sm text-red-600">{hotelsError}</div> : null}
             <div className="max-w-[420px] space-y-2">
               <Label>Hotel</Label>
-              <Select
-                value={selectedHotelId}
-                onValueChange={(v) => setSelectedHotelId(v)}
-                disabled={hotelsLoading}
-              >
+              <Select value={selectedHotelId} onValueChange={setSelectedHotelId} disabled={hotelsLoading}>
                 <SelectTrigger>
                   <SelectValue placeholder={hotelsLoading ? "Loading..." : "Select a hotel"} />
                 </SelectTrigger>
@@ -464,6 +482,7 @@ export default function CashTransactionsPage() {
               <Select
                 value={String(form.shift)}
                 onValueChange={(v) => setForm((s) => ({ ...s, shift: Number(v) as CashShift }))}
+                disabled={!!activeSession && !activeSession.closedAtUtc}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -477,6 +496,7 @@ export default function CashTransactionsPage() {
               <Select
                 value={String(form.currency)}
                 onValueChange={(v) => setForm((s) => ({ ...s, currency: Number(v) as CurrencyCode }))}
+                disabled={!!activeSession && !activeSession.closedAtUtc}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -559,7 +579,7 @@ export default function CashTransactionsPage() {
                   <div className="text-2xl font-semibold">{(activeSession.closingCounted ?? 0).toFixed(2)}</div>
                   <div className="text-xs text-muted-foreground mt-1">
                     {activeSession.closedAtUtc
-                      ? `Difference: ${(sessionDifference ?? 0).toFixed(2)}`
+                      ? `Difference: ${(activeSession.difference ?? 0).toFixed(2)}`
                       : "Close shift to enter counted cash"}
                   </div>
                 </CardContent>
@@ -696,24 +716,41 @@ export default function CashTransactionsPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    rows.map((r) => (
-                      <TableRow key={r.cashTransactionId}>
-                        <TableCell>{formatLocal(r.createdAtUtc)}</TableCell>
-                        <TableCell>{shiftLabel(r.shift)}</TableCell>
-                        <TableCell>
-                          <Badge variant={r.type === 2 ? "destructive" : "secondary"}>
-                            {cashTypeLabel(r.type)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">{r.amount.toFixed(2)}</TableCell>
-                        <TableCell>{currencyLabel(r.currency)}</TableCell>
-                        <TableCell>{r.category || "—"}</TableCell>
-                        <TableCell className="max-w-[320px] truncate" title={r.note}>
-                          {r.note || "—"}
-                        </TableCell>
-                        <TableCell>{r.reference || "—"}</TableCell>
-                      </TableRow>
-                    ))
+                    rows.map((r) => {
+                      const bid = bookingIdFromReference(r.reference);
+
+                      return (
+                        <TableRow key={r.cashTransactionId}>
+                          <TableCell>{formatLocal(r.createdAtUtc)}</TableCell>
+                          <TableCell>{shiftLabel(r.shift)}</TableCell>
+                          <TableCell>
+                            <Badge variant={r.type === 2 ? "destructive" : "secondary"}>
+                              {cashTypeLabel(r.type)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">{r.amount.toFixed(2)}</TableCell>
+                          <TableCell>{currencyLabel(r.currency)}</TableCell>
+                          <TableCell>{r.category || "—"}</TableCell>
+                          <TableCell className="max-w-[320px] truncate" title={r.note}>
+                            {r.note || "—"}
+                          </TableCell>
+
+                          <TableCell>
+                            {bid ? (
+                              <Link
+                                to={`/bookings?bookingId=${bid}`}
+                                className="text-blue-600 underline"
+                                title="Open booking"
+                              >
+                                {r.reference}
+                              </Link>
+                            ) : (
+                              r.reference || "—"
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
@@ -765,7 +802,7 @@ export default function CashTransactionsPage() {
           <DialogHeader><DialogTitle>Close Shift</DialogTitle></DialogHeader>
 
           <div className="space-y-3">
-            {!activeSession ? (
+            {!activeSession || activeSession.closedAtUtc ? (
               <div className="text-sm text-muted-foreground">No active session.</div>
             ) : (
               <>
@@ -795,7 +832,7 @@ export default function CashTransactionsPage() {
             <Button variant="outline" onClick={() => setIsCloseShiftDialogOpen(false)} disabled={sessionLoading}>
               Cancel
             </Button>
-            <Button onClick={submitCloseShift} disabled={sessionLoading || !activeSession}>
+            <Button onClick={submitCloseShift} disabled={sessionLoading || !activeSession || !!activeSession.closedAtUtc}>
               {sessionLoading ? "Closing..." : "Close Shift"}
             </Button>
           </DialogFooter>
@@ -864,9 +901,7 @@ export default function CashTransactionsPage() {
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label>
-                Note {form.type === 2 ? <span className="text-red-600">*</span> : null}
-              </Label>
+              <Label>Note {form.type === 2 ? <span className="text-red-600">*</span> : null}</Label>
               <Textarea
                 value={form.note}
                 onChange={(e) => setForm((s) => ({ ...s, note: e.target.value }))}
@@ -879,16 +914,43 @@ export default function CashTransactionsPage() {
               <Input
                 value={form.category}
                 onChange={(e) => setForm((s) => ({ ...s, category: e.target.value }))}
-                placeholder="Supplies, Maintenance, ..."
+                placeholder="Supplies, Maintenance, Water sale..."
               />
             </div>
 
             <div className="space-y-2">
+              <Label>Booking ID (optional)</Label>
+              <Input
+                value={form.bookingIdInput}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/[^\d]/g, "");
+                  setForm((s) => {
+                    const wasAutoBookingRef = /^booking\s*#\s*\d+$/i.test(s.reference.trim());
+                    if (!digits) {
+                      return { ...s, bookingIdInput: "", reference: wasAutoBookingRef ? "" : s.reference };
+                    }
+                    return { ...s, bookingIdInput: digits, reference: `BOOKING#${digits}` };
+                  });
+                }}
+                placeholder="e.g. 197"
+              />
+              <div className="text-xs text-muted-foreground">
+                If set, Reference is auto-filled as <b>BOOKING#ID</b>.
+              </div>
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
               <Label>Reference (optional)</Label>
               <Input
                 value={form.reference}
-                onChange={(e) => setForm((s) => ({ ...s, reference: e.target.value }))}
-                placeholder="Receipt #, Booking #, ..."
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setForm((s) => {
+                    const bid = bookingIdFromReference(v);
+                    return { ...s, reference: v, bookingIdInput: bid ? String(bid) : "" };
+                  });
+                }}
+                placeholder="Receipt #, SALE#WATER, Supplier invoice, ..."
               />
             </div>
           </div>
