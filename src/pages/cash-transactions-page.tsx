@@ -3,12 +3,36 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
+
+import {
+  exportCashSessionsExcel,
+  exportCashTransactionsExcel,
+} from "@/services/reporting-service";
 
 import {
   cashTypeLabel,
@@ -33,17 +57,42 @@ import {
 import { API_BASE_URL } from "@/config/api-base";
 import type { Hotel } from "@/types/hotel";
 
+/**
+ * ✅ Extract Booking ID from reference
+ * Supports:
+ *  - "BOOKING#197"
+ *  - "Booking # 197"
+ *  - "booking#197"
+ */
 function bookingIdFromReference(ref?: string | null): number | null {
   if (!ref) return null;
   const m1 = ref.match(/booking\s*#\s*(\d+)/i);
   if (m1?.[1]) return Number(m1[1]);
-  const m2 = ref.match(/\bbk[-\s]?(\d+)\b/i);
+
+  const m2 = ref.match(/booking\s*#?\s*(\d+)/i);
   if (m2?.[1]) return Number(m2[1]);
+
   return null;
 }
 
+/**
+ * ✅ Extract Booking Ref like BK-BCFBD8 from text
+ * Supports:
+ *  - BK-BCFBD8
+ *  - bk bcfbd8
+ *  - "Booking Ref: BK-BCFBD8"
+ */
+function bookingRefFromText(ref?: string | null): string | null {
+  if (!ref) return null;
+  const m = ref.match(/\bbk\s*[-\s]?\s*([a-z0-9]{4,})\b/i);
+  if (!m?.[1]) return null;
+  return `BK-${m[1].toUpperCase()}`;
+}
+
 function toUtcIso(dateStr: string, endOfDay: boolean): string {
-  const dt = new Date(`${dateStr}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`);
+  const dt = new Date(
+    `${dateStr}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`
+  );
   return dt.toISOString();
 }
 
@@ -61,7 +110,10 @@ type CreateFormState = {
   note: string;
   category: string;
   reference: string;
-  bookingIdInput: string;
+
+  // ✅ NEW: booking ref input (optional)
+  bookingRefInput: string;
+
   hotelIdInput: string;
 };
 
@@ -73,7 +125,7 @@ const DEFAULT_FORM: CreateFormState = {
   note: "",
   category: "",
   reference: "",
-  bookingIdInput: "",
+  bookingRefInput: "",
   hotelIdInput: "",
 };
 
@@ -99,7 +151,9 @@ async function fetchHotelsForAdmin(): Promise<Hotel[]> {
   }
 
   if (!res.ok) {
-    throw new Error(json?.message || json?.Message || text || `Failed to load hotels (${res.status})`);
+    throw new Error(
+      json?.message || json?.Message || text || `Failed to load hotels (${res.status})`
+    );
   }
 
   const payload = json?.data ?? json?.Data ?? json;
@@ -122,10 +176,15 @@ export default function CashTransactionsPage() {
   const scopedHotelId = getOptionalHotelId(); // staff usually has it
   const isAdminLike = !scopedHotelId;
 
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [hotelsLoading, setHotelsLoading] = useState(false);
   const [hotelsError, setHotelsError] = useState<string | null>(null);
-  const [selectedHotelId, setSelectedHotelId] = useState<string>(scopedHotelId ? String(scopedHotelId) : "");
+  const [selectedHotelId, setSelectedHotelId] = useState<string>(
+    scopedHotelId ? String(scopedHotelId) : ""
+  );
 
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
@@ -221,9 +280,7 @@ export default function CashTransactionsPage() {
 
   /**
    * ✅ IMPORTANT:
-   * - On cherche d'abord la session OUVERTE du hotel (sans filtrer currency/shift)
-   * - Si elle existe: activeSession = openOne + sync des selects
-   * - Ça évite le blocage "shift ouvert mais je ne peux plus le fermer"
+   * - find open session for hotel (not filtering currency/shift)
    */
   const loadActiveSession = async () => {
     if (!effectiveHotelId) {
@@ -245,14 +302,12 @@ export default function CashTransactionsPage() {
         toUtc: now.toISOString(),
         page: 1,
         pageSize: 200,
-        // ✅ PAS de currency/shift ici
       });
 
       const openOne = (result.items || []).find((s) => !s.closedAtUtc);
 
       if (openOne) {
         setActiveSession(openOne);
-        // ✅ lock UI sur la session ouverte
         setForm((prev) => ({
           ...prev,
           currency: openOne.currency,
@@ -274,7 +329,6 @@ export default function CashTransactionsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveHotelId]);
 
-  // ✅ ne dépend QUE du hotel
   useEffect(() => {
     void loadActiveSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -305,6 +359,57 @@ export default function CashTransactionsPage() {
       shift: activeSession?.shift ?? s.shift,
     }));
     setIsCreateOpen(true);
+  };
+
+  const exportPettyCashExcel = async () => {
+    if (!effectiveHotelId) {
+      setExportError("Please select a Hotel first.");
+      return;
+    }
+
+    setExportError(null);
+    try {
+      setExporting(true);
+      const fromUtc = fromDate ? toUtcIso(fromDate, false) : undefined;
+      const toUtc = toDate ? toUtcIso(toDate, true) : undefined;
+
+      await exportCashTransactionsExcel({
+        hotelId: effectiveHotelId,
+        fromUtc,
+        toUtc,
+        currency: currencyFilter === "all" ? undefined : Number(currencyFilter),
+        shift: shiftFilter === "all" ? undefined : Number(shiftFilter),
+        type: typeFilter === "all" ? undefined : Number(typeFilter),
+      });
+    } catch (e: any) {
+      setExportError(e?.message ?? "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportCashSessionsExcelFile = async () => {
+    if (!effectiveHotelId) {
+      setExportError("Please select a Hotel first.");
+      return;
+    }
+
+    setExportError(null);
+    try {
+      setExporting(true);
+      const fromUtc = fromDate ? toUtcIso(fromDate, false) : undefined;
+      const toUtc = toDate ? toUtcIso(toDate, true) : undefined;
+
+      await exportCashSessionsExcel({
+        hotelId: effectiveHotelId,
+        fromUtc,
+        toUtc,
+      });
+    } catch (e: any) {
+      setExportError(e?.message ?? "Export failed");
+    } finally {
+      setExporting(false);
+    }
   };
 
   const submitCreate = async () => {
@@ -387,7 +492,6 @@ export default function CashTransactionsPage() {
       setIsOpenShiftDialogOpen(false);
       setOpenBalanceInput("");
 
-      // verrouille selects sur la session ouverte
       setForm((prev) => ({
         ...prev,
         currency: opened.currency,
@@ -423,13 +527,11 @@ export default function CashTransactionsPage() {
         closingCounted: counted,
       });
 
-      setActiveSession(closed); // reste visible comme "Closed"
+      setActiveSession(closed);
       setIsCloseShiftDialogOpen(false);
       setCloseCountedInput("");
 
       await load();
-      // (optionnel) si tu veux revenir à null après fermeture:
-      // await loadActiveSession();
     } catch (e: any) {
       setSessionError(e?.message || "Failed to close shift.");
     } finally {
@@ -438,7 +540,6 @@ export default function CashTransactionsPage() {
   };
 
   const canCreateTransactions = !!activeSession && !activeSession.closedAtUtc;
-  const lockShiftSelectors = !!activeSession && !activeSession.closedAtUtc; // ✅ clé du fix
 
   return (
     <div className="space-y-6">
@@ -451,7 +552,11 @@ export default function CashTransactionsPage() {
             {hotelsError ? <div className="text-sm text-red-600">{hotelsError}</div> : null}
             <div className="max-w-[420px] space-y-2">
               <Label>Hotel</Label>
-              <Select value={selectedHotelId} onValueChange={setSelectedHotelId} disabled={hotelsLoading}>
+              <Select
+                value={selectedHotelId}
+                onValueChange={setSelectedHotelId}
+                disabled={hotelsLoading}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder={hotelsLoading ? "Loading..." : "Select a hotel"} />
                 </SelectTrigger>
@@ -484,7 +589,9 @@ export default function CashTransactionsPage() {
                 onValueChange={(v) => setForm((s) => ({ ...s, shift: Number(v) as CashShift }))}
                 disabled={!!activeSession && !activeSession.closedAtUtc}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">Morning</SelectItem>
                   <SelectItem value="2">Afternoon</SelectItem>
@@ -498,7 +605,9 @@ export default function CashTransactionsPage() {
                 onValueChange={(v) => setForm((s) => ({ ...s, currency: Number(v) as CurrencyCode }))}
                 disabled={!!activeSession && !activeSession.closedAtUtc}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">HTG</SelectItem>
                   <SelectItem value="2">USD</SelectItem>
@@ -508,7 +617,10 @@ export default function CashTransactionsPage() {
 
             {!activeSession ? (
               <Button
-                onClick={() => { setSessionError(null); setIsOpenShiftDialogOpen(true); }}
+                onClick={() => {
+                  setSessionError(null);
+                  setIsOpenShiftDialogOpen(true);
+                }}
                 disabled={sessionLoading || !effectiveHotelId}
               >
                 Open Shift
@@ -518,18 +630,33 @@ export default function CashTransactionsPage() {
                 Refresh
               </Button>
             ) : (
-              <Button
-                variant="destructive"
-                onClick={() => { setSessionError(null); setIsCloseShiftDialogOpen(true); }}
-                disabled={sessionLoading}
-              >
-                Close Shift
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={exportCashSessionsExcelFile}
+                  disabled={exporting || !effectiveHotelId}
+                >
+                  {exporting ? "Exporting..." : "Export Sessions Excel"}
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    setSessionError(null);
+                    setIsCloseShiftDialogOpen(true);
+                  }}
+                  disabled={sessionLoading}
+                >
+                  Close Shift
+                </Button>
+              </>
             )}
           </div>
         </CardHeader>
 
         <CardContent>
+          {exportError && <div className="text-sm text-red-600 mb-3">{exportError}</div>}
+
           {!effectiveHotelId ? (
             <div className="text-sm text-muted-foreground">
               {isAdminLike ? "Select a Hotel first." : "No hotel scope found. Please log in again."}
@@ -593,7 +720,16 @@ export default function CashTransactionsPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Petty Cash</CardTitle>
-          <div className="flex gap-2">
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              onClick={exportPettyCashExcel}
+              disabled={exporting || !effectiveHotelId}
+            >
+              {exporting ? "Exporting..." : "Export Excel"}
+            </Button>
+
             <Button variant="outline" onClick={() => openCreate(1)} disabled={!canCreateTransactions}>
               New IN
             </Button>
@@ -604,6 +740,8 @@ export default function CashTransactionsPage() {
         </CardHeader>
 
         <CardContent>
+          {exportError && <div className="text-sm text-red-600 mb-3">{exportError}</div>}
+
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-6">
               <div className="space-y-2">
@@ -669,20 +807,26 @@ export default function CashTransactionsPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <Card><CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">Total IN</div>
-                <div className="text-2xl font-semibold">{totals.totalIn.toFixed(2)}</div>
-              </CardContent></Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-muted-foreground">Total IN</div>
+                  <div className="text-2xl font-semibold">{totals.totalIn.toFixed(2)}</div>
+                </CardContent>
+              </Card>
 
-              <Card><CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">Total OUT</div>
-                <div className="text-2xl font-semibold">{totals.totalOut.toFixed(2)}</div>
-              </CardContent></Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-muted-foreground">Total OUT</div>
+                  <div className="text-2xl font-semibold">{totals.totalOut.toFixed(2)}</div>
+                </CardContent>
+              </Card>
 
-              <Card><CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">Net</div>
-                <div className="text-2xl font-semibold">{totals.net.toFixed(2)}</div>
-              </CardContent></Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-muted-foreground">Net</div>
+                  <div className="text-2xl font-semibold">{totals.net.toFixed(2)}</div>
+                </CardContent>
+              </Card>
             </div>
 
             {!canCreateTransactions ? (
@@ -717,7 +861,36 @@ export default function CashTransactionsPage() {
                     </TableRow>
                   ) : (
                     rows.map((r) => {
+                      const bref = bookingRefFromText(r.reference);
                       const bid = bookingIdFromReference(r.reference);
+
+                      const refCell = (() => {
+                        if (bref) {
+                          return (
+                            <Link
+                              to={`/bookings?ref=${encodeURIComponent(bref)}`}
+                              className="text-blue-600 underline"
+                              title="Open booking"
+                            >
+                              {r.reference}
+                            </Link>
+                          );
+                        }
+
+                        if (bid) {
+                          return (
+                            <Link
+                              to={`/bookings?bookingId=${bid}`}
+                              className="text-blue-600 underline"
+                              title="Open booking"
+                            >
+                              {r.reference}
+                            </Link>
+                          );
+                        }
+
+                        return r.reference || "—";
+                      })();
 
                       return (
                         <TableRow key={r.cashTransactionId}>
@@ -734,20 +907,7 @@ export default function CashTransactionsPage() {
                           <TableCell className="max-w-[320px] truncate" title={r.note}>
                             {r.note || "—"}
                           </TableCell>
-
-                          <TableCell>
-                            {bid ? (
-                              <Link
-                                to={`/bookings?bookingId=${bid}`}
-                                className="text-blue-600 underline"
-                                title="Open booking"
-                              >
-                                {r.reference}
-                              </Link>
-                            ) : (
-                              r.reference || "—"
-                            )}
-                          </TableCell>
+                          <TableCell>{refCell}</TableCell>
                         </TableRow>
                       );
                     })
@@ -832,7 +992,10 @@ export default function CashTransactionsPage() {
             <Button variant="outline" onClick={() => setIsCloseShiftDialogOpen(false)} disabled={sessionLoading}>
               Cancel
             </Button>
-            <Button onClick={submitCloseShift} disabled={sessionLoading || !activeSession || !!activeSession.closedAtUtc}>
+            <Button
+              onClick={submitCloseShift}
+              disabled={sessionLoading || !activeSession || !!activeSession.closedAtUtc}
+            >
               {sessionLoading ? "Closing..." : "Close Shift"}
             </Button>
           </DialogFooter>
@@ -901,7 +1064,9 @@ export default function CashTransactionsPage() {
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label>Note {form.type === 2 ? <span className="text-red-600">*</span> : null}</Label>
+              <Label>
+                Note {form.type === 2 ? <span className="text-red-600">*</span> : null}
+              </Label>
               <Textarea
                 value={form.note}
                 onChange={(e) => setForm((s) => ({ ...s, note: e.target.value }))}
@@ -918,24 +1083,24 @@ export default function CashTransactionsPage() {
               />
             </div>
 
+            {/* ✅ NEW booking ref input */}
             <div className="space-y-2">
-              <Label>Booking ID (optional)</Label>
+              <Label>Booking Ref (optional)</Label>
               <Input
-                value={form.bookingIdInput}
+                value={form.bookingRefInput}
                 onChange={(e) => {
-                  const digits = e.target.value.replace(/[^\d]/g, "");
-                  setForm((s) => {
-                    const wasAutoBookingRef = /^booking\s*#\s*\d+$/i.test(s.reference.trim());
-                    if (!digits) {
-                      return { ...s, bookingIdInput: "", reference: wasAutoBookingRef ? "" : s.reference };
-                    }
-                    return { ...s, bookingIdInput: digits, reference: `BOOKING#${digits}` };
-                  });
+                  const raw = e.target.value;
+                  const bref = bookingRefFromText(raw);
+                  setForm((s) => ({
+                    ...s,
+                    bookingRefInput: raw,
+                    reference: bref ? bref : s.reference,
+                  }));
                 }}
-                placeholder="e.g. 197"
+                placeholder="e.g. BK-BCFBD8"
               />
               <div className="text-xs text-muted-foreground">
-                If set, Reference is auto-filled as <b>BOOKING#ID</b>.
+                If valid, Reference will be auto-filled with <b>BK-XXXX</b>.
               </div>
             </div>
 
@@ -945,12 +1110,14 @@ export default function CashTransactionsPage() {
                 value={form.reference}
                 onChange={(e) => {
                   const v = e.target.value;
-                  setForm((s) => {
-                    const bid = bookingIdFromReference(v);
-                    return { ...s, reference: v, bookingIdInput: bid ? String(bid) : "" };
-                  });
+                  const bref = bookingRefFromText(v);
+                  setForm((s) => ({
+                    ...s,
+                    reference: v,
+                    bookingRefInput: bref ? bref : s.bookingRefInput,
+                  }));
                 }}
-                placeholder="Receipt #, SALE#WATER, Supplier invoice, ..."
+                placeholder="Receipt #, SALE#WATER, BOOKING#197, Supplier invoice, BK-BCFBD8..."
               />
             </div>
           </div>

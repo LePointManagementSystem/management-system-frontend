@@ -9,15 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { onBookingsChanged } from "@/utils/events";
+import { exportBookingsExcel } from "@/services/reporting-service";
 import { cancelBooking, completeBooking, fetchBookingsByHotel, type BookingDto } from "@/services/booking-service";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import {
   Dialog,
@@ -58,11 +53,22 @@ function formatBookingRef(ref?: string) {
 
   if (/^BK-\d+$/i.test(ref)) return ref.toUpperCase();
 
+  // GUID -> BK-XXXXXX (fallback)
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref)) {
     return `BK-${ref.slice(0, 6).toUpperCase()}`;
   }
 
   return ref;
+}
+
+/**
+ * ✅ Normalise un booking ref pour comparer facilement
+ */
+function normalizeBookingRef(ref?: string | null): string | null {
+  if (!ref) return null;
+  const m = ref.match(/\bbk\s*[-\s]?\s*([a-z0-9]{4,})\b/i);
+  if (!m?.[1]) return null;
+  return `BK-${m[1].toUpperCase()}`;
 }
 
 function overlapsDateWindow(checkInIso: string, checkOutIso: string, from?: Date | null, to?: Date | null) {
@@ -78,12 +84,14 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<BookingDto[]>([]);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const [searchParams] = useSearchParams();
+
+  // ✅ Prevent repeated re-opening
   const lastAutoOpenedIdRef = useRef<number | null>(null);
-
-  
-
+  const lastAutoOpenedRefRef = useRef<string | null>(null);
 
   // Filters
   const [fromDateStr, setFromDateStr] = useState<string>("");
@@ -131,6 +139,33 @@ export default function BookingsPage() {
     }
   };
 
+  const exportExcel = async () => {
+    setExportError(null);
+    try {
+      setExporting(true);
+
+      // ✅ IMPORTANT: must be ISO, not .toString()
+      const fromUtc = fromDateStr
+        ? new Date(`${fromDateStr}T00:00:00.000`).toISOString()
+        : undefined;
+
+      const toUtc = toDateStr
+        ? new Date(`${toDateStr}T23:59:59.999`).toISOString()
+        : undefined;
+
+      await exportBookingsExcel({
+        hotelId: hotelId ?? undefined,
+        fromUtc,
+        toUtc,
+        status: statusFilter,
+      });
+    } catch (e: any) {
+      setExportError(e?.message ?? "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   useEffect(() => {
     void load();
     const unsubscribe = onBookingsChanged(() => void load());
@@ -167,7 +202,7 @@ export default function BookingsPage() {
     return filteredRows.slice(start, start + pageSize);
   }, [filteredRows, safePage, pageSize]);
 
-  // ---------- PRO dialogs (no window.*) ----------
+  // ---------- dialogs ----------
   const [cancelOpen, setCancelOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -196,31 +231,15 @@ export default function BookingsPage() {
     setDetailsOpen(true);
   };
 
-  useEffect(() => {
-    const raw = searchParams.get("bookingId");
-    const id = raw ? Number(raw) : NaN;
-    if (!Number.isFinite(id)) return;
-    if (loading) return;
-
-    // Prevent repeated re-opening on every re-render
-    if (lastAutoOpenedIdRef.current === id) return;
-
-    const found = rows.find((r) => r.bookingId === id);
-    if (!found) return;
-
-    openDetails(found);
-    lastAutoOpenedIdRef.current = id;
-  }, [searchParams, rows, loading]);
-
-    // ✅ Auto-open details when coming from NotificationsBell
+  /**
+   * ✅ Auto-open by bookingId
+   */
   useEffect(() => {
     const raw = searchParams.get("bookingId");
     const id = raw ? Number(raw) : NaN;
 
     if (!Number.isFinite(id)) return;
     if (loading) return;
-
-    // Prevent reopening on every render/state change
     if (lastAutoOpenedIdRef.current === id) return;
 
     const found = rows.find((r) => r.bookingId === id);
@@ -231,6 +250,24 @@ export default function BookingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, rows, loading]);
 
+  /**
+   * ✅ Auto-open by booking ref
+   */
+  useEffect(() => {
+    const rawRef = searchParams.get("ref");
+    const ref = normalizeBookingRef(rawRef);
+
+    if (!ref) return;
+    if (loading) return;
+    if (lastAutoOpenedRefRef.current === ref) return;
+
+    const found = rows.find((r) => normalizeBookingRef(r.confirmationNumber) === ref);
+    if (!found) return;
+
+    openDetails(found);
+    lastAutoOpenedRefRef.current = ref;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, rows, loading]);
 
   const doCancel = async () => {
     if (!activeBooking) return;
@@ -250,7 +287,7 @@ export default function BookingsPage() {
       await cancelBooking(activeBooking.bookingId, reason);
       setCancelOpen(false);
       setActiveBooking(null);
-      await load(); // resync DB
+      await load();
     } catch (e: any) {
       setActionError(e?.message ?? "Failed to cancel booking");
     } finally {
@@ -270,7 +307,7 @@ export default function BookingsPage() {
       await completeBooking(activeBooking.bookingId);
       setCompleteOpen(false);
       setActiveBooking(null);
-      await load(); // resync DB
+      await load();
     } catch (e: any) {
       setActionError(e?.message ?? "Failed to complete booking");
     } finally {
@@ -284,10 +321,19 @@ export default function BookingsPage() {
         <CardHeader className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <CardTitle>Bookings</CardTitle>
-            <Button variant="outline" onClick={load} disabled={loading}>
-              Refresh
-            </Button>
+
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={load} disabled={loading || exporting}>
+                Refresh
+              </Button>
+
+              <Button variant="secondary" onClick={exportExcel} disabled={exporting || loading}>
+                {exporting ? "Exporting..." : "Export Excel"}
+              </Button>
+            </div>
           </div>
+
+          {exportError && <div className="text-sm text-red-500">{exportError}</div>}
 
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="flex flex-col gap-3 md:flex-row md:items-end">
@@ -334,6 +380,7 @@ export default function BookingsPage() {
                   setToDateStr("");
                   setStatusFilter("all");
                 }}
+                disabled={loading || exporting}
               >
                 Clear
               </Button>
@@ -390,7 +437,9 @@ export default function BookingsPage() {
           {!loading && error && <div className="text-sm text-red-500">{error}</div>}
 
           {!loading && !error && total === 0 && (
-            <div className="text-sm text-muted-foreground">No bookings found for the selected filters.</div>
+            <div className="text-sm text-muted-foreground">
+              No bookings found for the selected filters.
+            </div>
           )}
 
           {!loading && !error && total > 0 && (
@@ -585,7 +634,6 @@ export default function BookingsPage() {
                 </div>
               </div>
 
-              {/* Cancellation audit */}
               <div className="rounded-md border p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-xs text-muted-foreground">Cancellation</div>
@@ -603,7 +651,9 @@ export default function BookingsPage() {
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
                         <div className="text-xs text-muted-foreground">Cancelled at</div>
-                        <div className="font-medium">{detailsBooking.cancelledAtUtc ? toHaitiLocal(detailsBooking.cancelledAtUtc) : "—"}</div>
+                        <div className="font-medium">
+                          {detailsBooking.cancelledAtUtc ? toHaitiLocal(detailsBooking.cancelledAtUtc) : "—"}
+                        </div>
                       </div>
                       <div>
                         <div className="text-xs text-muted-foreground">Cancelled by (user id)</div>
