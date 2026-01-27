@@ -7,13 +7,14 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Edit, Plus, Trash2 } from 'lucide-react';
+import { Edit, Plus, Trash2, Download } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import DataTable, { TableColumn } from 'react-data-table-component';
 import { fetchStaff, addStaff, updateStaff, deleteStaff } from '@/services/staff-service';
 import { Staff, StaffCreateRequest } from '@/types/staff';
 import { Hotel } from '@/types/hotel';
 import { getHotels } from '@/services/hotel-service';
+import { exportStaffExcel } from '@/services/reporting-service';
 
 const StaffPage: React.FC = () => {
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -25,6 +26,9 @@ const StaffPage: React.FC = () => {
 
   // ✅ RH-only vs has login
   const [hasLoginAccount, setHasLoginAccount] = useState(true);
+
+  // ✅ Export loading
+  const [exporting, setExporting] = useState(false);
 
   const [form, setForm] = useState<StaffCreateRequest>({
     firstName: '',
@@ -101,7 +105,6 @@ const StaffPage: React.FC = () => {
   const handleEdit = (row: Staff) => {
     setEditingStaffId(row.id);
 
-    // ✅ row.email may be null/undefined after RH-only backend changes
     const emailValue = (row as any).email ?? '';
     const hasEmail = String(emailValue).trim().length > 0;
 
@@ -136,7 +139,6 @@ const StaffPage: React.FC = () => {
     const lastName = String(form.lastName ?? '').trim();
     const email = String(form.email ?? '').trim();
 
-    // ✅ Validation
     if (!firstName || !lastName) {
       alert('First name and last name are required.');
       return;
@@ -146,7 +148,6 @@ const StaffPage: React.FC = () => {
       return;
     }
 
-    // ✅ Payload: RH-only => send email as empty string (backend should treat as missing)
     const payload: StaffCreateRequest = {
       ...form,
       firstName,
@@ -182,11 +183,23 @@ const StaffPage: React.FC = () => {
     }
   };
 
+  // ✅ Export Staff Excel
+  const handleExportStaff = async () => {
+    try {
+      setExporting(true);
+      await exportStaffExcel(); // <= ton service
+    } catch (err) {
+      console.error("Export staff failed", err);
+      alert("Failed to export staff excel.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const columns: TableColumn<Staff>[] = [
     { name: 'First Name', selector: (r) => r.firstName, sortable: true },
     { name: 'Last Name', selector: (r) => r.lastName, sortable: true },
     { name: 'Role', selector: (r) => r.role, sortable: true },
-    // ✅ email can be null/undefined from backend in RH-only case
     { name: 'Email', selector: (r) => ((r as any).email ?? ''), sortable: true },
     { name: 'Phone', selector: (r) => ((r as any).phoneNumber ?? ''), sortable: true },
     { name: 'Hotel Name', selector: (r) => hotelsMap[r.hotelId] ?? String(r.hotelId), sortable: true },
@@ -214,131 +227,141 @@ const StaffPage: React.FC = () => {
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold">Staff Management</h2>
 
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openAdd}>
-              <Plus className="mr-2 h-4 w-4" /> Add Staff
-            </Button>
-          </DialogTrigger>
+        {/* ✅ Actions Right */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleExportStaff}
+            disabled={exporting}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            {exporting ? "Exporting..." : "Export Excel"}
+          </Button>
 
-          <DialogContent className="sm:max-w-[460px]">
-            <DialogHeader>
-              <DialogTitle>
-                {editingStaffId !== null ? 'Edit Staff Member' : 'Add New Staff Member'}
-              </DialogTitle>
-              <DialogDescription>
-                RH employees can be created without login.
-                For booking staff, create the login account first in <b>Access Management</b>,
-                then create the Staff profile here using the same email.
-              </DialogDescription>
-            </DialogHeader>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openAdd}>
+                <Plus className="mr-2 h-4 w-4" /> Add Staff
+              </Button>
+            </DialogTrigger>
 
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="firstName" className="text-right">First Name</Label>
-                <Input
-                  id="firstName"
-                  value={form.firstName ?? ''}
-                  onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-                  className="col-span-3"
-                />
-              </div>
+            <DialogContent className="sm:max-w-[460px]">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingStaffId !== null ? 'Edit Staff Member' : 'Add New Staff Member'}
+                </DialogTitle>
+                <DialogDescription>
+                  RH employees can be created without login.
+                  For booking staff, create the login account first in <b>Access Management</b>,
+                  then create the Staff profile here using the same email.
+                </DialogDescription>
+              </DialogHeader>
 
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="lastName" className="text-right">Last Name</Label>
-                <Input
-                  id="lastName"
-                  value={form.lastName ?? ''}
-                  onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-                  className="col-span-3"
-                />
-              </div>
-
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="role" className="text-right">Role</Label>
-                <Input
-                  id="role"
-                  value={form.role ?? ''}
-                  onChange={(e) => setForm({ ...form, role: e.target.value })}
-                  className="col-span-3"
-                />
-              </div>
-
-              {/* ✅ Has Login */}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="hasLogin" className="text-right">Has Login</Label>
-                <div className="col-span-3 flex items-center gap-3">
-                  <Checkbox
-                    id="hasLogin"
-                    checked={hasLoginAccount}
-                    onCheckedChange={(v) => {
-                      const checked = Boolean(v);
-                      setHasLoginAccount(checked);
-                      if (!checked) setForm({ ...form, email: '' });
-                    }}
-                  />
-                  <span className="text-sm text-gray-600">
-                    {hasLoginAccount
-                      ? "Linked to a login account (email required)."
-                      : "RH-only staff (no login)."}
-                  </span>
-                </div>
-              </div>
-
-              {/* Email only if has login */}
-              {hasLoginAccount && (
+              <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="email" className="text-right">Email</Label>
+                  <Label htmlFor="firstName" className="text-right">First Name</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    value={form.email ?? ''}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    id="firstName"
+                    value={form.firstName ?? ''}
+                    onChange={(e) => setForm({ ...form, firstName: e.target.value })}
                     className="col-span-3"
                   />
                 </div>
-              )}
 
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="phone" className="text-right">Phone</Label>
-                <Input
-                  id="phone"
-                  value={form.phoneNumber ?? ''}
-                  onChange={(e) => setForm({ ...form, phoneNumber: e.target.value })}
-                  className="col-span-3"
-                />
-              </div>
-
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="hotelId" className="text-right">Hotel</Label>
-                <Input
-                  id="hotelId"
-                  type="number"
-                  value={String(form.hotelId ?? 1)}
-                  onChange={(e) => setForm({ ...form, hotelId: Number(e.target.value || 0) })}
-                  className="col-span-3"
-                />
-              </div>
-
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="isActive" className="text-right">Active</Label>
-                <div className="col-span-3">
-                  <Checkbox
-                    id="isActive"
-                    checked={Boolean(form.isActive)}
-                    onCheckedChange={(v) => setForm({ ...form, isActive: Boolean(v) })}
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="lastName" className="text-right">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    value={form.lastName ?? ''}
+                    onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                    className="col-span-3"
                   />
                 </div>
-              </div>
-            </div>
 
-            <DialogFooter>
-              <Button type="button" onClick={handleSave}>
-                {editingStaffId !== null ? 'Save Changes' : 'Add Staff Member'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="role" className="text-right">Role</Label>
+                  <Input
+                    id="role"
+                    value={form.role ?? ''}
+                    onChange={(e) => setForm({ ...form, role: e.target.value })}
+                    className="col-span-3"
+                  />
+                </div>
+
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="hasLogin" className="text-right">Has Login</Label>
+                  <div className="col-span-3 flex items-center gap-3">
+                    <Checkbox
+                      id="hasLogin"
+                      checked={hasLoginAccount}
+                      onCheckedChange={(v) => {
+                        const checked = Boolean(v);
+                        setHasLoginAccount(checked);
+                        if (!checked) setForm({ ...form, email: '' });
+                      }}
+                    />
+                    <span className="text-sm text-gray-600">
+                      {hasLoginAccount
+                        ? "Linked to a login account (email required)."
+                        : "RH-only staff (no login)."}
+                    </span>
+                  </div>
+                </div>
+
+                {hasLoginAccount && (
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="email" className="text-right">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={form.email ?? ''}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      className="col-span-3"
+                    />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="phone" className="text-right">Phone</Label>
+                  <Input
+                    id="phone"
+                    value={form.phoneNumber ?? ''}
+                    onChange={(e) => setForm({ ...form, phoneNumber: e.target.value })}
+                    className="col-span-3"
+                  />
+                </div>
+
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="hotelId" className="text-right">Hotel</Label>
+                  <Input
+                    id="hotelId"
+                    type="number"
+                    value={String(form.hotelId ?? 1)}
+                    onChange={(e) => setForm({ ...form, hotelId: Number(e.target.value || 0) })}
+                    className="col-span-3"
+                  />
+                </div>
+
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="isActive" className="text-right">Active</Label>
+                  <div className="col-span-3">
+                    <Checkbox
+                      id="isActive"
+                      checked={Boolean(form.isActive)}
+                      onCheckedChange={(v) => setForm({ ...form, isActive: Boolean(v) })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button type="button" onClick={handleSave}>
+                  {editingStaffId !== null ? 'Save Changes' : 'Add Staff Member'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card>

@@ -5,13 +5,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -53,16 +47,16 @@ const formatDateTime = (date: Date): string => formatHaitiLongDateTime(date)
 
 // ✅ Must match backend enum numeric values (do NOT change)
 const DURATION_TYPE_MAP: Record<BookingDurationUI, number> = {
-  "2h": 0,         // Hours2
-  "4h": 1,         // Hours4
-  "overnight": 2,  // Overnight
-  "1h": 3,         // Hours1
-  "3h": 4,         // Hours3
-  "5h": 5,         // Hours5
-  "6h": 6,         // Hours6
-  "7h": 7,         // Hours7
-  "8h": 8,         // Hours8
-  "stay": 9,       // ✅ Stay (24h+)  <-- assure-toi que le backend a bien cette valeur
+  "2h": 0, // Hours2
+  "4h": 1, // Hours4
+  overnight: 2, // Overnight
+  "1h": 3, // Hours1
+  "3h": 4, // Hours3
+  "5h": 5, // Hours5
+  "6h": 6, // Hours6
+  "7h": 7, // Hours7
+  "8h": 8, // Hours8
+  stay: 9, // ✅ Stay (24h+)
 }
 
 function getDurationHours(duration: BookingDurationUI): number | null {
@@ -97,7 +91,7 @@ const RoomBookingPage: React.FC = () => {
 
   const [clientTab, setClientTab] = useState<"existing" | "new">("existing")
   const [selectedClientId, setSelectedClientId] = useState<string>("")
-  const [newClient, setNewClient] = useState({ firstName: "", lastName: "", cin: "", email: "" })
+  const [newClient, setNewClient] = useState({ firstName: "", lastName: "", cin: "" })
 
   const [bookingComplete, setBookingComplete] = useState(false)
   const [bookingReference, setBookingReference] = useState("")
@@ -116,8 +110,8 @@ const RoomBookingPage: React.FC = () => {
   // ⏰ Notification: hourly bookings (1h..8h)
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout> | undefined
-
     const hours = getDurationHours(bookingDuration)
+
     if (bookingComplete && hours && hours > 0) {
       timeout = setTimeout(() => {
         setNotification(`⏰ The ${hours}-hour booking is now over.`)
@@ -271,11 +265,12 @@ const RoomBookingPage: React.FC = () => {
 
   const isClientFormValid = useCallback((): boolean => {
     if (clientTab === "existing") return selectedClientId.trim().length > 0
-    return newClient.email.trim().length > 0
-  }, [clientTab, selectedClientId, newClient.email])
+    return newClient.firstName.trim().length > 0 && newClient.lastName.trim().length > 0
+  }, [clientTab, selectedClientId, newClient.firstName, newClient.lastName, newClient.cin])
 
   const handleSubmitBooking = async () => {
-    if (!selectedRoom || !date || !isClientFormValid()) {
+    // ✅ correct check (selectedRoom can’t be falsy-checked)
+    if (selectedRoom == null || !date || !isClientFormValid()) {
       alert("Incomplete booking details.")
       return
     }
@@ -313,21 +308,28 @@ const RoomBookingPage: React.FC = () => {
           firstName: existing.firstName ?? "",
           lastName: existing.lastName ?? "",
           cin: existing.cin ?? "",
-          email: existing.email ?? "",
         }
       } else {
-        await addGuest({
+        const created = await addGuest({
           firstName: newClient.firstName,
           lastName: newClient.lastName,
           cin: newClient.cin,
-          email: newClient.email,
         })
+
+        // ✅ refresh clients list so it appears next time
+        const clients = await fetchGuest()
+        setExistingClients(clients || [])
 
         clientData = {
           firstName: newClient.firstName ?? "",
           lastName: newClient.lastName ?? "",
           cin: newClient.cin ?? "",
-          email: newClient.email ?? "",
+        }
+
+        // Optional: switch to existing + auto-select newly created
+        if (created && (created as any).id) {
+          setClientTab("existing")
+          setSelectedClientId(String((created as any).id))
         }
       }
 
@@ -358,8 +360,7 @@ const RoomBookingPage: React.FC = () => {
       setCurrentStep(3)
     } catch (error: unknown) {
       console.error("Booking error", error)
-      const message =
-        error instanceof Error ? error.message : typeof error === "string" ? error : "Booking failed, try again."
+      const message = error instanceof Error ? error.message : typeof error === "string" ? error : "Booking failed, try again."
       alert(message)
     }
   }
@@ -375,7 +376,7 @@ const RoomBookingPage: React.FC = () => {
     setSelectedRoom(null)
     setSelectedRoomClass(null)
     setSelectedClientId("")
-    setNewClient({ firstName: "", lastName: "", cin: "", email: "" })
+    setNewClient({ firstName: "", lastName: "", cin: "" })
     setBookingComplete(false)
     setBookingReference("")
     setBookingGuestName("")
@@ -413,11 +414,7 @@ const RoomBookingPage: React.FC = () => {
       <div className="flex justify-between mb-8">
         {["Search", "Select Room", "Client Details", "Confirmation"].map((step, index) => (
           <div key={step} className="flex flex-col items-center">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                currentStep >= index ? "bg-blue-500 text-white" : "bg-gray-200"
-              }`}
-            >
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= index ? "bg-blue-500 text-white" : "bg-gray-200"}`}>
               {index + 1}
             </div>
             <span className="text-sm mt-1">{step}</span>
@@ -425,6 +422,7 @@ const RoomBookingPage: React.FC = () => {
         ))}
       </div>
 
+      {/* STEP 0 */}
       {currentStep === 0 && (
         <Card>
           <CardHeader>
@@ -450,24 +448,14 @@ const RoomBookingPage: React.FC = () => {
 
             <div className="space-y-2">
               <Label htmlFor="guests">Number of Guests</Label>
-              <Input
-                id="guests"
-                type="number"
-                min={1}
-                max={10}
-                value={guests}
-                onChange={(e) => setGuests(Number.parseInt(e.target.value) || 1)}
-              />
+              <Input id="guests" type="number" min={1} max={10} value={guests} onChange={(e) => setGuests(Number.parseInt(e.target.value) || 1)} />
             </div>
 
             <div className="space-y-2">
               <Label>Check-in Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}
-                  >
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {date ? formatDateTime(date) : "Select date"}
                   </Button>
@@ -476,7 +464,15 @@ const RoomBookingPage: React.FC = () => {
                   <Calendar
                     mode="single"
                     selected={date}
-                    onSelect={(d) => d && setDate(new Date(d))}
+                    onSelect={(d) => {
+                      if (!d) return
+                      const next = new Date(d)
+                      setDate(next)
+                      // ✅ If stay checkout becomes invalid after changing check-in, reset it
+                      if (bookingDuration === "stay" && stayCheckOutDate && stayCheckOutDate <= next) {
+                        setStayCheckOutDate(undefined)
+                      }
+                    }}
                     initialFocus
                     disabled={(d) => d < new Date()}
                   />
@@ -490,13 +486,7 @@ const RoomBookingPage: React.FC = () => {
                 <Label>Check-out Date</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !stayCheckOutDate && "text-muted-foreground"
-                      )}
-                    >
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !stayCheckOutDate && "text-muted-foreground")}>
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {stayCheckOutDate ? formatDateTime(stayCheckOutDate) : "Select check-out date"}
                     </Button>
@@ -519,7 +509,6 @@ const RoomBookingPage: React.FC = () => {
               </div>
             )}
 
-            {/* ✅ Duration selector WITHOUT SelectLabel/SelectSeparator */}
             <div className="space-y-2">
               <Label>Booking Duration</Label>
               <Select
@@ -584,7 +573,7 @@ const RoomBookingPage: React.FC = () => {
         </Card>
       )}
 
-      {/* step 1 */}
+      {/* STEP 1 */}
       {currentStep === 1 && (
         <Card>
           <CardHeader>
@@ -623,11 +612,7 @@ const RoomBookingPage: React.FC = () => {
                         <TableCell>{room.adultsCapacity} guests</TableCell>
                         <TableCell className="font-medium">HTG {room.pricePerNight}</TableCell>
                         <TableCell>
-                          <Button
-                            onClick={() => handleRoomSelect(room.roomId)}
-                            size="sm"
-                            variant={selectedRoom === room.roomId ? "default" : "outline"}
-                          >
+                          <Button onClick={() => handleRoomSelect(room.roomId)} size="sm" variant={selectedRoom === room.roomId ? "default" : "outline"}>
                             {selectedRoom === room.roomId ? "Selected" : "Select"}
                           </Button>
                         </TableCell>
@@ -642,14 +627,14 @@ const RoomBookingPage: React.FC = () => {
             <Button variant="outline" onClick={() => setCurrentStep(0)}>
               Back to Search
             </Button>
-            <Button onClick={() => selectedRoom && setCurrentStep(2)} disabled={!selectedRoom}>
+            <Button onClick={() => selectedRoom != null && setCurrentStep(2)} disabled={selectedRoom == null}>
               Continue to Client Details
             </Button>
           </CardFooter>
         </Card>
       )}
 
-      {/* step 2 */}
+      {/* STEP 2 */}
       {currentStep === 2 && (
         <Card>
           <CardHeader>
@@ -672,7 +657,7 @@ const RoomBookingPage: React.FC = () => {
                     <SelectContent>
                       {existingClients.map((client) => (
                         <SelectItem key={String(client.id)} value={String(client.id)}>
-                          {client.firstName} - {client.email}
+                          {client.firstName} {client.lastName} {client.cin ? `- ${client.cin}` : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -688,9 +673,6 @@ const RoomBookingPage: React.FC = () => {
                       </p>
                       <p>
                         <span className="font-medium">CIN:</span> {selectedClient.cin}
-                      </p>
-                      <p>
-                        <span className="font-medium">Email:</span> {selectedClient.email}
                       </p>
                     </div>
                   </div>
@@ -718,22 +700,7 @@ const RoomBookingPage: React.FC = () => {
                 </div>
                 <div>
                   <Label htmlFor="clientCin">Cin</Label>
-                  <Input
-                    id="clientCin"
-                    placeholder="Cin"
-                    value={newClient.cin}
-                    onChange={(e) => setNewClient({ ...newClient, cin: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="clientEmail">Email</Label>
-                  <Input
-                    id="clientEmail"
-                    type="email"
-                    placeholder="Email Address"
-                    value={newClient.email}
-                    onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                  />
+                  <Input id="clientCin" placeholder="Cin" value={newClient.cin} onChange={(e) => setNewClient({ ...newClient, cin: e.target.value })} />
                 </div>
               </TabsContent>
             </Tabs>
@@ -750,7 +717,7 @@ const RoomBookingPage: React.FC = () => {
         </Card>
       )}
 
-      {/* step 3 */}
+      {/* STEP 3 */}
       {currentStep === 3 && bookingComplete && (
         <Card>
           <CardHeader className="text-center">
@@ -782,8 +749,7 @@ const RoomBookingPage: React.FC = () => {
                 </p>
                 {bookingDuration === "stay" && (
                   <p>
-                    <span className="font-medium">Check-out:</span>{" "}
-                    {stayCheckOutDate ? formatDateTime(stayCheckOutDate) : ""}
+                    <span className="font-medium">Check-out:</span> {stayCheckOutDate ? formatDateTime(stayCheckOutDate) : ""}
                   </p>
                 )}
                 <p>
@@ -798,8 +764,7 @@ const RoomBookingPage: React.FC = () => {
             {getDurationHours(bookingDuration) && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
                 <p className="text-yellow-800 text-sm">
-                  This is a {durationLabel(bookingDuration).toLowerCase()} booking. A notification will appear when the
-                  time is up.
+                  This is a {durationLabel(bookingDuration).toLowerCase()} booking. A notification will appear when the time is up.
                 </p>
               </div>
             )}
