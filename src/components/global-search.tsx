@@ -107,7 +107,67 @@ export function GlobalSearch() {
   }, [dq, open, hotelId]);
 
   const hasResults =
-    (data?.bookings?.length || 0) + (data?.rooms?.length || 0) + (data?.guests?.length || 0) > 0;
+    (data?.bookings?.length || 0) +
+      (data?.rooms?.length || 0) +
+      (data?.guests?.length || 0) +
+      (data?.staff?.length || 0) >
+    0;
+
+  const pageSuggestions = useMemo(() => {
+    const q = (dq || "").trim().toLowerCase();
+    if (!q) return [] as Array<{ label: string; hint: string; onClick: () => void }>;
+
+    const starts = (prefixes: string[]) => prefixes.some((p) => q === p || q.startsWith(p + " "));
+
+    const items: Array<{ label: string; hint: string; onClick: () => void }> = [];
+
+    if (starts(["booking", "bookings", "réservation", "reservation", "reservations"])) {
+      items.push({
+        label: "Bookings",
+        hint: "Open manage bookings",
+        onClick: () => {
+          navigate("/bookings");
+          setOpen(false);
+        },
+      });
+    }
+
+    if (starts(["client", "clients", "guest", "guests"])) {
+      items.push({
+        label: "Clients",
+        hint: "Open clients",
+        onClick: () => {
+          // deep-link the query to prefill the clients search
+          navigate(`/clients?q=${encodeURIComponent(dq)}`);
+          setOpen(false);
+        },
+      });
+    }
+
+    if (starts(["staff", "employee", "employees", "employe", "employés", "employes"])) {
+      items.push({
+        label: "Staff",
+        hint: "Open staff",
+        onClick: () => {
+          navigate(`/staff?q=${encodeURIComponent(dq)}`);
+          setOpen(false);
+        },
+      });
+    }
+
+    if (starts(["room", "rooms", "chambre", "chambres"])) {
+      items.push({
+        label: "Rooms",
+        hint: "Open booking room selection",
+        onClick: () => {
+          navigate(`/room-booking`);
+          setOpen(false);
+        },
+      });
+    }
+
+    return items;
+  }, [dq, navigate, setOpen]);
 
   const go = (path: string) => {
     setOpen(false);
@@ -155,30 +215,31 @@ export function GlobalSearch() {
           <Separator />
 
           <div className="max-h-[420px] overflow-auto">
-            {/* Actions */}
-            <div className="p-4">
-              <div className="text-xs uppercase text-muted-foreground mb-2">Quick actions</div>
-              <div className="space-y-1">
-                <button
-                  type="button"
-                  className="w-full text-left px-3 py-2 rounded-md hover:bg-muted flex items-center justify-between"
-                  onClick={() => go("/room-booking")}
-                >
-                  <span>Create booking</span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </button>
-                <button
-                  type="button"
-                  className="w-full text-left px-3 py-2 rounded-md hover:bg-muted flex items-center justify-between"
-                  onClick={() => go("/bookings")}
-                >
-                  <span>Open manage bookings</span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </button>
-              </div>
-            </div>
-
-            <Separator />
+	          {/* Pages (no quick actions) */}
+	          {pageSuggestions.length > 0 && (
+	            <>
+	              <div className="p-4">
+	                <div className="text-xs uppercase text-muted-foreground mb-2">Pages</div>
+	                <div className="space-y-1">
+	                  {pageSuggestions.map((it) => (
+	                    <button
+	                      key={it.label}
+	                      type="button"
+	                      className="w-full text-left px-3 py-2 rounded-md hover:bg-muted flex items-center justify-between"
+	                      onClick={it.onClick}
+	                    >
+	                      <span>{it.label}</span>
+	                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+	                        {it.hint}
+	                        <ChevronRight className="h-4 w-4" />
+	                      </span>
+	                    </button>
+	                  ))}
+	                </div>
+	              </div>
+	              <Separator />
+	            </>
+	          )}
 
             {/* Results */}
             <div className="p-4">
@@ -237,6 +298,7 @@ export function GlobalSearch() {
                             key={r.roomId}
                             type="button"
                             className="w-full text-left px-3 py-2 rounded-md hover:bg-muted"
+                            // keep it safe: route to full search (room management may vary by project)
                             onClick={() => go(`/search?q=${encodeURIComponent(r.number)}`)}
                           >
                             <div className="text-sm font-medium">Room {r.number}</div>
@@ -259,12 +321,35 @@ export function GlobalSearch() {
                             key={g.guestId}
                             type="button"
                             className="w-full text-left px-3 py-2 rounded-md hover:bg-muted"
-                            onClick={() => go(`/search?q=${encodeURIComponent(g.fullName)}`)}
+                            onClick={() => go(`/clients?search=${encodeURIComponent(g.fullName)}`)}
                           >
                             <div className="text-sm font-medium">{g.fullName}</div>
                             <div className="text-xs text-muted-foreground mt-1">
                               {g.cin ? `CIN: ${g.cin}` : null}
                               {g.email ? ` • ${g.email}` : null}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* STAFF */}
+                  {data.staff?.length > 0 && (
+                    <div>
+                      <div className="text-xs uppercase text-muted-foreground mb-2">Staff</div>
+                      <div className="space-y-1">
+                        {data.staff.map((s) => (
+                          <button
+                            key={s.staffId}
+                            type="button"
+                            className="w-full text-left px-3 py-2 rounded-md hover:bg-muted"
+                            onClick={() => go(`/staff?search=${encodeURIComponent(s.fullName)}`)}
+                          >
+                            <div className="text-sm font-medium">{s.fullName}</div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {s.role ? `Role: ${s.role}` : null}
+                              {s.email ? ` • ${s.email}` : null}
                             </div>
                           </button>
                         ))}

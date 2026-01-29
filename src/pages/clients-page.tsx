@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import DataTable, { TableColumn } from "react-data-table-component";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import { addGuest, fetchGuest } from "@/services/client-service";
 const ClientsPage: React.FC = () => {
   const [clients, setClients] = useState<Guest[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const location = useLocation();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentClient, setCurrentClient] = useState<Guest | null>(null);
@@ -42,6 +44,13 @@ const ClientsPage: React.FC = () => {
 
     loadGuests();
   }, []);
+
+  // ✅ allow deep-link: /clients?search=...
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const s = params.get("search");
+    if (s) setSearchTerm(s);
+  }, [location.search]);
 
   // ✅ recherche uniquement par nom + cin (pas email)
   const filteredClients = clients.filter((client) => {

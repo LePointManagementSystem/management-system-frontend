@@ -1,74 +1,73 @@
-import { API_BASE_URL} from "@/config/api-base";
+import { API_BASE_URL } from "@/config/api-base";
+
+export type GlobalSearchItemType = "booking" | "room" | "guest" | "staff";
 
 export type BookingSearchResultDto = {
-    bookingId: number;
-    confirmationNumber: string;
-    guestName: string;
-    roomNumbers: string;
-    checkInDateUtc: string;
-    checkOutDateUtc: string;
-    status: string;
+  bookingId: number;
+  confirmationNumber: string;
+  guestName: string;
+  roomNumbers: string;
+  checkInDateUtc: string;
+  checkOutDateUtc: string;
+  status: string;
 };
 
 export type RoomSearchResultDto = {
-    roomId: number;
-    number: string;
-    roomClassId: number;
-    roomClassName: string;
+  roomId: number;
+  number: string;
+  roomClassId: number;
+  roomClassName: string;
 };
 
 export type GuestSearchResultDto = {
-    guestId: string;
-    fullName: string;
-    cin: string;
-    email: string;
+  guestId: string; // Guid string
+  fullName: string;
+  cin: string;
+  email: string;
+};
+
+export type StaffSearchResultDto = {
+  staffId: number;
+  fullName: string;
+  role: string;
+  email: string;
+  phone: string;
 };
 
 export type GlobalSearchResponseDto = {
-    bookings: BookingSearchResultDto[];
-    rooms: RoomSearchResultDto[];
-    guests: GuestSearchResultDto[];
-};
-
-type ApiEnvelope<T> = {
-    succeeded?: boolean;
-    Succeeded?: boolean;
-    message?: string;
-    Message?: string;
-    data?: T;
-    Data?: T;
+  bookings: BookingSearchResultDto[];
+  rooms: RoomSearchResultDto[];
+  guests: GuestSearchResultDto[];
+  staff: StaffSearchResultDto[];
 };
 
 function tokenOrThrow(): string {
-    const t = localStorage.getItem("token");
-    if (!t) throw new Error("Not authenticated");
-    return t;
+  const t = localStorage.getItem("token");
+  if (!t) throw new Error("Not authenticated");
+  return t;
 }
 
-function unwrap<T>(raw: ApiEnvelope<T> | T): T {
-    const anyRaw: any = raw as any;
-    return (anyRaw?.data ?? anyRaw?.Data ?? raw) as T;
-}
+export async function globalSearch(q: string, hotelId?: number, limit = 6) {
+  const token = tokenOrThrow();
 
-export async function globalSearch(q: string, hotelId?: number, limit: number = 6): Promise<GlobalSearchResponseDto> {
-    const token = tokenOrThrow();
-    const qs = new URLSearchParams();
-    qs.set("q", q);
-    qs.set("limit", String(limit));
-    if (hotelId != null) qs.set("hotelId", String(hotelId));
+  const params = new URLSearchParams();
+  params.set("q", q);
+  params.set("limit", String(limit));
+  if (hotelId != null) params.set("hotelId", String(hotelId));
 
-    const res = await fetch(`${API_BASE_URL}/api/Search/global?${qs.toString()}`, {
-        headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-        },
-    });
+  // ✅ IMPORTANT: API_BASE_URL a déjà /api
+  const url = `${API_BASE_URL}/search/global?${params.toString()}`;
 
-    if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(txt || "Global search failed");
-    }
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 
-    const json = await res.json();
-    return unwrap<GlobalSearchResponseDto>(json);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Global search failed: ${res.status} ${text}`);
+  }
+
+  return (await res.json()) as GlobalSearchResponseDto;
 }

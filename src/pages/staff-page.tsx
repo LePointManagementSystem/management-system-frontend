@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Edit, Plus, Trash2, Download } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import DataTable, { TableColumn } from 'react-data-table-component';
+import { useLocation } from 'react-router-dom';
 import { fetchStaff, addStaff, updateStaff, deleteStaff } from '@/services/staff-service';
 import { Staff, StaffCreateRequest } from '@/types/staff';
 import { Hotel } from '@/types/hotel';
@@ -20,6 +21,10 @@ const StaffPage: React.FC = () => {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // ✅ allow deep-link from GlobalSearch (e.g. /staff?search=Sebastien)
+  const location = useLocation();
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<number | null>(null);
@@ -44,6 +49,29 @@ const StaffPage: React.FC = () => {
     loadStaff();
     loadHotels();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const q = params.get('search');
+    if (q && q.trim()) setSearchTerm(q);
+  }, [location.search]);
+
+  const filteredStaff = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return staff;
+    return staff.filter((s) => {
+      const fullName = `${s.firstName ?? ''} ${s.lastName ?? ''}`.toLowerCase();
+      const email = String((s as any).email ?? '').toLowerCase();
+      const role = String(s.role ?? '').toLowerCase();
+      const phone = String((s as any).phoneNumber ?? '').toLowerCase();
+      return (
+        fullName.includes(q) ||
+        email.includes(q) ||
+        role.includes(q) ||
+        phone.includes(q)
+      );
+    });
+  }, [staff, searchTerm]);
 
   const loadStaff = async () => {
     setLoading(true);
@@ -369,9 +397,18 @@ const StaffPage: React.FC = () => {
           <CardTitle>Staff List</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <Label htmlFor="staffSearch">Search</Label>
+            <Input
+              id="staffSearch"
+              placeholder="Search staff by name, role, phone or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
           <DataTable
             columns={Array.isArray(columns) ? columns : []}
-            data={Array.isArray(staff) ? staff : []}
+            data={Array.isArray(filteredStaff) ? filteredStaff : []}
             pagination
             highlightOnHover
             selectableRows
