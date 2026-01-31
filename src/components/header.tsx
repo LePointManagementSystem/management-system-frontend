@@ -8,7 +8,7 @@ interface HeaderProps {
   toggleSidebar: () => void;
   onProfileClick: () => void;
   onLogout: () => void;
-  onAddUser?: () => void; // new handler for user registration
+  onAddUser?: () => void; 
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -17,7 +17,8 @@ const Header: React.FC<HeaderProps> = ({
   onLogout,
   onAddUser,
 }) => {
-  const role = localStorage.getItem('role');
+  //const role = localStorage.getItem('role');
+  const role = 'Admin'
 
   return (
     <header className="bg-white shadow-md">
