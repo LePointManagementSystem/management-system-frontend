@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
 import DataTable, { TableColumn } from "react-data-table-component";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,13 +19,15 @@ import { addGuest, fetchGuest } from "@/services/client-service";
 const ClientsPage: React.FC = () => {
   const [clients, setClients] = useState<Guest[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const location = useLocation();
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentClient, setCurrentClient] = useState<Guest | null>(null);
 
-  // ✅ email retiré du state de création
-  const [newClient, setNewClient] = useState<Omit<Guest, "id" | "email">>({
+  // ✅ Email supprimé de la création (tu enregistres sans email)
+  const [newClient, setNewClient] = useState<
+    Omit<Guest, "id" | "email">
+  >({
     firstName: "",
     lastName: "",
     cin: "",
@@ -41,36 +42,33 @@ const ClientsPage: React.FC = () => {
         console.error("Failed to load guests:", error);
       }
     };
-
     loadGuests();
   }, []);
 
-  // ✅ allow deep-link: /clients?search=...
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const s = params.get("search");
-    if (s) setSearchTerm(s);
-  }, [location.search]);
+  // ✅ Filtre: Nom + CIN (pas email)
+  const filteredClients = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return clients;
 
-  // ✅ recherche uniquement par nom + cin (pas email)
-  const filteredClients = clients.filter((client) => {
-    const q = searchTerm.toLowerCase();
-    return (
-      `${client.firstName} ${client.lastName}`.toLowerCase().includes(q) ||
-      (client.cin?.toLowerCase().includes(q) ?? false)
-    );
-  });
+    return clients.filter((c) => {
+      const fullName = `${c.firstName ?? ""} ${c.lastName ?? ""}`.toLowerCase();
+      const cin = (c.cin ?? "").toLowerCase();
+      return fullName.includes(q) || cin.includes(q);
+    });
+  }, [clients, searchTerm]);
 
   const handleAddClient = async () => {
     try {
-      // ✅ on n’envoie pas email
-      const savedGuest = await addGuest({
+      // ✅ payload sans email
+      const payload = {
         firstName: newClient.firstName,
         lastName: newClient.lastName,
         cin: newClient.cin,
-      } as any);
+      };
 
+      const savedGuest = await addGuest(payload as any);
       setClients((prev) => [...prev, savedGuest]);
+
       setNewClient({ firstName: "", lastName: "", cin: "" });
       setIsAddDialogOpen(false);
     } catch (error) {
@@ -79,35 +77,28 @@ const ClientsPage: React.FC = () => {
   };
 
   const handleEditClient = () => {
-    if (currentClient) {
-      setClients(
-        clients.map((client) =>
-          client.id === currentClient.id ? currentClient : client
-        )
-      );
-      setIsEditDialogOpen(false);
-    }
+    if (!currentClient) return;
+
+    setClients((prev) =>
+      prev.map((c) => (c.id === currentClient.id ? currentClient : c))
+    );
+    setIsEditDialogOpen(false);
   };
 
   const handleDeleteClient = (id?: string) => {
-    setClients(clients.filter((client) => client.id !== id));
+    setClients((prev) => prev.filter((c) => c.id !== id));
   };
 
-  // ✅ colonnes SANS Email
+  // ✅ Colonnes SANS Email
   const columns: TableColumn<Guest>[] = [
     {
-      name: "First Name",
-      selector: (row) => row.firstName,
-      sortable: true,
-    },
-    {
-      name: "Last Name",
-      selector: (row) => row.lastName,
+      name: "Name",
+      selector: (row) => `${row.firstName} ${row.lastName}`,
       sortable: true,
     },
     {
       name: "CIN",
-      selector: (row) => row.cin,
+      selector: (row) => row.cin ?? "",
       sortable: true,
     },
     {
@@ -139,7 +130,7 @@ const ClientsPage: React.FC = () => {
                     <Label htmlFor="edit-firstName">First Name</Label>
                     <Input
                       id="edit-firstName"
-                      value={currentClient.firstName}
+                      value={currentClient.firstName ?? ""}
                       onChange={(e) =>
                         setCurrentClient({
                           ...currentClient,
@@ -153,7 +144,7 @@ const ClientsPage: React.FC = () => {
                     <Label htmlFor="edit-lastName">Last Name</Label>
                     <Input
                       id="edit-lastName"
-                      value={currentClient.lastName}
+                      value={currentClient.lastName ?? ""}
                       onChange={(e) =>
                         setCurrentClient({
                           ...currentClient,
@@ -167,7 +158,7 @@ const ClientsPage: React.FC = () => {
                     <Label htmlFor="edit-cin">CIN</Label>
                     <Input
                       id="edit-cin"
-                      value={currentClient.cin}
+                      value={currentClient.cin ?? ""}
                       onChange={(e) =>
                         setCurrentClient({
                           ...currentClient,
@@ -177,7 +168,22 @@ const ClientsPage: React.FC = () => {
                     />
                   </div>
 
-                  {/* ✅ Email supprimé de l'edit UI aussi */}
+                  {/* Si tu veux garder Email editable (optionnel), décommente :
+                  <div>
+                    <Label htmlFor="edit-email">Email (optional)</Label>
+                    <Input
+                      id="edit-email"
+                      type="email"
+                      value={currentClient.email ?? ""}
+                      onChange={(e) =>
+                        setCurrentClient({
+                          ...currentClient,
+                          email: e.target.value, // string ok
+                        })
+                      }
+                    />
+                  </div>
+                  */}
                 </div>
               )}
 
@@ -200,6 +206,30 @@ const ClientsPage: React.FC = () => {
       ),
     },
   ];
+
+  // ✅ Barre de recherche “pro” dans le subHeader du DataTable
+  const subHeaderComponent = (
+    <div className="flex w-full items-center gap-2 py-2">
+      <div className="relative w-full max-w-sm">
+        <Input
+          placeholder="Search client by name or CIN..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
+      {searchTerm.trim() !== "" && (
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setSearchTerm("")}
+          title="Clear"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      )}
+    </div>
+  );
 
   return (
     <div className="p-6">
@@ -256,7 +286,7 @@ const ClientsPage: React.FC = () => {
                 />
               </div>
 
-              {/* ✅ Email supprimé du formulaire */}
+              {/* ✅ pas d'email ici */}
             </div>
 
             <DialogFooter>
@@ -274,6 +304,9 @@ const ClientsPage: React.FC = () => {
         pagination
         highlightOnHover
         selectableRows
+        subHeader
+        subHeaderComponent={subHeaderComponent}
+        persistTableHead
       />
     </div>
   );
