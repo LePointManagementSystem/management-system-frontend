@@ -1,6 +1,6 @@
 import { Staff, StaffCreateRequest } from "@/types/staff"; 
 
-const BASE_URL = "http://localhost:5004/api/Staff";
+const BASE_URL = "http://174.129.54.133:5000/api/Staff";
 
 export async function fetchStaff(): Promise<Staff[]> {
   const token = localStorage.getItem("token");

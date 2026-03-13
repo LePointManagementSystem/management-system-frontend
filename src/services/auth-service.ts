@@ -3,7 +3,6 @@ export interface LoginCredentials {
     password: string
   }
 
-  
   export interface LoginResponse {
     succeeded: boolean
     token?: string
@@ -12,7 +11,7 @@ export interface LoginCredentials {
     role?: string
   }
 
-  const BASE_URL = "http://localhost:5004/api"
+  const BASE_URL = "http://174.129.54.133:5000/api"
   
   export const login = async (credentials: LoginCredentials): Promise<LoginResponse> => {
     try {

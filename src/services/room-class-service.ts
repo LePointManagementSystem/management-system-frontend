@@ -1,6 +1,6 @@
 import { RoomClass } from "@/types/hotel";
 
-const BASE_URL = "http://localhost:5004/api"
+const BASE_URL = "http://174.129.54.133:5000/api"
 
 export const getRoomClasses = async (): Promise<RoomClass[]> => {
   const response = await fetch(`${BASE_URL}/RoomClass`); 

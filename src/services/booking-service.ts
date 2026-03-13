@@ -2,7 +2,7 @@
 
 import { BookingPayload } from "@/types/boking";
 
-const BASE_URL = "http://localhost:5004/api";
+const BASE_URL = "http://174.129.54.133:5000/api";
 
 function getAuthHeader(): string {
   const token = localStorage.getItem("token");

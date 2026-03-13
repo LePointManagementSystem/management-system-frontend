@@ -1,7 +1,6 @@
 import { Guest } from "@/types/client";
 
-const BASE_URL = "http://localhost:5004/api/Guest"
-
+const BASE_URL = "http://174.129.54.133:5000/api/Guest"
 
 export async function fetchGuest(): Promise<Guest[]> {
     const token = localStorage.getItem('token');
