@@ -1,10 +1,10 @@
 import { Guest } from "@/types/client";
 
-const BASE_URL = "http://174.129.54.133:5000/api/Guest"
+const BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 export async function fetchGuest(): Promise<Guest[]> {
     const token = localStorage.getItem('token');
-    const response = await fetch(BASE_URL, {
+    const response = await fetch(`BASE_URL + Guest`, {
         method: 'GET',
         headers: {
             'Accept': 'text/plain',

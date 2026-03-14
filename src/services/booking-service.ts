@@ -2,7 +2,7 @@
 
 import { BookingPayload } from "@/types/boking";
 
-const BASE_URL = "http://174.129.54.133:5000/api";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 function getAuthHeader(): string {
   const token = localStorage.getItem("token");

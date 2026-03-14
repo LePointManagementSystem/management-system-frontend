@@ -1,6 +1,6 @@
 import { AvailableRoom, Room } from "@/types/hotel";
 
-const API_BASE = 'http://174.129.54.133:5000/api';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 function getAuthHeader(): string {
   const token = localStorage.getItem("token");
@@ -18,7 +18,7 @@ export const addRoom = async (
     pricePerNight: number;
   }
 ) => {
-  const res = await fetch(`${API_BASE}/RoomClass/${roomClassId}/rooms`, {
+  const res = await fetch(`${BASE_URL}/RoomClass/${roomClassId}/rooms`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -35,7 +35,7 @@ export const addRoom = async (
 
 export const getRoomsByHotelId = async (hotelId: number): Promise<Room[]> => {
   const token = localStorage.getItem('token');
-  const response = await fetch(`${API_BASE}/Hotel/${hotelId}/rooms`, {
+  const response = await fetch(`${BASE_URL}/Hotel/${hotelId}/rooms`, {
     method: 'GET',
     headers: {
       'Accept': 'application/json',
@@ -63,7 +63,7 @@ export const fetchAvailableRooms = async (
   roomClassId: number
 ): Promise<AvailableRoom[]> => {
   const res = await fetch(
-    `${API_BASE}/Room/available-without-bookings?roomClassId=${roomClassId}`,
+    `${BASE_URL}/Room/available-without-bookings?roomClassId=${roomClassId}`,
     {
       headers: {
         'Accept': 'application/json',
@@ -96,7 +96,7 @@ export const updateRoom = async (
 ) => {
   
 
-  const res = await fetch(`${API_BASE}/Room/${roomId}`, {
+  const res = await fetch(`${BASE_URL}/Room/${roomId}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -112,7 +112,7 @@ export const updateRoom = async (
 };
 
 export const deleteRoom = async (roomId: number) => {
-  const res = await fetch(`${API_BASE}/Room/${roomId}`, {
+  const res = await fetch(`${BASE_URL}/Room/${roomId}`, {
     method: 'DELETE',
     headers: {
       'Authorization': getAuthHeader(),

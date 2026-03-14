@@ -11,7 +11,7 @@ export interface LoginCredentials {
     role?: string
   }
 
-  const BASE_URL = "http://174.129.54.133:5000/api"
+  const BASE_URL = import.meta.env.VITE_API_BASE_URL;
   
   export const login = async (credentials: LoginCredentials): Promise<LoginResponse> => {
     try {

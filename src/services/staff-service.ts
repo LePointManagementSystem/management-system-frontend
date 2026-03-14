@@ -1,6 +1,6 @@
 import { Staff, StaffCreateRequest } from "@/types/staff"; 
 
-const BASE_URL = "http://174.129.54.133:5000/api/Staff";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export async function fetchStaff(): Promise<Staff[]> {
   const token = localStorage.getItem("token");
