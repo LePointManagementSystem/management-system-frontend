@@ -57,14 +57,14 @@ export type PagedResult<T> = {
    API helpers
 ========================= */
 
-type ApiEnvelope<T> = {
-  succeeded?: boolean;
-  Succeeded?: boolean;
-  message?: string;
-  Message?: string;
-  data?: T;
-  Data?: T;
-};
+// type ApiEnvelope<T> = {
+//   succeeded?: boolean;
+//   Succeeded?: boolean;
+//   message?: string;
+//   Message?: string;
+//   data?: T;
+//   Data?: T;
+// };
 
 async function unwrapEnvelope<T>(res: Response): Promise<T> {
   const text = await res.text();

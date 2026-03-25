@@ -1,10 +1,8 @@
 import { NavLink } from "react-router-dom";
 import {
   Home,
-  Utensils,
   ClipboardList,
   Users,
-  FileText,
   Hotel,
   Briefcase,
   Wallet,
