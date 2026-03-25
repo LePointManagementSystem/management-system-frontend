@@ -5,7 +5,7 @@
 const fromEnv = (import.meta as any).env?.VITE_API_BASE_URL as string | undefined;
 
 // Option 2: fallback si .env absent
-export const API_BASE_URL = fromEnv?.trim() || "http://localhost:5004/api";
+export const API_BASE_URL = fromEnv?.trim() || "http://54.144.47.187:5000/api";
 
 // Bonus: pour permettre aussi `import API_BASE_URL from ...`
 export default API_BASE_URL;

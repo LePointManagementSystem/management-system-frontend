@@ -55,7 +55,7 @@ export function formatHaitiLongDateTime(date: Date): string {
     const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ""
 
     const weekday = get("weekday")
-    const month = get("month")
+    const month = get("month")    
     const day = get("day")
     const year = get("year")
     const hour = get("hour")

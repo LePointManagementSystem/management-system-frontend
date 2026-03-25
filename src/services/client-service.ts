@@ -1,6 +1,6 @@
 import { Guest } from "@/types/client";
 
-const BASE_URL = "http://localhost:5004/api/Guest";
+const BASE_URL = "http://54.144.47.187:5000/api/Guest";
 
 export type CreateGuestPayload = {
   firstName: string;

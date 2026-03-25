@@ -8,7 +8,7 @@ export interface CreateUserAccountRequest {
   role: CreateUserRole;
 }
 
-const BASE_URL = "http://localhost:5004/api";
+const BASE_URL = "http://54.144.47.187:5000/api";
 
 export async function createUserAccount(payload: CreateUserAccountRequest) {
   const token = localStorage.getItem("token");

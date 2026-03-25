@@ -39,7 +39,7 @@ function normalizeStaffPayload<T extends Record<string, any>>(payload: T): T {
 
 function mapStaff(s: any): Staff {
   return {
-    id: s.id ?? s.staffId ?? s.StaffId,              // ✅ KEY FIX
+    id: s.id ?? s.staffId ?? s.StaffId,            
     firstName: s.firstName ?? s.FirstName,
     lastName: s.lastName ?? s.LastName,
     role: s.role ?? s.Role,

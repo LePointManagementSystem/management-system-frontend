@@ -19,7 +19,7 @@ export interface AuthMeDto {
   roles: string[]
 }
 
-const BASE_URL = "http://localhost:5004/api"
+const BASE_URL = "http://54.144.47.187:5000/api"
 
 function getTokenOrThrow(): string {
   const token = localStorage.getItem("token")
