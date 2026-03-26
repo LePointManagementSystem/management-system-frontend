@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "@/config/api-base";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 type ExportBookingsParams = {
   hotelId?: number;
@@ -73,7 +73,7 @@ async function exportExcel(
     qs.set(k, String(v));
   });
 
-  const url = `${API_BASE_URL}/Reports/${path}${qs.toString() ? `?${qs.toString()}` : ""}`;
+  const url = `${BASE_URL}/Reports/${path}${qs.toString() ? `?${qs.toString()}` : ""}`;
 
   const res = await fetch(url, {
     method: "GET",

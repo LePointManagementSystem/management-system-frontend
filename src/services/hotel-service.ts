@@ -1,5 +1,3 @@
-// src/services/hotelService.ts
-
 import { Hotel, Room, Amenity, Image, RoomClass } from "@/types/hotel";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;

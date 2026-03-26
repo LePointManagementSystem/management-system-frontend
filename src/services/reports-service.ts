@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "@/config/api-base";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export type CurrencyCode = 1 | 2; // 1=HTG, 2=USD (align with backend)
 
@@ -108,7 +108,7 @@ export async function getMonthlyHotelReport(args: GetMonthlyReportArgs): Promise
   q.set("month", String(args.month));
   if (args.hotelId) q.set("hotelId", String(args.hotelId));
 
-  const res = await fetch(`${API_BASE_URL}/Reports/monthly?${q.toString()}`, {
+  const res = await fetch(`${BASE_URL}/Reports/monthly?${q.toString()}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });

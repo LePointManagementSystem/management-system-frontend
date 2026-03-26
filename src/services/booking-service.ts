@@ -1,6 +1,7 @@
-import { API_BASE_URL } from "@/config/api-base";
 import type { BookingPayload } from "@/types/boking";
 import { emitBookingsChanged } from "@/utils/events";
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export type BookingDto = {
   bookingId: number;
@@ -124,7 +125,7 @@ function normalizeBooking(b: ApiBookingDto): BookingDto {
 export async function createBooking(payload: BookingPayload): Promise<any> {
   const token = tokenOrThrow();
 
-  const res = await fetch(`${API_BASE_URL}/Booking/create`, {
+  const res = await fetch(`${BASE_URL}/Booking/create`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -146,7 +147,7 @@ export async function fetchAllBookings(): Promise<BookingDto[]> {
   const token = tokenOrThrow();
 
   // anti-cache côté front (au cas où backend cache)
-  const url = `${API_BASE_URL}/Booking/all?t=${Date.now()}`;
+  const url = `${BASE_URL}/Booking/all?t=${Date.now()}`;
 
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
@@ -174,7 +175,7 @@ export async function fetchBookingsByHotel(hotelId?: number): Promise<BookingDto
 export async function updateBookingStatus(bookingId: number, statusId: number): Promise<void> {
   const token = tokenOrThrow();
 
-  const res = await fetch(`${API_BASE_URL}/Booking/${bookingId}/Update_status`, {
+  const res = await fetch(`${BASE_URL}/Booking/${bookingId}/Update_status`, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -207,7 +208,7 @@ export async function cancelBooking(bookingId: number, reason: string): Promise<
   const trimmedReason = (reason ?? "").trim();
   if (!trimmedReason) throw new Error("Cancellation reason is required.");
 
-  const res = await fetch(`${API_BASE_URL}/Booking/${bookingId}/cancel`, {
+  const res = await fetch(`${BASE_URL}/Booking/${bookingId}/cancel`, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${token}`,

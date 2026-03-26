@@ -8,7 +8,7 @@ export interface CreateUserAccountRequest {
   role: CreateUserRole;
 }
 
-const BASE_URL = "http://54.144.47.187:5000/api";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export async function createUserAccount(payload: CreateUserAccountRequest) {
   const token = localStorage.getItem("token");

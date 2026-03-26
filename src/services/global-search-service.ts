@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "@/config/api-base";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export type GlobalSearchItemType = "booking" | "room" | "guest" | "staff";
 
@@ -55,8 +55,7 @@ export async function globalSearch(q: string, hotelId?: number, limit = 6) {
   params.set("limit", String(limit));
   if (hotelId != null) params.set("hotelId", String(hotelId));
 
-  // ✅ IMPORTANT: API_BASE_URL a déjà /api
-  const url = `${API_BASE_URL}/search/global?${params.toString()}`;
+  const url = `${BASE_URL}/search/global?${params.toString()}`;
 
   const res = await fetch(url, {
     headers: {

@@ -1,9 +1,6 @@
-import { API_BASE_URL } from "@/config/api-base";
 import type { CurrencyCode, CashShift } from "@/services/cash-transactions-service";
 
-/* =========================
-   Types
-========================= */
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export type CashSessionDto = {
   cashSessionId: number;
@@ -98,7 +95,7 @@ async function unwrapEnvelope<T>(res: Response): Promise<T> {
    API calls
 ========================= */
 
-const CASH_SESSIONS_BASE = `${API_BASE_URL}/CashSessions`;
+const CASH_SESSIONS_BASE = `${BASE_URL}/CashSessions`;
 
 function authHeaders() {
   return {

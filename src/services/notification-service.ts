@@ -1,5 +1,6 @@
-import { API_BASE_URL } from "@/config/api-base"
-import type { NotificationDto } from "@/types/notification"
+import type { NotificationDto } from "@/types/notification";
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Backend envelope supports { Data: ... } or { data: ... }
 type ApiEnvelope<T> = {
@@ -84,7 +85,7 @@ export async function fetchNotifications(
   q.set("page", String(params.page ?? 1))
   q.set("pageSize", String(params.pageSize ?? 20))
 
-  const res = await fetch(`${API_BASE_URL}/Notification?${q.toString()}`, {
+  const res = await fetch(`${BASE_URL}/Notification?${q.toString()}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
 
@@ -99,7 +100,7 @@ export async function fetchUnreadCount(): Promise<number> {
   const q = new URLSearchParams()
   if (hotelId) q.set("hotelId", String(hotelId))
 
-  const res = await fetch(`${API_BASE_URL}/Notification/unread-count?${q.toString()}`, {
+  const res = await fetch(`${BASE_URL}/Notification/unread-count?${q.toString()}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
 
@@ -111,7 +112,7 @@ export async function fetchUnreadCount(): Promise<number> {
 export async function markNotificationAsRead(notificationId: number): Promise<void> {
   const token = tokenOrThrow()
 
-  const res = await fetch(`${API_BASE_URL}/Notification/${notificationId}/read`, {
+  const res = await fetch(`${BASE_URL}/Notification/${notificationId}/read`, {
     method: "PUT",
     headers: { Authorization: `Bearer ${token}` },
   })
@@ -126,7 +127,7 @@ export async function markAllNotificationsAsRead(): Promise<void> {
   const q = new URLSearchParams()
   if (hotelId) q.set("hotelId", String(hotelId))
 
-  const res = await fetch(`${API_BASE_URL}/Notification/mark-all-read?${q.toString()}`, {
+  const res = await fetch(`${BASE_URL}/Notification/mark-all-read?${q.toString()}`, {
     method: "PUT",
     headers: { Authorization: `Bearer ${token}` },
   })

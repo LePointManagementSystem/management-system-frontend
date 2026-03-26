@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "@/config/api-base";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export type CashTransactionType = 1 | 2; // 1 = In, 2 = Out
 export type CurrencyCode = 1 | 2; // 1 = HTG, 2 = USD
@@ -96,7 +96,7 @@ export function shiftLabel(s?: CashShift | null): string {
 export async function createCashTransaction(payload: CreateCashTransactionPayload): Promise<CashTransactionDto> {
   const token = tokenOrThrow();
 
-  const res = await fetch(`${API_BASE_URL}/CashTransactions`, {
+  const res = await fetch(`${BASE_URL}/CashTransactions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -142,7 +142,7 @@ export async function fetchCashTransactions(q: CashTransactionsQuery): Promise<C
   // Anti-cache
   params.set("t", String(Date.now()));
 
-  const res = await fetch(`${API_BASE_URL}/CashTransactions?${params.toString()}`, {
+  const res = await fetch(`${BASE_URL}/CashTransactions?${params.toString()}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });

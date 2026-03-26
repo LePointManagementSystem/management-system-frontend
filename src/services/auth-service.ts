@@ -1,3 +1,5 @@
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 export interface LoginCredentials {
   email: string
   password: string
@@ -12,6 +14,7 @@ export interface LoginResponse {
   roles?: string[]
 }
 
+
 export interface AuthMeDto {
   id: string
   email: string
@@ -19,8 +22,7 @@ export interface AuthMeDto {
   roles: string[]
 }
 
-const BASE_URL = "http://54.144.47.187:5000/api"
-
+  
 function getTokenOrThrow(): string {
   const token = localStorage.getItem("token")
   if (!token) throw new Error("No auth token found. Please log in again.")
