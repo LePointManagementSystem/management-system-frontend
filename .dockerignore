@@ -4,3 +4,4 @@ build
 Dockerfile
 .git
 .gitignore
+npm-debug.log

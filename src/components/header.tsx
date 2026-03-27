@@ -17,7 +17,6 @@ const Header: React.FC<HeaderProps> = ({
   onLogout,
   onAddUser,
 }) => {
-  //const role = localStorage.getItem('role');
   const role = 'Admin'
 
   return (
@@ -27,7 +26,7 @@ const Header: React.FC<HeaderProps> = ({
           <Button variant="ghost" size="icon" onClick={toggleSidebar} className="mr-4">
             <Menu className="h-6 w-6" />
           </Button>
-          <h2 className="text-xl font-semibold">Le Point 95</h2>
+          <h2 className="text-xl font-semibold">InnManager</h2>
         </div>
 
         <div className="flex items-center space-x-4">
