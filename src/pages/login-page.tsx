@@ -67,76 +67,81 @@ export function LoginPage() {
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault()
-  setError(null)
+    e.preventDefault()
+    setError(null)
 
-  const trimmedEmail = email.trim()
-  if (!trimmedEmail || !password) {
-    setError("Please enter email and password.")
-    return
-  }
-
-  setIsLoading(true)
-
-  try {
-    const result = await login({ email: trimmedEmail, password })
-
-    if (result.succeeded && result.token) {
-      localStorage.removeItem("token")
-      localStorage.removeItem("roles")
-      localStorage.removeItem("role")
-      localStorage.removeItem("hotelId")
-      localStorage.removeItem("email")
-      localStorage.removeItem("displayName")
-
-      localStorage.setItem("token", result.token)
-      localStorage.setItem("email", trimmedEmail)
-
-      const claims = decodeJwt(result.token)
-
-      // roles: prefer token claims, fallback to backend response
-      const rolesFromToken = getRolesFromClaims(claims)
-      const roles = (result.roles && result.roles.length > 0) ? result.roles : rolesFromToken
-      const primaryRole = pickPrimaryRole(roles)
-
-      localStorage.setItem("roles", JSON.stringify(roles))
-      localStorage.setItem("role", primaryRole)
-
-      const hotelId =
-        (claims as any)?.hotelId ??
-        (claims as any)?.HotelId ??
-        (claims as any)?.hotel_id ??
-        (claims as any)?.staffHotelId
-
-      if (hotelId != null && String(hotelId).trim() !== "") {
-        localStorage.setItem("hotelId", String(hotelId))
-      }
-
-      try {
-        const name = await resolveDisplayName(result.token, trimmedEmail)
-        localStorage.setItem("displayName", name)
-      } catch {
-        localStorage.setItem("displayName", trimmedEmail.split("@")[0])
-      }
-
-      navigate("/dashboard")
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail || !password) {
+      setError("Please enter email and password.")
       return
     }
 
-    setError(result.message || "Invalid email or password")
-  } catch (err) {
-    setError("An error occurred. Please try again.")
-  } finally {
-    setIsLoading(false)
+    setIsLoading(true)
+
+    try {
+      const result = await login({ email: trimmedEmail, password })
+
+      if (result.succeeded && result.token) {
+        localStorage.removeItem("token")
+        localStorage.removeItem("roles")
+        localStorage.removeItem("role")
+        localStorage.removeItem("hotelId")
+        localStorage.removeItem("email")
+        localStorage.removeItem("displayName")
+
+        localStorage.setItem("token", result.token)
+        localStorage.setItem("email", trimmedEmail)
+
+        const claims = decodeJwt(result.token)
+
+        // roles: prefer token claims, fallback to backend response
+        const rolesFromToken = getRolesFromClaims(claims)
+        const roles = (result.roles && result.roles.length > 0) ? result.roles : rolesFromToken
+        const primaryRole = pickPrimaryRole(roles)
+
+        localStorage.setItem("roles", JSON.stringify(roles))
+        localStorage.setItem("role", primaryRole)
+
+        const hotelId =
+          (claims as any)?.hotelId ??
+          (claims as any)?.HotelId ??
+          (claims as any)?.hotel_id ??
+          (claims as any)?.staffHotelId
+
+        if (hotelId != null && String(hotelId).trim() !== "") {
+          localStorage.setItem("hotelId", String(hotelId))
+        }
+
+        try {
+          const name = await resolveDisplayName(result.token, trimmedEmail)
+          localStorage.setItem("displayName", name)
+        } catch {
+          localStorage.setItem("displayName", trimmedEmail.split("@")[0])
+        }
+
+        navigate("/dashboard")
+        return
+      }
+
+      setError(result.message || "Invalid email or password")
+    } catch (err) {
+      setError("An error occurred. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
   }
-}
 
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Management System</CardTitle>
+          <div>
+            <h1 className="text-3xl font-extrabold tracking-tight">
+              <span className="text-[#40c4a7]">Inn</span>
+              <span className="text-gray-900">Manager</span>
+            </h1>
+          </div>
           <CardDescription>Login to access your dashboard</CardDescription>
         </CardHeader>
 

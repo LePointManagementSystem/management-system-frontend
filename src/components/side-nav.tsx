@@ -35,8 +35,8 @@ const adjustedMenuItems = (role: Role) => {
       //{ path: "/inventory", label: "Inventory", icon: <ClipboardList className="h-5 w-5" /> },
 
       // ✅ Reports section
-     // { path: "/reports", label: "Monthly Reports", icon: <FileText className="h-5 w-5" /> },
-     // { path: "/reports/restaurant", label: "Restaurant Report", icon: <FileText className="h-5 w-5" /> },
+      // { path: "/reports", label: "Monthly Reports", icon: <FileText className="h-5 w-5" /> },
+      // { path: "/reports/restaurant", label: "Restaurant Report", icon: <FileText className="h-5 w-5" /> },
       //{ path: "/reports/occupancy", label: "Occupancy Reports", icon: <FileText className="h-5 w-5" /> },
       //{ path: "/reports/financial", label: "Financial Reports", icon: <FileText className="h-5 w-5" /> },
     ]);
@@ -59,17 +59,20 @@ const Sidenav: React.FC<SidenavProps> = ({ isSidebarOpen, role }) => {
   return (
     <aside className={`bg-gray-800 text-white w-64 min-h-screen ${isSidebarOpen ? "" : "hidden"}`}>
       <div className="p-4">
-        <h1 className="text-2xl font-semibold">InnManager</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight">
+          <span className="text-[#40c4a7]">Inn</span>
+          <span className="text-white">Manager</span>
+        </h1>
+        <p className="text text-gray-400 tracking-wide">Hotel Management</p>
       </div>
 
-      <nav className="mt-8">
+      <nav>
         {items.map((item, index) => (
           <NavLink
             key={index}
             to={item.path}
             className={({ isActive }) =>
-              `flex items-center gap-3 py-2.5 px-4 rounded transition duration-200 ${
-                isActive ? "bg-gray-700 text-white" : "hover:bg-gray-700 hover:text-white"
+              `flex items-center gap-3 py-2.5 px-4 rounded transition duration-200 ${isActive ? "bg-gray-700 text-white" : "hover:bg-gray-700 hover:text-white"
               }`
             }
           >
