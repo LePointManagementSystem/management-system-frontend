@@ -44,14 +44,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     localStorage.removeItem("roles");
     localStorage.removeItem("hotelId");
 
-    // ✅ important pour le dropdown + avatar
+
     localStorage.removeItem("displayName");
     localStorage.removeItem("email");
 
     navigate("/login");
   };
 
-  // ✅ rôle dynamique (pas seulement Admin/Staff)
   const userRole = (localStorage.getItem("role") || "Staff") as Role;
 
   // ✅ nom/email pour avatar
@@ -84,13 +83,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             {/* Right */}
             <div className="flex items-center gap-3">
-              {/* ✅ Global Search */}
+             
               <GlobalSearch />
-
-              {/* ✅ Notifications */}
               <NotificationsBell />
-
-              {/* ✅ Profile dialog */}
               <Dialog>
                 <DialogTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">

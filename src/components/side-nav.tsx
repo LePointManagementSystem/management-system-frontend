@@ -59,7 +59,7 @@ const Sidenav: React.FC<SidenavProps> = ({ isSidebarOpen, role }) => {
   return (
     <aside className={`bg-gray-800 text-white w-64 min-h-screen ${isSidebarOpen ? "" : "hidden"}`}>
       <div className="p-4">
-        <h1 className="text-2xl font-semibold">Management System</h1>
+        <h1 className="text-2xl font-semibold">InnManager</h1>
       </div>
 
       <nav className="mt-8">

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import BASE_URL from '@/config/api-base'
 import { useNavigate } from 'react-router-dom'
 import { login } from '@/services/auth-service'
 import { Eye, EyeOff } from 'lucide-react'
@@ -14,7 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 //   "password": "Test231!"
 // }
 
-const BASE_URL = "http://localhost:5004/api"
+
 
 async function fetchWithToken(url: string, token: string) {
   const res = await fetch(url, {
@@ -81,7 +82,6 @@ export function LoginPage() {
     const result = await login({ email: trimmedEmail, password })
 
     if (result.succeeded && result.token) {
-      // ✅ clear old auth state
       localStorage.removeItem("token")
       localStorage.removeItem("roles")
       localStorage.removeItem("role")
@@ -102,7 +102,6 @@ export function LoginPage() {
       localStorage.setItem("roles", JSON.stringify(roles))
       localStorage.setItem("role", primaryRole)
 
-      // ✅ hotelId fallback
       const hotelId =
         (claims as any)?.hotelId ??
         (claims as any)?.HotelId ??
@@ -113,7 +112,6 @@ export function LoginPage() {
         localStorage.setItem("hotelId", String(hotelId))
       }
 
-      // ✅ resolve real displayName immediately
       try {
         const name = await resolveDisplayName(result.token, trimmedEmail)
         localStorage.setItem("displayName", name)
