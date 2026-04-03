@@ -3,18 +3,13 @@ import BASE_URL from '@/config/api-base'
 import { useNavigate } from 'react-router-dom'
 import { login } from '@/services/auth-service'
 import { Eye, EyeOff } from 'lucide-react'
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { decodeJwt, getRolesFromClaims, pickPrimaryRole } from '@/utils/jwt'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-
-// {
-//   "email": "test@testuser.com",
-//   "password": "Test231!"
-// }
-
 
 
 async function fetchWithToken(url: string, token: string) {
@@ -55,8 +50,6 @@ async function resolveDisplayName(token: string, fallbackEmail: string) {
   // 3) fallback email prefix
   return fallbackEmail ? fallbackEmail.split("@")[0] : "User"
 }
-
-
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
@@ -131,18 +124,17 @@ export function LoginPage() {
     }
   }
 
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <div>
+          <div className="text-center">
             <h1 className="text-3xl font-extrabold tracking-tight">
               <span className="text-[#40c4a7]">Inn</span>
               <span className="text-gray-900">Manager</span>
             </h1>
           </div>
-          <CardDescription>Login to access your dashboard</CardDescription>
+          <CardDescription className='text-center' >Login to access your dashboard</CardDescription>
         </CardHeader>
 
         <form onSubmit={handleSubmit}>
@@ -199,7 +191,11 @@ export function LoginPage() {
 
           <CardFooter>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Logging in..." : "Login"}
+              {isLoading 
+                ? 
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                : 
+                  "Login"}
             </Button>
           </CardFooter>
         </form>
