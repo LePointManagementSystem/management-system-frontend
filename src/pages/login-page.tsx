@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import BASE_URL from '@/config/api-base'
+
 import { useNavigate } from 'react-router-dom'
 import { login } from '@/services/auth-service'
 import { Eye, EyeOff } from 'lucide-react'
@@ -11,6 +11,8 @@ import { decodeJwt, getRolesFromClaims, pickPrimaryRole } from '@/utils/jwt'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 async function fetchWithToken(url: string, token: string) {
   const res = await fetch(url, {

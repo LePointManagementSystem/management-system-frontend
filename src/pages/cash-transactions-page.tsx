@@ -54,8 +54,9 @@ import {
   type CashSessionDto,
 } from "@/services/cash-sessions-service";
 
-import { API_BASE_URL } from "@/config/api-base";
 import type { Hotel } from "@/types/hotel";
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 /**
  * ✅ Extract Booking ID from reference
@@ -138,7 +139,7 @@ async function fetchHotelsForAdmin(): Promise<Hotel[]> {
   qs.set("pageSize", "200");
   qs.set("pageNumber", "1");
 
-  const res = await fetch(`${API_BASE_URL}/Hotel/search?${qs.toString()}`, {
+  const res = await fetch(`${BASE_URL}/Hotel/search?${qs.toString()}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
