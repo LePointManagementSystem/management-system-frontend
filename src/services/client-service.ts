@@ -1,35 +1,42 @@
 import { Guest } from "@/types/client";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+export type CreateGuestPayload = {
+  firstName: string;
+  lastName: string;
+  cin: string;
+  email?: string; // optionnel si un jour tu veux le remettre
+};
 
 export async function fetchGuest(): Promise<Guest[]> {
-    const token = localStorage.getItem('token');
-    const response = await fetch(`BASE_URL + Guest`, {
-        method: 'GET',
-        headers: {
-            'Accept': 'text/plain',
-            'Authorization': `Bearer ${token}`,
-        }
-    });
+  const token = localStorage.getItem("token");
+  const response = await fetch(BASE_URL, {
+    method: "GET",
+    headers: {
+      Accept: "text/plain",
+      Authorization: `Bearer ${token}`,
+    },
+  });
 
-    if (!response.ok) {
-        throw new Error(`Failed to fetch guests: ${response.statusText}`);
-    }
-    const data: Guest[] = await response.json();
-    return data;
+  if (!response.ok) {
+    throw new Error(`Failed to fetch guests: ${response.statusText}`);
+  }
+
+  return (await response.json()) as Guest[];
 }
 
-export async function addGuest(guest: Omit<Guest, 'id'>): Promise<Guest> {
-  const token = localStorage.getItem('token');
+export async function addGuest(payload: CreateGuestPayload): Promise<Guest> {
+  const token = localStorage.getItem("token");
 
   const response = await fetch(BASE_URL, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-       Accept: "application/json",
-       Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(guest),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -37,7 +44,5 @@ export async function addGuest(guest: Omit<Guest, 'id'>): Promise<Guest> {
     throw new Error(`Failed to add guest: ${response.statusText} - ${errorText}`);
   }
 
-  const data = await response.json();
-  console.log("Added guest:", data);
-  return data;
+  return (await response.json()) as Guest;
 }

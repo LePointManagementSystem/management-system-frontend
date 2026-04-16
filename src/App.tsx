@@ -11,30 +11,51 @@ import RestaurantReportPage from "./pages/reports/restaurant-report-page";
 import FinancialReportPage from "./pages/reports/financial-report-page";
 import OccupancyReportPage from "./pages/reports/occupancy-report-page";
 import RoomBookingPage from "./pages/room-booking-page";
-
+import BookingsPage from "./pages/bookings-page";
+import SearchPage from "./pages/search-page";
+import CashTransactionsPage from "./pages/cash-transactions-page";
+import ReportsDashboardPage from "./pages/reports/reports-dashboard-page";
+// ✅ NEW
+import ProtectedRoute from "./components/ProtectedRoute";
+import RequireRole from "./components/RequireRole";
+import UserAccountsPage from "./pages/user-accounts-page";
 
 function App() {
   return (
     <Router>
       <Routes>
-        {/* Public Route */}
+        {/* Public */}
         <Route path="/login" element={<LoginPage />} />
 
-        {/* Protected Routes */}
-        <Route path="/" element={<Layout><Outlet /></Layout>} >
-          <Route index element={<Navigate to="/dashboard" replace />} />
+        {/* Protected */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<Layout><Outlet /></Layout>} >
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/hotel-management" element={<HotelManagementPage />} />
+            <Route path="/restaurant" element={<RestaurantPage />} />
+            <Route path="/staff" element={<StaffPage />} />
+            <Route path="/clients" element={<ClientsPage />} />
+            <Route path="/inventory" element={<InventoryPage />} />
+            <Route path="/reports/restaurant" element={<RestaurantReportPage />} />
+            <Route path="/reports/financial" element={<FinancialReportPage />} />
+            <Route path="/reports/occupancy" element={<OccupancyReportPage />} />
+            <Route path="/reports" element={<ReportsDashboardPage />} />
+            <Route path="/room-booking" element={<RoomBookingPage />} />
+            <Route path="/bookings" element={<BookingsPage />} />
+            {/* ✅ Petty cash */}
+            <Route path="/cash" element={<CashTransactionsPage />} />
 
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/hotel-management" element={<HotelManagementPage />} />
-          <Route path="/restaurant" element={<RestaurantPage />} />
-          <Route path="/staff" element={<StaffPage />} />
-          <Route path="/clients" element={<ClientsPage />} />
-          <Route path="/inventory" element={<InventoryPage />} />
-          <Route path="/reports/restaurant" element={<RestaurantReportPage />} />
-          <Route path="/reports/financial" element={<FinancialReportPage />} />
-          <Route path="/reports/occupancy" element={<OccupancyReportPage />} />
-          <Route path="/room-booking" element={<RoomBookingPage />} />
+            {/* Admin only */}
+            <Route element={<RequireRole allowed={["Admin"]} />}>
+              <Route path="/user-accounts" element={<UserAccountsPage />} />
+            </Route>
+          </Route>
         </Route>
+
+        {/* fallback */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>
   );

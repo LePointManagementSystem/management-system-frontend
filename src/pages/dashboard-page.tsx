@@ -1,32 +1,47 @@
-import { Link } from 'react-router-dom'
-import { Users, ShoppingCart, Utensils, Calendar, BarChart } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { fetchAllBookings } from '@/services/booking-service'
-import { useEffect, useState } from 'react'
-import { Booking } from '@/types/hotel'
-
-
-
+import { Link } from "react-router-dom";
+import { Users, ShoppingCart, Utensils, Calendar, BarChart } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { fetchAllBookings, type BookingDto } from "@/services/booking-service";
+import { useEffect, useState } from "react";
+import { onBookingsChanged } from "@/utils/events";
+import { formatIsoUtcToHaitiShort } from "@/utils/datetime";
 
 const DashboardPage = () => {
-
-  const [bookings, setBookings] = useState<Booking[]>([])
-  const [loading, setLoading] = useState(true)
+  const [bookings, setBookings] = useState<BookingDto[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
     const loadBookings = async () => {
       try {
-        const data = await fetchAllBookings()
-        console.log("data:", data)
-        setBookings(data || [])
+        const data = await fetchAllBookings();
+        const sorted = [...(data || [])].sort((a, b) => {
+          const dateA = new Date(a.checkOutDateUtc).getTime();
+          const dateB = new Date(b.checkOutDateUtc).getTime();
+          return dateB - dateA;
+        });
+
+        if (mounted) setBookings(sorted);
       } catch (err) {
-        console.error("Failed to fetch bookings:", err)
+        console.error("Failed to fetch bookings", err);
+        if (mounted) setBookings([]);
       } finally {
-        setLoading(false)
+        if (mounted) setLoading(false);
       }
-    }
-    loadBookings()
-  }, [])
+    };
+
+    loadBookings();
+
+    const unsubscribe = onBookingsChanged(() => {
+      loadBookings();
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -34,16 +49,16 @@ const DashboardPage = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
-
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Bookings</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+2350</div>
-            <p className="text-xs text-muted-foreground">+180.1% from last month</p>
+            <div className="text-2xl font-bold">{bookings.length}</div>
+            <p className="text-xs text-muted-foreground">Total bookings</p>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Restaurant Orders</CardTitle>
@@ -54,6 +69,7 @@ const DashboardPage = () => {
             <p className="text-xs text-muted-foreground">+19% from last month</p>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Staff</CardTitle>
@@ -64,6 +80,7 @@ const DashboardPage = () => {
             <p className="text-xs text-muted-foreground">+201 since last week</p>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Restaurant Reports</CardTitle>
@@ -87,32 +104,32 @@ const DashboardPage = () => {
             {loading ? (
               <p className="text-sm text-gray-500">Loading...</p>
             ) : bookings.length === 0 ? (
-              (console.log("No bookings yet :", bookings),
-                <p className="text-sm text-gray-500">No bookings yet</p>)
+              <p className="text-sm text-gray-500">No bookings yet</p>
             ) : (
               <div className="space-y-4">
-                {bookings.slice(0, 5).map((booking, idx) => (
-                  <div key={idx} className="flex items-center">
-                    <div className="w-9 h-9 rounded-full bg-gray-200 mr-3"></div>
-                    <div>
-                      <p className="text-sm font-medium">
-                        {booking.clientEmail}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Room: {booking.numbers[0]} -{" "}
-                        {new Date(booking.checkOutDateUtc).toLocaleDateString()}{" "}
-                        {new Date(booking.checkOutDateUtc).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
+                {bookings.slice(0, 5).map((b) => {
+                  const roomLabel = b.roomNumbers || "—";
+
+                  // ✅ Haiti timezone everywhere
+                  const whenLabel = formatIsoUtcToHaitiShort(b.checkOutDateUtc);
+
+                  return (
+                    <div key={b.bookingId} className="flex items-center">
+                      <div className="w-9 h-9 rounded-full bg-gray-200 mr-3" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{b.guestName || "Guest"}</p>
+                        <p className="text-xs text-gray-500">
+                          Rooms: {roomLabel} — {whenLabel}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Inventory Status</CardTitle>
@@ -131,7 +148,11 @@ const DashboardPage = () => {
                     {item.icon}
                     <span className="ml-2 text-sm font-medium">{item.name}</span>
                   </div>
-                  <span className={`text-xs font-medium ${item.status === 'Low Stock' ? 'text-red-500' : 'text-green-500'}`}>
+                  <span
+                    className={`text-xs font-medium ${
+                      item.status === "Low Stock" ? "text-red-500" : "text-green-500"
+                    }`}
+                  >
                     {item.status}
                   </span>
                 </div>
@@ -141,8 +162,7 @@ const DashboardPage = () => {
         </Card>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default DashboardPage
-
+export default DashboardPage;
