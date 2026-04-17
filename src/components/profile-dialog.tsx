@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogTitle } from '@radix-ui/react-dialog';
 import { DialogHeader } from './ui/dialog';
 
 import { Button } from '@/components/ui/button';
-import UserProfilePage from '@/pages/user-profile-pafge';
+import UserProfilePage from '@/pages/user-profile-page';
 
 interface ProfileDialogProps {
     onClose: () => void;

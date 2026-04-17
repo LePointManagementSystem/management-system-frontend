@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils"
 
 import type { Room, RoomClass } from "@/types/hotel"
 import type { Guest } from "@/types/client"
-import type { BookingPayload } from "@/types/boking" // ✅ garde ça si ton projet l’utilise encore
+import type { BookingPayload } from "@/types/booking" // ✅ garde ça si ton projet l’utilise encore
 
 import { fetchAvailableRooms } from "@/services/room-service"
 import { useRoomClasses } from "@/hooks/use-room-classes"

@@ -13,6 +13,17 @@ import { createUserAccount, CreateUserAccountRequest, CreateUserRole } from "@/s
 
 const roles: CreateUserRole[] = ["Staff", "Receptionist", "Manager", "HR"];
 
+// ✅ Validations
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validatePassword(password: string): string | null {
+  if (password.length < 8) return "Le mot de passe doit contenir au moins 8 caractères.";
+  if (!/[A-Z]/.test(password)) return "Le mot de passe doit contenir au moins une majuscule.";
+  if (!/[a-z]/.test(password)) return "Le mot de passe doit contenir au moins une minuscule.";
+  if (!/[0-9]/.test(password)) return "Le mot de passe doit contenir au moins un chiffre.";
+  return null;
+}
+
 export default function UserAccountsPage() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,8 +45,22 @@ export default function UserAccountsPage() {
     setError(null);
     setSuccess(null);
 
+    // ✅ Validation champs obligatoires
     if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim() || !form.password.trim()) {
-      setError("First name, last name, email and password are required.");
+      setError("Prénom, nom, email et mot de passe sont obligatoires.");
+      return;
+    }
+
+    // ✅ Validation format email
+    if (!EMAIL_REGEX.test(form.email.trim())) {
+      setError("Format d'email invalide.");
+      return;
+    }
+
+    // ✅ Validation complexité mot de passe
+    const pwdError = validatePassword(form.password);
+    if (pwdError) {
+      setError(pwdError);
       return;
     }
 
@@ -48,11 +73,11 @@ export default function UserAccountsPage() {
         email: form.email.trim(),
       });
 
-      setSuccess(`Account created: ${form.email} (${form.role})`);
+      setSuccess(`Compte créé : ${form.email} (${form.role})`);
       reset();
       setOpen(false);
     } catch (e: any) {
-      setError(e?.message || "Failed to create account.");
+      setError(e?.message || "Échec de la création du compte.");
     } finally {
       setLoading(false);
     }
@@ -111,7 +136,8 @@ export default function UserAccountsPage() {
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Password</Label>
                 <Input type="password" className="col-span-3" value={form.password}
-                       onChange={(e) => setForm({ ...form, password: e.target.value })} />
+                       onChange={(e) => setForm({ ...form, password: e.target.value })}
+                       placeholder="Min 8 caractères, 1 maj, 1 min, 1 chiffre" />
               </div>
 
               <div className="grid grid-cols-4 items-center gap-4">
@@ -146,9 +172,9 @@ export default function UserAccountsPage() {
       <Card>
         <CardHeader><CardTitle>Workflow</CardTitle></CardHeader>
         <CardContent className="text-sm space-y-2 text-gray-600">
-          <p>1) Create an account here (login + role).</p>
-          <p>2) Go to <b>Staff</b> page to create Staff profile (RH) and assign Hotel scope.</p>
-          <p>3) Only Admin/Manager can book globally; other roles are scoped by Staff.HotelId.</p>
+          <p>1 Create an account here (login + role).</p>
+          <p>2 Go to <b>Staff</b> page to create Staff profile (RH) and assign Hotel scope.</p>
+          <p>3 Only Admin/Manager can book globally; other roles are scoped by Staff.HotelId.</p>
         </CardContent>
       </Card>
     </div>

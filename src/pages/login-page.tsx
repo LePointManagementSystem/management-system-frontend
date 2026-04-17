@@ -10,9 +10,10 @@ import { Label } from "@/components/ui/label"
 import { decodeJwt, getRolesFromClaims, pickPrimaryRole } from '@/utils/jwt'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { BASE_URL } from "@/config/api-base"
 
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+// ✅ Validation email
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 async function fetchWithToken(url: string, token: string) {
   const res = await fetch(url, {
@@ -67,7 +68,13 @@ export function LoginPage() {
 
     const trimmedEmail = email.trim()
     if (!trimmedEmail || !password) {
-      setError("Please enter email and password.")
+      setError("Veuillez entrer votre email et mot de passe.")
+      return
+    }
+
+    // ✅ Validation format email
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
+      setError("Format d'email invalide.")
       return
     }
 
@@ -89,7 +96,6 @@ export function LoginPage() {
 
         const claims = decodeJwt(result.token)
 
-        // roles: prefer token claims, fallback to backend response
         const rolesFromToken = getRolesFromClaims(claims)
         const roles = (result.roles && result.roles.length > 0) ? result.roles : rolesFromToken
         const primaryRole = pickPrimaryRole(roles)
@@ -118,9 +124,9 @@ export function LoginPage() {
         return
       }
 
-      setError(result.message || "Invalid email or password")
+      setError(result.message || "Email ou mot de passe incorrect.")
     } catch (err) {
-      setError("An error occurred. Please try again.")
+      setError("Une erreur s'est produite. Veuillez réessayer.")
     } finally {
       setIsLoading(false)
     }
@@ -136,7 +142,7 @@ export function LoginPage() {
               <span className="text-gray-900">Manager</span>
             </h1>
           </div>
-          <CardDescription className='text-center' >Login to access your dashboard</CardDescription>
+          <CardDescription className='text-center'>Login to access your dashboard</CardDescription>
         </CardHeader>
 
         <form onSubmit={handleSubmit}>
@@ -194,10 +200,8 @@ export function LoginPage() {
           <CardFooter>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading 
-                ? 
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                : 
-                  "Login"}
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : "Login"}
             </Button>
           </CardFooter>
         </form>

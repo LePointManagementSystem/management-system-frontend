@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createBooking } from "@/services/booking-service";
-import { BookingPayload } from "@/types/boking";
+import { BookingPayload } from "@/types/booking";
 
 export const useBooking = () => {
   const [loading, setLoading] = useState(false);

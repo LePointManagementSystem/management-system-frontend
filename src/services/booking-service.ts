@@ -1,4 +1,4 @@
-import type { BookingPayload } from "@/types/boking";
+import type { BookingPayload } from "@/types/booking";
 import { emitBookingsChanged } from "@/utils/events";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;

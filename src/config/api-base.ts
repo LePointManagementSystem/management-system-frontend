@@ -1,11 +1,10 @@
-// // src/config/api-base.ts
+const fromEnv = import.meta.env.VITE_API_BASE_URL as string | undefined;
 
-// // Option 1: via .env (recommandé)
-// // VITE_API_BASE_URL=http://localhost:5004/api
-// const fromEnv = (import.meta as any).env?.VITE_API_BASE_URL as string | undefined;
+if (!fromEnv || !fromEnv.trim()) {
+    throw new Error("VITE_API_BASE_URL is not defined. Add it to your .env file before running the app.");
+}
 
-// // Option 2: fallback si .env absent
-// export const API_BASE_URL = fromEnv?.trim() || "http://54.144.47.187:5000/api";
+export const BASE_URL = 
+fromEnv.trim().replace(/\/$/, "");  // removes the trailing “/” if it exists
 
-// // Bonus: pour permettre aussi `import API_BASE_URL from ...`
-// export default API_BASE_URL;
+export default  BASE_URL;
