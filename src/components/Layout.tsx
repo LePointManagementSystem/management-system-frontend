@@ -1,4 +1,3 @@
-// Path: src/components/Layout.tsx
 import { useMemo, useState } from "react";
 import { ChevronDown, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,10 +19,7 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import Sidenav from "./side-nav";
 import UserProfile from "./user-profile";
 
-// ✅ Notifications Bell component
 import { NotificationsBell } from "@/components/notifications-bell";
-
-// ✅ Global Search (new)
 import { GlobalSearch } from "@/components/global-search";
 
 interface LayoutProps {
@@ -43,17 +39,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     localStorage.removeItem("role");
     localStorage.removeItem("roles");
     localStorage.removeItem("hotelId");
-
-
     localStorage.removeItem("displayName");
     localStorage.removeItem("email");
-
     navigate("/login");
   };
 
   const userRole = (localStorage.getItem("role") || "Staff") as Role;
 
-  // ✅ nom/email pour avatar
   const displayName = useMemo(
     () => localStorage.getItem("displayName") || localStorage.getItem("email") || "User",
     []
@@ -78,14 +70,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Button variant="ghost" size="icon" onClick={toggleSidebar}>
                 <Menu className="h-6 w-6" />
               </Button>
-              <h2 className="text-xl font-semibold">Le Point 95</h2>
+              <h2 className="text-xl font-semibold hidden sm:block">Le Point 95</h2>
             </div>
 
             {/* Right */}
             <div className="flex items-center gap-3">
-             
+              {/* GlobalSearch handles both desktop input and mobile icon internally */}
               <GlobalSearch />
+
               <NotificationsBell />
+
               <Dialog>
                 <DialogTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -104,7 +98,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 </DialogContent>
               </Dialog>
 
-              {/* ✅ Dropdown menu */}
+              {/* Account dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="h-8 w-8 p-0">
@@ -116,7 +110,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem disabled>Settings</DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={handleLogout}
                     className="text-red-600 focus:text-red-600"

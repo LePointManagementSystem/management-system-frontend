@@ -1,88 +1,137 @@
-import React, { useEffect, useMemo, useState } from "react";
-import DataTable, { TableColumn } from "react-data-table-component";
-import { getRoomsByHotelId } from "@/services/room-service";
-import { Room } from "@/types/hotel";
+import React, { useEffect, useState } from "react"
+import { Loader2 } from "lucide-react"
 
-type RoomListProps = {
-  hotelId: number;
-};
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
-const RoomList: React.FC<RoomListProps> = ({ hotelId }) => {
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+import { getRoomsByHotelId } from "@/services/room-service"
+import type { Room } from "@/types/hotel"
+
+type Props = {
+  hotelId: number
+}
+
+function formatHtg(amount: number): string {
+  return `HTG ${amount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
+function formatDate(iso: string | undefined): string {
+  if (!iso) return "—"
+  try {
+    return new Date(iso).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    })
+  } catch {
+    return "—"
+  }
+}
+
+const RoomList: React.FC<Props> = ({ hotelId }) => {
+  const [rooms, setRooms] = useState<Room[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchRooms = async () => {
+    let mounted = true
+    const load = async () => {
+      setLoading(true)
+      setError(null)
       try {
-        setLoading(true);
-        setError(null);
-        const data = await getRoomsByHotelId(hotelId);
-        setRooms(data || []);
-      } catch (err: any) {
-        setError(err?.message || "Something went wrong");
+        const data = await getRoomsByHotelId(hotelId)
+        if (mounted) setRooms(data || [])
+      } catch (err: unknown) {
+        if (mounted)
+          setError(
+            err instanceof Error ? err.message : "Failed to load rooms."
+          )
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false)
       }
-    };
+    }
+    void load()
+    return () => { mounted = false }
+  }, [hotelId])
 
-    fetchRooms();
-  }, [hotelId]);
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Loading rooms…
+      </div>
+    )
+  }
 
-  const columns: TableColumn<Room>[] = useMemo(
-    () => [
-      {
-        name: "Room Number",
-        selector: (row) => String(row.number ?? ""),
-        sortable: true,
-      },
-      {
-        name: "Class",
-        selector: (row) => row.roomClassName || "N/A",
-        sortable: true,
-      },
-      {
-        name: "Adults",
-        selector: (row) => Number(row.adultsCapacity ?? 0),
-        sortable: true,
-      },
-      {
-        name: "Children",
-        selector: (row) => Number(row.childrenCapacity ?? 0),
-        sortable: true,
-      },
-      {
-        name: "Price",
-        selector: (row) => Number(row.pricePerNight ?? 0),
-        sortable: true,
-        cell: (row) => `$${Number(row.pricePerNight ?? 0)}`,
-      },
-      {
-        name: "Created",
-        selector: (row) => row.createdAtUtc ? row.createdAtUtc : "",
-        sortable: true,
-        cell: (row) =>
-          row.createdAtUtc ? new Date(row.createdAtUtc).toLocaleString() : "—",
-      },
-    ],
-    []
-  );
+  if (error) {
+    return (
+      <Alert variant="destructive" className="my-2">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    )
+  }
 
-  if (loading) return <p>Loading rooms...</p>;
-  if (error) return <p className="text-red-500">Error: {error}</p>;
+  if (rooms.length === 0) {
+    return (
+      <p className="py-4 text-sm text-muted-foreground">
+        No rooms registered for this hotel yet.
+      </p>
+    )
+  }
 
   return (
-    <div className="mt-4">
-      <DataTable
-        columns={columns}
-        data={rooms}
-        pagination
-        highlightOnHover
-        striped
-        dense
-      />
+    <div className="rounded-md border mt-1">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Room No.</TableHead>
+            <TableHead>Class</TableHead>
+            <TableHead>Adults</TableHead>
+            <TableHead>Children</TableHead>
+            <TableHead className="text-right">Price / Night</TableHead>
+            <TableHead>Added</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rooms.map((room) => (
+            <TableRow key={room.roomId}>
+              <TableCell className="font-medium">
+                {room.number || `#${room.roomId}`}
+              </TableCell>
+              <TableCell>
+                {room.roomClassName ? (
+                  <Badge variant="outline">{room.roomClassName}</Badge>
+                ) : (
+                  <span className="text-muted-foreground text-xs">—</span>
+                )}
+              </TableCell>
+              <TableCell>{room.adultsCapacity ?? "—"}</TableCell>
+              <TableCell>{room.childrenCapacity ?? "—"}</TableCell>
+              <TableCell className="text-right font-medium">
+                {room.pricePerNight != null
+                  ? formatHtg(room.pricePerNight)
+                  : "—"}
+              </TableCell>
+              <TableCell className="text-muted-foreground text-sm">
+                {formatDate(room.createdAtUtc)}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
-  );
-};
+  )
+}
 
-export default RoomList;
+export default RoomList

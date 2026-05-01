@@ -1,8 +1,17 @@
-import { useState, useEffect } from 'react';
-import DataTable from 'react-data-table-component';
-import { Plus, Edit, Trash2 } from 'lucide-react';
-import RoomList from '@/components/room-list';
-import { Button } from '@/components/ui/button';
+import React, { useEffect, useState } from "react"
+import {
+  ChevronDown,
+  ChevronRight,
+  Edit,
+  Hotel,
+  Loader2,
+  Plus,
+  Trash2,
+} from "lucide-react"
+
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -10,449 +19,1063 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { getHotels} from '@/services/hotel-service';
-import { Hotel, Room, RoomClass } from '@/types/hotel';
-import { addRoom, getRoomsByHotelId } from '@/services/room-service';
-import { getRoomClasses } from '@/services/room-class-service';
-import { handleAddHotelHelper, handleDeleteHotelHelper } from '@/utils/hotel-helpers';
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Textarea } from "@/components/ui/textarea"
 
+import type { Hotel as HotelType, RoomClass } from "@/types/hotel"
+import type { Owner } from "@/services/owner-service"
 
-const HotelManagementPage = () => {
-  const [hotels, setHotels] = useState<Hotel[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [, setError] = useState<string | null>(null);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [selectedHotelId, setSelectedHotelId] = useState<number | null>(null);
-  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
-  const [roomsData, setRoomsData] = useState<Record<number, Room[]>>({})
-  const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
-  const [roomClasses, setRoomClasses] = useState<RoomClass[]>([]);
+import { getHotels, addHotel, updateHotel, deleteHotel } from "@/services/hotel-service"
+import { addRoom } from "@/services/room-service"
+import { getRoomClasses } from "@/services/room-class-service"
+import { getOwners } from "@/services/owner-service"
+import {
+  handleAddHotelHelper,
+  handleDeleteHotelHelper,
+} from "@/utils/hotel-helpers"
 
-  const [newHotel, setNewHotel] = useState<Omit<Hotel, 'id'>>({
-    name: '',
-    starRating: 0,
-    description: '',
-    phoneNumber: '',
-    ownerName: '',
-    ownerID: 0,
-  });
+import RoomList from "@/components/room-list"
 
-  const [newRoom, setNewRoom] = useState<{
-    roomNumber: string;
-    roomClassId: number | '';
-    price: number;
-    adultsCapacity: number;
-    childrenCapacity: number;
-  }>({
-    roomNumber: '',
-    roomClassId: '',
-    price: 0,
-    adultsCapacity: 0,
-    childrenCapacity: 0,
-  });
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-  type RoomField =
-    | {
-      label: string;
-      id: 'roomNumber' | 'adultsCapacity' | 'childrenCapacity' | 'price';
-      type: 'text' | 'number';
-      value: string | number;
-      onChange: (val: string | number) => void;
-    }
-    | {
-      label: string;
-      id: 'roomClassId';
-      type: 'select';
-      value: number | '';
-      onChange: (val: number | '') => void;
-    };
+function StarDisplay({ rating }: { rating: number }) {
+  return (
+    <span className="text-base leading-none tracking-tight" aria-label={`${rating} stars`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <span key={n} className={n <= rating ? "text-amber-400" : "text-gray-200"}>
+          ★
+        </span>
+      ))}
+    </span>
+  )
+}
 
-  const roomFields: RoomField[] = [
-    {
-      label: 'Room Number',
-      id: 'roomNumber',
-      type: 'text',
-      value: newRoom.roomNumber,
-      onChange: (val) => setNewRoom({ ...newRoom, roomNumber: val as string }),
-    },
-    {
-      label: 'Room Class',
-      id: 'roomClassId',
-      type: 'select',
-      value: newRoom.roomClassId,
-      onChange: (val) => setNewRoom({ ...newRoom, roomClassId: val }),
-    },
-    {
-      label: 'Price',
-      id: 'price',
-      type: 'number',
-      value: newRoom.price,
-      onChange: (val) => setNewRoom({ ...newRoom, price: val as number }),
-    },
-    {
-      label: 'Adults Capacity',
-      id: 'adultsCapacity',
-      type: 'number',
-      value: newRoom.adultsCapacity,
-      onChange: (val) => setNewRoom({ ...newRoom, adultsCapacity: val as number }),
-    },
-    {
-      label: 'Children Capacity',
-      id: 'childrenCapacity',
-      type: 'number',
-      value: newRoom.childrenCapacity,
-      onChange: (val) => setNewRoom({ ...newRoom, childrenCapacity: val as number }),
-    },
-  ];
+function StarSelect({
+  value,
+  onChange,
+}: {
+  value: number
+  onChange: (v: number) => void
+}) {
+  return (
+    <Select value={String(value)} onValueChange={(v) => onChange(Number(v))}>
+      <SelectTrigger>
+        <SelectValue placeholder="Select rating…" />
+      </SelectTrigger>
+      <SelectContent>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <SelectItem key={n} value={String(n)}>
+            <span>
+              {"★".repeat(n)}{"☆".repeat(5 - n)}&nbsp; {n} Star{n > 1 ? "s" : ""}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
 
-  const handleAddHotel = async () => {
-    await handleAddHotelHelper(newHotel, setHotels, setNewHotel, setIsAddDialogOpen);
-  };
+// ─── Empty add-hotel form ─────────────────────────────────────────────────────
 
-  const handleDeleteHotel = async (id: number) => {
-    await handleDeleteHotelHelper(id, setHotels);
-  };
+const EMPTY_HOTEL_FORM = {
+  name: "",
+  starRating: 3,
+  description: "",
+  phoneNumber: "",
+  ownerID: "",        // as string for Select
+}
 
+const EMPTY_ROOM_FORM = {
+  roomNumber: "",
+  roomClassId: "",
+  pricePerNight: 0,
+  adultsCapacity: 1,
+  childrenCapacity: 0,
+}
 
-  const handleAddRoom = (hotelId: number) => {
-    setSelectedHotelId(hotelId);
-    setIsRoomDialogOpen(true);
-  };
+// ─── Component ────────────────────────────────────────────────────────────────
 
-  const handleAddRoomToHotel = async () => {
-    if (
-      !newRoom.roomNumber.trim() ||
-      newRoom.roomClassId === '' ||
-      newRoom.price <= 0 ||
-      newRoom.adultsCapacity < 0 ||
-      newRoom.childrenCapacity < 0 ||
-      !selectedHotelId
-    ) {
-      alert('Please fill all room fields correctly.');
-      return;
-    }
+const HotelManagementPage: React.FC = () => {
+  // ── Data ───────────────────────────────────────────────────────────────────
+  const [hotels, setHotels] = useState<HotelType[]>([])
+  const [owners, setOwners] = useState<Owner[]>([])
+  const [roomClasses, setRoomClasses] = useState<RoomClass[]>([])
+  const [loadingHotels, setLoadingHotels] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [successBanner, setSuccessBanner] = useState<string | null>(null)
 
-    try {
-      await addRoom(
-        Number(newRoom.roomClassId),
-        {
-          number: newRoom.roomNumber,
-          adultsCapacity: newRoom.adultsCapacity,
-          childrenCapacity: newRoom.childrenCapacity,
-          pricePerNight: newRoom.price,
-        }
-      );
+  // ── Expand ─────────────────────────────────────────────────────────────────
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set())
 
-      alert('Room added successfully!');
-      setNewRoom({
-        roomNumber: '',
-        roomClassId: '',
-        price: 0,
-        adultsCapacity: 0,
-        childrenCapacity: 0,
-      });
-      setIsRoomDialogOpen(false);
-    } catch (err) {
-      console.error('Add room error:', err);
-      alert('Something went wrong while adding the room.');
-    }
-  };
+  // ── Add Hotel dialog ───────────────────────────────────────────────────────
+  const [addHotelOpen, setAddHotelOpen] = useState(false)
+  const [addHotelForm, setAddHotelForm] = useState({ ...EMPTY_HOTEL_FORM })
+  const [addHotelError, setAddHotelError] = useState<string | null>(null)
+  const [addHotelSubmitting, setAddHotelSubmitting] = useState(false)
 
+  // ── Edit Hotel dialog ──────────────────────────────────────────────────────
+  const [editHotelOpen, setEditHotelOpen] = useState(false)
+  const [editHotelTarget, setEditHotelTarget] = useState<HotelType | null>(null)
+  const [editHotelForm, setEditHotelForm] = useState({ ...EMPTY_HOTEL_FORM })
+  const [editHotelError, setEditHotelError] = useState<string | null>(null)
+  const [editHotelSubmitting, setEditHotelSubmitting] = useState(false)
 
-  const fetchRoomsForHotel = async (hotelId: number) => {
-    try {
-      const rooms = await getRoomsByHotelId(hotelId);
+  // ── Delete confirmation dialog ─────────────────────────────────────────────
+  const [deleteTarget, setDeleteTarget] = useState<HotelType | null>(null)
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
-      const safeRooms: Room[] = rooms.map((room: any) => ({
-        ...room,
-        roomClassName: room.roomClassName ?? '',
-      }));
+  // ── Add Room dialog ────────────────────────────────────────────────────────
+  const [addRoomOpen, setAddRoomOpen] = useState(false)
+  const [addRoomHotelId, setAddRoomHotelId] = useState<number | null>(null)
+  const [addRoomForm, setAddRoomForm] = useState({ ...EMPTY_ROOM_FORM })
+  const [addRoomError, setAddRoomError] = useState<string | null>(null)
+  const [addRoomSubmitting, setAddRoomSubmitting] = useState(false)
 
-      setRoomsData((prev) => ({ ...prev, [hotelId]: rooms }))
-      return safeRooms
-    } catch (err) {
-      console.error("Error fetching rooms:", err)
-      return []
-    }
-  }
-
-  const handleToggleExpand = async (hotelId: number) => {
-    const newExpandedRows = new Set(expandedRows)
-
-    if (expandedRows.has(hotelId)) {
-      newExpandedRows.delete(hotelId)
-    } else {
-      newExpandedRows.add(hotelId)
-      // Fetch rooms if not already loaded
-      if (!roomsData[hotelId]) {
-        await fetchRoomsForHotel(hotelId)
-      }
-    }
-
-    setExpandedRows(newExpandedRows)
-  }
-
-  const RoomsExpandedComponent = ({ data }: { data: Hotel }) => {
-    if (!data?.id) return <div className="p-4 text-red-500">Hotel id missing.</div>;
-    return (
-      <div className="p-4 bg-gray-50">
-        <RoomList hotelId={data.id} />
-      </div>
-    );
-  }
-
-  const columns = [
-    {
-      name: 'Name',
-      selector: (row: Hotel) => row.name,
-      sortable: true,
-    },
-    {
-      name: 'Star Rating',
-     selector: (row: Hotel) => String(row.starRating ?? "-"),
-      sortable: true,
-    },
-    {
-      name: 'Description',
-      selector: (row: Hotel) => row.description,
-      wrap: true,
-    },
-    {
-      name: 'Phone',
-      selector: (row: Hotel) => row.phoneNumber,
-    },
-    {
-      name: 'Owner ID',
-      selector: (row: Hotel) => row.ownerName,
-    },
-    {
-      name: 'Actions',
-      cell: (row: Hotel) => (
-        <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => handleAddRoom(row.id)}
-            title="Add Room"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon">
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon" onClick={() => handleDeleteHotel(row.id)}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
-    },
-  ];
+  // ── Auto-dismiss success banner ────────────────────────────────────────────
 
   useEffect(() => {
-    const fetchHotels = async () => {
+    if (!successBanner) return
+    const t = setTimeout(() => setSuccessBanner(null), 4_000)
+    return () => clearTimeout(t)
+  }, [successBanner])
+
+  // ── Load hotels ────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    const load = async () => {
+      setLoadingHotels(true)
+      setLoadError(null)
       try {
-        const data = await getHotels();
-        setHotels(data || []);
-      } catch (err) {
-        console.error('Error fetching hotels:', err);
-        setError((err as Error).message);
+        const data = await getHotels()
+        setHotels(data)
+      } catch (err: unknown) {
+        setLoadError(
+          err instanceof Error ? err.message : "Failed to load hotels."
+        )
       } finally {
-        setLoading(false);
+        setLoadingHotels(false)
       }
-    };
+    }
+    void load()
+  }, [])
 
-    fetchHotels();
-  }, []);
+  // ── Load owners & room classes ─────────────────────────────────────────────
 
   useEffect(() => {
-    const fetchRoomClasses = async () => {
-      try {
-        const roomClasses = await getRoomClasses();
-        setRoomClasses(roomClasses);
-      } catch (err) {
-        console.error('Failed to fetch room classes:', err);
-      }
-    };
+    void getOwners()
+      .then(setOwners)
+      .catch(() => { /* non-blocking — owner select will be empty */ })
 
-    fetchRoomClasses();
-  }, []);
+    void getRoomClasses()
+      .then(setRoomClasses)
+      .catch(() => { /* non-blocking */ })
+  }, [])
 
-  const handleRoomDialogClose = (open: boolean) => {
-    setIsRoomDialogOpen(open);
-    if (!open) {
-      setSelectedHotelId(null);
-      setNewRoom({
-        roomNumber: '',
-        roomClassId: '',
-        price: 0,
-        adultsCapacity: 0,
-        childrenCapacity: 0,
-      });
+  // ── Expand toggle ──────────────────────────────────────────────────────────
+
+  const handleToggleExpand = (id: number) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Add Hotel
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const handleOpenAddHotel = () => {
+    setAddHotelForm({ ...EMPTY_HOTEL_FORM })
+    setAddHotelError(null)
+    setAddHotelOpen(true)
+  }
+
+  const handleSubmitAddHotel = async () => {
+    setAddHotelError(null)
+
+    if (!addHotelForm.name.trim()) {
+      setAddHotelError("Hotel name is required.")
+      return
     }
-  };
+    if (addHotelForm.starRating < 1 || addHotelForm.starRating > 5) {
+      setAddHotelError("Star rating must be between 1 and 5.")
+      return
+    }
+    if (!addHotelForm.phoneNumber.trim()) {
+      setAddHotelError("Phone number is required.")
+      return
+    }
+    if (!addHotelForm.ownerID) {
+      setAddHotelError("Please select an owner.")
+      return
+    }
+
+    const ownerRecord = owners.find(
+      (o) => String(o.ownerID) === addHotelForm.ownerID
+    )
+
+    setAddHotelSubmitting(true)
+    try {
+      await handleAddHotelHelper(
+        {
+          name: addHotelForm.name.trim(),
+          starRating: addHotelForm.starRating,
+          description: addHotelForm.description.trim(),
+          phoneNumber: addHotelForm.phoneNumber.trim(),
+          ownerName: ownerRecord
+            ? `${ownerRecord.firstName} ${ownerRecord.lastName}`
+            : "",
+          ownerID: Number(addHotelForm.ownerID),
+        },
+        setHotels
+      )
+      setAddHotelOpen(false)
+      setSuccessBanner(`Hotel "${addHotelForm.name}" added successfully.`)
+    } catch (err: unknown) {
+      setAddHotelError(
+        err instanceof Error ? err.message : "Failed to add hotel."
+      )
+    } finally {
+      setAddHotelSubmitting(false)
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Edit Hotel
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const handleOpenEditHotel = (hotel: HotelType) => {
+    setEditHotelTarget(hotel)
+    setEditHotelForm({
+      name: hotel.name,
+      starRating: hotel.starRating ?? 3,
+      description: hotel.description ?? "",
+      phoneNumber: hotel.phoneNumber ?? "",
+      ownerID: hotel.ownerID ? String(hotel.ownerID) : "",
+    })
+    setEditHotelError(null)
+    setEditHotelOpen(true)
+  }
+
+  const handleSubmitEditHotel = async () => {
+    if (!editHotelTarget) return
+    setEditHotelError(null)
+
+    if (!editHotelForm.name.trim()) {
+      setEditHotelError("Hotel name is required.")
+      return
+    }
+    if (!editHotelForm.phoneNumber.trim()) {
+      setEditHotelError("Phone number is required.")
+      return
+    }
+
+    const ownerRecord = owners.find(
+      (o) => String(o.ownerID) === editHotelForm.ownerID
+    )
+
+    const payload: Partial<Omit<HotelType, "id">> = {
+      name: editHotelForm.name.trim(),
+      starRating: editHotelForm.starRating,
+      description: editHotelForm.description.trim(),
+      phoneNumber: editHotelForm.phoneNumber.trim(),
+      ownerName: ownerRecord
+        ? `${ownerRecord.firstName} ${ownerRecord.lastName}`
+        : editHotelTarget.ownerName,
+      ownerID: editHotelForm.ownerID
+        ? Number(editHotelForm.ownerID)
+        : editHotelTarget.ownerID,
+    }
+
+    setEditHotelSubmitting(true)
+    try {
+      const result = await updateHotel(editHotelTarget.id, payload)
+      setHotels((prev) =>
+        prev.map((h) =>
+          h.id === editHotelTarget.id
+            ? result.id > 0
+              ? result
+              : { ...h, ...payload }
+            : h
+        )
+      )
+      setEditHotelOpen(false)
+      setSuccessBanner(`Hotel "${editHotelForm.name}" updated successfully.`)
+    } catch (err: unknown) {
+      setEditHotelError(
+        err instanceof Error ? err.message : "Failed to update hotel."
+      )
+    } finally {
+      setEditHotelSubmitting(false)
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Delete Hotel
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleteError(null)
+    setDeleteSubmitting(true)
+    try {
+      await handleDeleteHotelHelper(deleteTarget.id, setHotels)
+      setSuccessBanner(`Hotel "${deleteTarget.name}" deleted.`)
+      setDeleteTarget(null)
+    } catch (err: unknown) {
+      setDeleteError(
+        err instanceof Error ? err.message : "Failed to delete hotel."
+      )
+    } finally {
+      setDeleteSubmitting(false)
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Add Room
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const handleOpenAddRoom = (hotelId: number) => {
+    setAddRoomHotelId(hotelId)
+    setAddRoomForm({ ...EMPTY_ROOM_FORM })
+    setAddRoomError(null)
+    setAddRoomOpen(true)
+  }
+
+  const handleSubmitAddRoom = async () => {
+    setAddRoomError(null)
+
+    if (!addRoomForm.roomNumber.trim()) {
+      setAddRoomError("Room number is required.")
+      return
+    }
+    if (!addRoomForm.roomClassId) {
+      setAddRoomError("Please select a room class.")
+      return
+    }
+    if (addRoomForm.pricePerNight <= 0) {
+      setAddRoomError("Price per night must be greater than 0.")
+      return
+    }
+    if (addRoomForm.adultsCapacity < 1) {
+      setAddRoomError("Adults capacity must be at least 1.")
+      return
+    }
+
+    setAddRoomSubmitting(true)
+    try {
+      await addRoom(Number(addRoomForm.roomClassId), {
+        number: addRoomForm.roomNumber.trim(),
+        adultsCapacity: addRoomForm.adultsCapacity,
+        childrenCapacity: addRoomForm.childrenCapacity,
+        pricePerNight: addRoomForm.pricePerNight,
+      })
+
+      // refresh the expanded room list for this hotel if visible
+      if (addRoomHotelId && expandedIds.has(addRoomHotelId)) {
+        setExpandedIds((prev) => {
+          const next = new Set(prev)
+          next.delete(addRoomHotelId!)
+          return next
+        })
+        requestAnimationFrame(() => {
+          setExpandedIds((prev) => new Set([...prev, addRoomHotelId!]))
+        })
+      }
+
+      setAddRoomOpen(false)
+      const hotel = hotels.find((h) => h.id === addRoomHotelId)
+      setSuccessBanner(
+        `Room ${addRoomForm.roomNumber} added${hotel ? ` to ${hotel.name}` : ""}.`
+      )
+    } catch (err: unknown) {
+      setAddRoomError(
+        err instanceof Error ? err.message : "Failed to add room."
+      )
+    } finally {
+      setAddRoomSubmitting(false)
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Hotel Management</h1>
-        <Button onClick={() => setIsAddDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Add Hotel
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Hotel className="h-6 w-6 text-muted-foreground" />
+          <h1 className="text-2xl font-bold tracking-tight">Hotel Management</h1>
+        </div>
+        <Button onClick={handleOpenAddHotel}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Hotel
         </Button>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={hotels}
-        progressPending={loading}
-        pagination
-        responsive
-        highlightOnHover
-        striped
-        expandableRows
-        expandableRowsComponent={RoomsExpandedComponent}
-        expandableRowExpanded={(row) => expandedRows.has(row.id)}
-	      onRowExpandToggled={(_expanded, row) => handleToggleExpand(row.id)}
-      />
+      {/* Success banner */}
+      {successBanner && (
+        <Alert className="border-green-200 bg-green-50 text-green-800">
+          <AlertTitle>Success</AlertTitle>
+          <AlertDescription>{successBanner}</AlertDescription>
+        </Alert>
+      )}
 
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[525px]">
+      {/* Load error */}
+      {loadError && (
+        <Alert variant="destructive">
+          <AlertTitle>Failed to load hotels</AlertTitle>
+          <AlertDescription>{loadError}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Loading */}
+      {loadingHotels ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <>
+          {/* Hotels table */}
+          {hotels.length === 0 && !loadError ? (
+            <div className="rounded-md border py-16 text-center">
+              <Hotel className="mx-auto h-10 w-10 text-muted-foreground/30 mb-3" />
+              <p className="text-sm text-muted-foreground">
+                No hotels registered yet.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={handleOpenAddHotel}
+              >
+                <Plus className="mr-1.5 h-4 w-4" />
+                Add your first hotel
+              </Button>
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-8" />
+                    <TableHead>Name</TableHead>
+                    <TableHead>Stars</TableHead>
+                    <TableHead className="hidden md:table-cell max-w-[200px]">
+                      Description
+                    </TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead className="hidden lg:table-cell">Owner</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+
+                <TableBody>
+                  {hotels.map((hotel) => {
+                    const isExpanded = expandedIds.has(hotel.id)
+                    return (
+                      <React.Fragment key={hotel.id}>
+                        <TableRow className="group">
+                          {/* Expand toggle */}
+                          <TableCell className="py-2 px-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleToggleExpand(hotel.id)}
+                              title={isExpanded ? "Hide rooms" : "Show rooms"}
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </Button>
+                          </TableCell>
+
+                          <TableCell className="font-medium">
+                            {hotel.name}
+                          </TableCell>
+
+                          <TableCell>
+                            <StarDisplay rating={hotel.starRating ?? 0} />
+                          </TableCell>
+
+                          <TableCell className="hidden md:table-cell max-w-[200px]">
+                            <span
+                              className="truncate block text-sm text-muted-foreground"
+                              title={hotel.description}
+                            >
+                              {hotel.description || "—"}
+                            </span>
+                          </TableCell>
+
+                          <TableCell className="text-sm">
+                            {hotel.phoneNumber || "—"}
+                          </TableCell>
+
+                          <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                            {hotel.ownerName || "—"}
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                title="Add room"
+                                onClick={() => handleOpenAddRoom(hotel.id)}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                title="Edit hotel"
+                                onClick={() => handleOpenEditHotel(hotel)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                title="Delete hotel"
+                                onClick={() => {
+                                  setDeleteError(null)
+                                  setDeleteTarget(hotel)
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+
+                        {/* Expanded rooms */}
+                        {isExpanded && (
+                          <TableRow>
+                            <TableCell
+                              colSpan={7}
+                              className="py-0 px-0 border-b"
+                            >
+                              <div className="bg-muted/30 px-6 py-4">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    Rooms — {hotel.name}
+                                  </p>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleOpenAddRoom(hotel.id)}
+                                  >
+                                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                                    Add Room
+                                  </Button>
+                                </div>
+                                <RoomList hotelId={hotel.id} />
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ══════════════ DIALOG: ADD HOTEL ══════════════ */}
+      <Dialog open={addHotelOpen} onOpenChange={setAddHotelOpen}>
+        <DialogContent className="sm:max-w-[540px]">
           <DialogHeader>
             <DialogTitle>Add New Hotel</DialogTitle>
-            <DialogDescription>Fill out the details below to register a new hotel.</DialogDescription>
+            <DialogDescription>
+              Fill in the details below to register a new hotel.
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Name
+          <div className="space-y-4 py-2">
+            {addHotelError && (
+              <Alert variant="destructive">
+                <AlertDescription>{addHotelError}</AlertDescription>
+              </Alert>
+            )}
+
+            {/* Name */}
+            <div className="space-y-1.5">
+              <Label htmlFor="ah-name">
+                Hotel Name <span className="text-destructive">*</span>
               </Label>
               <Input
-                id="name"
-                value={newHotel.name}
-                onChange={(e) => setNewHotel({ ...newHotel, name: e.target.value })}
-                className="col-span-3"
+                id="ah-name"
+                placeholder="e.g. Grand Palace Hotel"
+                value={addHotelForm.name}
+                onChange={(e) =>
+                  setAddHotelForm((p) => ({ ...p, name: e.target.value }))
+                }
               />
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="starRating" className="text-right">
-                Star Rating
-              </Label>
-              <Input
-                id="starRating"
-                type="number"
-                min="1"
-                max="5"
-                value={newHotel.starRating}
-                onChange={(e) => setNewHotel({ ...newHotel, starRating: parseInt(e.target.value) || 0 })}
-                className="col-span-3"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              {/* Star Rating */}
+              <div className="space-y-1.5">
+                <Label>
+                  Star Rating <span className="text-destructive">*</span>
+                </Label>
+                <StarSelect
+                  value={addHotelForm.starRating}
+                  onChange={(v) =>
+                    setAddHotelForm((p) => ({ ...p, starRating: v }))
+                  }
+                />
+              </div>
+
+              {/* Phone */}
+              <div className="space-y-1.5">
+                <Label htmlFor="ah-phone">
+                  Phone Number <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="ah-phone"
+                  placeholder="e.g. +509 3000-0000"
+                  value={addHotelForm.phoneNumber}
+                  onChange={(e) =>
+                    setAddHotelForm((p) => ({ ...p, phoneNumber: e.target.value }))
+                  }
+                />
+              </div>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">
-                Description
+            {/* Owner */}
+            <div className="space-y-1.5">
+              <Label>
+                Owner <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="description"
-                value={newHotel.description}
-                onChange={(e) => setNewHotel({ ...newHotel, description: e.target.value })}
-                className="col-span-3"
-              />
+              {owners.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Loading owners…
+                </p>
+              ) : (
+                <Select
+                  value={addHotelForm.ownerID}
+                  onValueChange={(v) =>
+                    setAddHotelForm((p) => ({ ...p, ownerID: v }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an owner…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {owners.map((o) => (
+                      <SelectItem key={o.ownerID} value={String(o.ownerID)}>
+                        {o.firstName} {o.lastName}
+                        {o.email && (
+                          <span className="text-muted-foreground ml-1.5 text-xs">
+                            — {o.email}
+                          </span>
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="phoneNumber" className="text-right">
-                Phone
-              </Label>
-              <Input
-                id="phoneNumber"
-                value={newHotel.phoneNumber}
-                onChange={(e) => setNewHotel({ ...newHotel, phoneNumber: e.target.value })}
-                className="col-span-3"
-              />
-            </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="ownerName" className="text-right">
-                Owner Name
-              </Label>
-              <Input
-                id="ownerName"
-                value={newHotel.ownerName}
-                onChange={(e) => setNewHotel({ ...newHotel, ownerName: e.target.value})}
-                className="col-span-3"
-                placeholder='Jhon Doe'
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label htmlFor="ah-desc">Description</Label>
+              <Textarea
+                id="ah-desc"
+                rows={3}
+                placeholder="Optional description of the hotel…"
+                value={addHotelForm.description}
+                onChange={(e) =>
+                  setAddHotelForm((p) => ({ ...p, description: e.target.value }))
+                }
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button onClick={handleAddHotel}>Save Hotel</Button>
+            <Button
+              variant="outline"
+              onClick={() => setAddHotelOpen(false)}
+              disabled={addHotelSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitAddHotel} disabled={addHotelSubmitting}>
+              {addHotelSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Save Hotel"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isRoomDialogOpen} onOpenChange={handleRoomDialogClose}>
-        <DialogContent className="sm:max-w-[500px]">
+      {/* ══════════════ DIALOG: EDIT HOTEL ══════════════ */}
+      <Dialog open={editHotelOpen} onOpenChange={setEditHotelOpen}>
+        <DialogContent className="sm:max-w-[540px]">
           <DialogHeader>
-            <DialogTitle>Add Room</DialogTitle>
-            <DialogDescription>Add a room to hotel ID #{selectedHotelId}</DialogDescription>
+            <DialogTitle>Edit Hotel</DialogTitle>
+            <DialogDescription>
+              Update the details for{" "}
+              <strong>{editHotelTarget?.name ?? "this hotel"}</strong>.
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
-            {roomFields.map((field) => (
-              <div key={field.id} className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor={field.id} className="text-right">
-                  {field.label}
-                </Label>
+          <div className="space-y-4 py-2">
+            {editHotelError && (
+              <Alert variant="destructive">
+                <AlertDescription>{editHotelError}</AlertDescription>
+              </Alert>
+            )}
 
-                {field.type === 'select' ? (
-                  <select
-                    id={field.id}
-                    value={field.value}
-                    onChange={(e) =>
-                      field.onChange(e.target.value === '' ? '' : Number(e.target.value))
-                    }
-                    className="col-span-3 border rounded px-3 py-2"
-                  >
-                    <option value="">Select room class</option>
-                    {Array.isArray(roomClasses) &&
-                      roomClasses.map((cls) => (
-                        <option key={cls.roomClassID} value={cls.roomClassID}>
-                          {cls.name}
-                        </option>
-                      ))}
-                  </select>
-                ) : (
-                  <Input
-                    id={field.id}
-                    type={field.type}
-                    value={field.value}
-                    onChange={(e) => {
-                      if (field.type === 'number') {
-                        field.onChange(parseFloat(e.target.value) || 0);
-                      } else {
-                        field.onChange(e.target.value);
-                      }
-                    }}
-                    className="col-span-3"
-                  />
-                )}
+            {/* Name */}
+            <div className="space-y-1.5">
+              <Label htmlFor="eh-name">
+                Hotel Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="eh-name"
+                value={editHotelForm.name}
+                onChange={(e) =>
+                  setEditHotelForm((p) => ({ ...p, name: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Star Rating</Label>
+                <StarSelect
+                  value={editHotelForm.starRating}
+                  onChange={(v) =>
+                    setEditHotelForm((p) => ({ ...p, starRating: v }))
+                  }
+                />
               </div>
-            ))}
+
+              <div className="space-y-1.5">
+                <Label htmlFor="eh-phone">
+                  Phone Number <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="eh-phone"
+                  value={editHotelForm.phoneNumber}
+                  onChange={(e) =>
+                    setEditHotelForm((p) => ({ ...p, phoneNumber: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+            {/* Owner */}
+            {owners.length > 0 && (
+              <div className="space-y-1.5">
+                <Label>Owner</Label>
+                <Select
+                  value={editHotelForm.ownerID}
+                  onValueChange={(v) =>
+                    setEditHotelForm((p) => ({ ...p, ownerID: v }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an owner…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {owners.map((o) => (
+                      <SelectItem key={o.ownerID} value={String(o.ownerID)}>
+                        {o.firstName} {o.lastName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label htmlFor="eh-desc">Description</Label>
+              <Textarea
+                id="eh-desc"
+                rows={3}
+                value={editHotelForm.description}
+                onChange={(e) =>
+                  setEditHotelForm((p) => ({ ...p, description: e.target.value }))
+                }
+              />
+            </div>
           </div>
 
           <DialogFooter>
-            <Button onClick={handleAddRoomToHotel}>Save Room</Button>
+            <Button
+              variant="outline"
+              onClick={() => setEditHotelOpen(false)}
+              disabled={editHotelSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitEditHotel}
+              disabled={editHotelSubmitting}
+            >
+              {editHotelSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ══════════════ DIALOG: DELETE CONFIRM ══════════════ */}
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>Delete Hotel</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete{" "}
+              <strong>{deleteTarget?.name}</strong>? All associated rooms will
+              also be removed. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          {deleteError && (
+            <Alert variant="destructive">
+              <AlertDescription>{deleteError}</AlertDescription>
+            </Alert>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleteSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={deleteSubmitting}
+            >
+              {deleteSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                "Delete Hotel"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ══════════════ DIALOG: ADD ROOM ══════════════ */}
+      <Dialog open={addRoomOpen} onOpenChange={setAddRoomOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Add Room</DialogTitle>
+            <DialogDescription>
+              Add a new room to{" "}
+              <strong>
+                {hotels.find((h) => h.id === addRoomHotelId)?.name ??
+                  `Hotel #${addRoomHotelId}`}
+              </strong>
+              .
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {addRoomError && (
+              <Alert variant="destructive">
+                <AlertDescription>{addRoomError}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Room Number */}
+              <div className="space-y-1.5">
+                <Label htmlFor="ar-num">
+                  Room Number <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="ar-num"
+                  placeholder="e.g. 101"
+                  value={addRoomForm.roomNumber}
+                  onChange={(e) =>
+                    setAddRoomForm((p) => ({ ...p, roomNumber: e.target.value }))
+                  }
+                />
+              </div>
+
+              {/* Room Class */}
+              <div className="space-y-1.5">
+                <Label>
+                  Room Class <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={addRoomForm.roomClassId}
+                  onValueChange={(v) =>
+                    setAddRoomForm((p) => ({ ...p, roomClassId: v }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select class…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roomClasses.map((rc) => (
+                      <SelectItem
+                        key={rc.roomClassID}
+                        value={String(rc.roomClassID)}
+                      >
+                        {rc.name}
+                        {rc.hotelName && (
+                          <span className="text-muted-foreground ml-1 text-xs">
+                            — {rc.hotelName}
+                          </span>
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="grid grid-cols-3 gap-4">
+              {/* Price */}
+              <div className="space-y-1.5">
+                <Label htmlFor="ar-price">
+                  Price / Night (HTG) <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="ar-price"
+                  type="number"
+                  min={0}
+                  step={50}
+                  value={addRoomForm.pricePerNight}
+                  onChange={(e) =>
+                    setAddRoomForm((p) => ({
+                      ...p,
+                      pricePerNight: parseFloat(e.target.value) || 0,
+                    }))
+                  }
+                />
+              </div>
+
+              {/* Adults */}
+              <div className="space-y-1.5">
+                <Label htmlFor="ar-adults">
+                  Adults <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="ar-adults"
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={addRoomForm.adultsCapacity}
+                  onChange={(e) =>
+                    setAddRoomForm((p) => ({
+                      ...p,
+                      adultsCapacity: parseInt(e.target.value) || 1,
+                    }))
+                  }
+                />
+              </div>
+
+              {/* Children */}
+              <div className="space-y-1.5">
+                <Label htmlFor="ar-children">Children</Label>
+                <Input
+                  id="ar-children"
+                  type="number"
+                  min={0}
+                  max={20}
+                  value={addRoomForm.childrenCapacity}
+                  onChange={(e) =>
+                    setAddRoomForm((p) => ({
+                      ...p,
+                      childrenCapacity: parseInt(e.target.value) || 0,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setAddRoomOpen(false)}
+              disabled={addRoomSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitAddRoom}
+              disabled={addRoomSubmitting}
+            >
+              {addRoomSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Save Room"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
-  );
-};
+  )
+}
 
-export default HotelManagementPage;
+export default HotelManagementPage

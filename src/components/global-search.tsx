@@ -4,6 +4,7 @@ import { Search, Loader2, ChevronRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -73,6 +74,15 @@ export function GlobalSearch() {
     window.setTimeout(() => inputRef.current?.focus(), 0);
   }, [open]);
 
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setQ("");
+      setData(null);
+      setError(null);
+    }
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const query = (dq || "").trim();
@@ -137,7 +147,6 @@ export function GlobalSearch() {
         label: "Clients",
         hint: "Open clients",
         onClick: () => {
-          // deep-link the query to prefill the clients search
           navigate(`/clients?q=${encodeURIComponent(dq)}`);
           setOpen(false);
         },
@@ -158,16 +167,16 @@ export function GlobalSearch() {
     if (starts(["room", "rooms", "chambre", "chambres"])) {
       items.push({
         label: "Rooms",
-        hint: "Open booking room selection",
+        hint: "Open hotel management",
         onClick: () => {
-          navigate(`/room-booking`);
+          navigate(`/hotel-management`);
           setOpen(false);
         },
       });
     }
 
     return items;
-  }, [dq, navigate, setOpen]);
+  }, [dq, navigate]);
 
   const go = (path: string) => {
     setOpen(false);
@@ -176,7 +185,7 @@ export function GlobalSearch() {
 
   return (
     <>
-      {/* Small input in header (click -> open palette) */}
+      {/* Desktop: full input in header */}
       <div className="hidden md:flex relative w-[340px]">
         <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -187,6 +196,17 @@ export function GlobalSearch() {
           onClick={() => setOpen(true)}
         />
       </div>
+
+      {/* Mobile: icon-only button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="flex md:hidden"
+        onClick={() => setOpen(true)}
+        aria-label="Open search"
+      >
+        <Search className="h-5 w-5" />
+      </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-[720px] p-0">
@@ -215,31 +235,31 @@ export function GlobalSearch() {
           <Separator />
 
           <div className="max-h-[420px] overflow-auto">
-	          {/* Pages (no quick actions) */}
-	          {pageSuggestions.length > 0 && (
-	            <>
-	              <div className="p-4">
-	                <div className="text-xs uppercase text-muted-foreground mb-2">Pages</div>
-	                <div className="space-y-1">
-	                  {pageSuggestions.map((it) => (
-	                    <button
-	                      key={it.label}
-	                      type="button"
-	                      className="w-full text-left px-3 py-2 rounded-md hover:bg-muted flex items-center justify-between"
-	                      onClick={it.onClick}
-	                    >
-	                      <span>{it.label}</span>
-	                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-	                        {it.hint}
-	                        <ChevronRight className="h-4 w-4" />
-	                      </span>
-	                    </button>
-	                  ))}
-	                </div>
-	              </div>
-	              <Separator />
-	            </>
-	          )}
+            {/* Pages */}
+            {pageSuggestions.length > 0 && (
+              <>
+                <div className="p-4">
+                  <div className="text-xs uppercase text-muted-foreground mb-2">Pages</div>
+                  <div className="space-y-1">
+                    {pageSuggestions.map((it) => (
+                      <button
+                        key={it.label}
+                        type="button"
+                        className="w-full text-left px-3 py-2 rounded-md hover:bg-muted flex items-center justify-between"
+                        onClick={it.onClick}
+                      >
+                        <span>{it.label}</span>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          {it.hint}
+                          <ChevronRight className="h-4 w-4" />
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Separator />
+              </>
+            )}
 
             {/* Results */}
             <div className="p-4">
@@ -254,6 +274,12 @@ export function GlobalSearch() {
 
               {!loading && !error && !hasResults && (dq || "").trim().length >= 2 && (
                 <div className="text-sm text-muted-foreground">No results.</div>
+              )}
+
+              {!loading && !error && (dq || "").trim().length < 2 && (
+                <div className="text-sm text-muted-foreground">
+                  Type at least 2 characters to search…
+                </div>
               )}
 
               {!loading && !error && data && (
@@ -298,12 +324,11 @@ export function GlobalSearch() {
                             key={r.roomId}
                             type="button"
                             className="w-full text-left px-3 py-2 rounded-md hover:bg-muted"
-                            // keep it safe: route to full search (room management may vary by project)
-                            onClick={() => go(`/search?q=${encodeURIComponent(r.number)}`)}
+                            onClick={() => go(`/hotel-management`)}
                           >
                             <div className="text-sm font-medium">Room {r.number}</div>
                             <div className="text-xs text-muted-foreground mt-1">
-                              {r.roomClassName ? `Class: ${r.roomClassName}` : `RoomClassId: ${r.roomClassId}`}
+                              {r.roomClassName ? `Class: ${r.roomClassName}` : "—"}
                             </div>
                           </button>
                         ))}
@@ -375,7 +400,7 @@ export function GlobalSearch() {
                 go(`/search?q=${encodeURIComponent(query)}`);
               }}
             >
-              Search all results for “{(q || "").trim() || "…"}”
+              Search all results for "{(q || "").trim() || "…"}"
             </button>
           </div>
         </DialogContent>

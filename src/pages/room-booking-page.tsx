@@ -1,62 +1,91 @@
 import type React from "react"
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { CalendarIcon, CheckCircle, Loader2 } from "lucide-react"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { useNavigate } from "react-router-dom"
+import {
+  CalendarIcon,
+  Check,
+  CheckCircle,
+  ChevronsUpDown,
+  Clock,
+  Loader2,
+  Search,
+} from "lucide-react"
+
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 
 import type { Room, RoomClass } from "@/types/hotel"
 import type { Guest } from "@/types/client"
-import type { BookingPayload } from "@/types/booking" // ✅ garde ça si ton projet l’utilise encore
+import type { BookingPayload } from "@/types/booking"
+import type { BookingDto } from "@/services/booking-service"
 
 import { fetchAvailableRooms } from "@/services/room-service"
 import { useRoomClasses } from "@/hooks/use-room-classes"
 import { addGuest, fetchGuest } from "@/services/client-service"
 import { createBooking } from "@/services/booking-service"
-
 import { formatHaitiLongDateTime } from "@/utils/datetime"
 import { calculateCheckInOut, type BookingDurationUI } from "@/utils/booking-helpers"
-
-// staff profile (hotelId scope)
 import { fetchMyStaffProfile } from "@/services/staff-service"
 import type { Staff } from "@/types/staff"
 
-// ✅ Safe parse roles: supports JSON array OR "Staff" OR "Staff,Admin"
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/** Must match backend BookingStatus enum numeric values — do NOT change order */
+const DURATION_TYPE_MAP: Record<BookingDurationUI, number> = {
+  "2h": 0,
+  "4h": 1,
+  overnight: 2,
+  "1h": 3,
+  "3h": 4,
+  "5h": 5,
+  "6h": 6,
+  "7h": 7,
+  "8h": 8,
+  stay: 9,
+}
+
+const PAYMENT_METHODS = [
+  { value: 0, label: "Cash" },
+  { value: 1, label: "Credit / Debit Card" },
+  { value: 2, label: "Mobile Money (Moncash)" },
+] as const
+
+const WIZARD_STEPS = ["Search", "Select Room", "Client Details", "Confirmation"]
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function safeParseRoles(raw: string | null): string[] {
   if (!raw) return []
   try {
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? parsed : []
   } catch {
-    return raw
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
+    return raw.split(",").map((s) => s.trim()).filter(Boolean)
   }
-}
-
-const formatDateTime = (date: Date): string => formatHaitiLongDateTime(date)
-
-// ✅ Must match backend enum numeric values (do NOT change)
-const DURATION_TYPE_MAP: Record<BookingDurationUI, number> = {
-  "2h": 0, // Hours2
-  "4h": 1, // Hours4
-  overnight: 2, // Overnight
-  "1h": 3, // Hours1
-  "3h": 4, // Hours3
-  "5h": 5, // Hours5
-  "6h": 6, // Hours6
-  "7h": 7, // Hours7
-  "8h": 8, // Hours8
-  stay: 9, // ✅ Stay (24h+)
 }
 
 function getDurationHours(duration: BookingDurationUI): number | null {
@@ -65,161 +94,381 @@ function getDurationHours(duration: BookingDurationUI): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-function durationLabel(duration: BookingDurationUI) {
-  if (duration === "stay") return "Stay"
-  if (duration === "overnight") return "Overnight"
+function durationLabel(duration: BookingDurationUI): string {
+  if (duration === "stay") return "Multi-night Stay"
+  if (duration === "overnight") return "Overnight (21:00 → 09:00)"
   const h = getDurationHours(duration) ?? 0
   return `${h} Hour${h > 1 ? "s" : ""}`
 }
 
-const RoomBookingPage: React.FC = () => {
-  const [currentStep, setCurrentStep] = useState(0)
-  const [isLoading, setIsLoading] = useState(false)
+/** True when user needs to pick the check-in time (hourly + stay, not overnight) */
+function needsTimePicker(duration: BookingDurationUI): boolean {
+  return duration !== "overnight"
+}
 
+function formatDateTime(date: Date): string {
+  return formatHaitiLongDateTime(date)
+}
+
+function formatPrice(amount: number): string {
+  return `HTG ${amount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
+/** Rough price estimate for the chosen duration */
+function estimateRoomPrice(room: Room, duration: BookingDurationUI): { amount: number; suffix: string } {
+  const base = room.pricePerNight ?? 0
+  if (duration === "stay" || duration === "overnight") {
+    return { amount: base, suffix: "/ night" }
+  }
+  const hours = getDurationHours(duration) ?? 1
+  const estimated = Math.round((base / 24) * hours)
+  return { amount: estimated, suffix: `for ${hours}h` }
+}
+
+/** Now formatted as "HH:MM" */
+function nowAsTimeString(): string {
+  const now = new Date()
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
+}
+
+// ─── Step Indicator ───────────────────────────────────────────────────────────
+
+function StepIndicator({ current }: { current: number }) {
+  return (
+    <div className="relative flex items-start justify-between mb-8">
+      {/* background connector */}
+      <div className="absolute top-4 left-[16px] right-[16px] h-0.5 bg-border" />
+      {/* filled connector */}
+      <div
+        className="absolute top-4 left-[16px] h-0.5 bg-primary transition-all duration-300"
+        style={{ width: `calc(${(current / (WIZARD_STEPS.length - 1)) * 100}% - 2px)` }}
+      />
+
+      {WIZARD_STEPS.map((label, index) => {
+        const done = current > index
+        const active = current === index
+        return (
+          <div key={label} className="relative flex flex-col items-center z-10">
+            <div
+              className={cn(
+                "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border-2 transition-colors",
+                done && "bg-primary border-primary text-primary-foreground",
+                active && "bg-background border-primary text-primary",
+                !done && !active && "bg-background border-border text-muted-foreground"
+              )}
+            >
+              {done ? <Check className="h-4 w-4" /> : index + 1}
+            </div>
+            <span
+              className={cn(
+                "text-xs mt-1 text-center max-w-[72px]",
+                active ? "text-primary font-medium" : "text-muted-foreground"
+              )}
+            >
+              {label}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Searchable Client Picker ─────────────────────────────────────────────────
+
+function ClientSearchPicker({
+  clients,
+  selectedId,
+  onSelect,
+}: {
+  clients: Guest[]
+  selectedId: string
+  onSelect: (id: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return clients.slice(0, 60)
+    return clients.filter(
+      (c) =>
+        `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) ||
+        (c.cin ?? "").toLowerCase().includes(q)
+    )
+  }, [clients, query])
+
+  const selected = clients.find((c) => String(c.id) === selectedId)
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+        >
+          {selected
+            ? `${selected.firstName} ${selected.lastName}${selected.cin ? ` — ${selected.cin}` : ""}`
+            : "Search for a client…"}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+
+      <PopoverContent className="p-2 w-[340px]" align="start">
+        <div className="relative mb-2">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            autoFocus
+            placeholder="Type name or CIN…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-8 h-8 text-sm"
+          />
+        </div>
+
+        <div className="max-h-52 overflow-y-auto space-y-0.5">
+          {filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-3">No clients found.</p>
+          ) : (
+            filtered.map((c) => (
+              <button
+                key={String(c.id)}
+                type="button"
+                className={cn(
+                  "w-full text-left px-2 py-1.5 rounded-sm text-sm hover:bg-muted transition-colors",
+                  String(c.id) === selectedId && "bg-primary/10 font-medium text-primary"
+                )}
+                onClick={() => {
+                  onSelect(String(c.id))
+                  setOpen(false)
+                  setQuery("")
+                }}
+              >
+                {c.firstName} {c.lastName}
+                {c.cin && (
+                  <span className="text-muted-foreground ml-1.5 font-normal">
+                    — CIN: {c.cin}
+                  </span>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+const RoomBookingPage: React.FC = () => {
+  const navigate = useNavigate()
+
+  // ── Wizard state ─────────────────────────────────────────────────────────
+  const [currentStep, setCurrentStep] = useState(0)
+  const [stepError, setStepError] = useState<string | null>(null)
+
+  // ── Step 0: Search form ──────────────────────────────────────────────────
   const [roomType, setRoomType] = useState("")
   const [guests, setGuests] = useState(1)
-  const [date, setDate] = useState<Date | undefined>(new Date())
-
-  // ✅ Stay needs check-out date
+  const [date, setDate] = useState<Date>(new Date())
+  const [checkInTime, setCheckInTime] = useState<string>(nowAsTimeString())
   const [stayCheckOutDate, setStayCheckOutDate] = useState<Date | undefined>(undefined)
-
   const [bookingDuration, setBookingDuration] = useState<BookingDurationUI>("overnight")
+  const [paymentMethod, setPaymentMethod] = useState<number>(0)
+  const [isSearching, setIsSearching] = useState(false)
 
+  // ── Step 1: Room selection ───────────────────────────────────────────────
   const [availableRooms, setAvailableRooms] = useState<Room[]>([])
   const [selectedRoom, setSelectedRoom] = useState<number | null>(null)
   const [selectedRoomClass, setSelectedRoomClass] = useState<RoomClass | null>(null)
 
+  // ── Step 2: Client ───────────────────────────────────────────────────────
   const [clientTab, setClientTab] = useState<"existing" | "new">("existing")
-  const [selectedClientId, setSelectedClientId] = useState<string>("")
+  const [selectedClientId, setSelectedClientId] = useState("")
   const [newClient, setNewClient] = useState({ firstName: "", lastName: "", cin: "" })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const [bookingComplete, setBookingComplete] = useState(false)
-  const [bookingReference, setBookingReference] = useState("")
-  const [bookingGuestName, setBookingGuestName] = useState("")
-  const [notification, setNotification] = useState("")
+  // ── Step 3: Confirmation ─────────────────────────────────────────────────
+  const [confirmedBooking, setConfirmedBooking] = useState<BookingDto | null>(null)
+  const [confirmedGuestName, setConfirmedGuestName] = useState("")
+  const [hourlyNotification, setHourlyNotification] = useState("")
 
+  // ── Data ─────────────────────────────────────────────────────────────────
   const [existingClients, setExistingClients] = useState<Guest[]>([])
   const { roomClasses, loading: loadingRoomClasses } = useRoomClasses()
 
-  // staff scope
+  // ── Staff / hotel scope ──────────────────────────────────────────────────
   const [currentHotelId, setCurrentHotelId] = useState<number | null>(null)
   const [staffLoading, setStaffLoading] = useState(true)
   const [staffError, setStaffError] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
 
-  // ⏰ Notification: hourly bookings (1h..8h)
-  useEffect(() => {
-    let timeout: ReturnType<typeof setTimeout> | undefined
-    const hours = getDurationHours(bookingDuration)
+  // ── Load guests list ─────────────────────────────────────────────────────
 
-    if (bookingComplete && hours && hours > 0) {
-      timeout = setTimeout(() => {
-        setNotification(`⏰ The ${hours}-hour booking is now over.`)
-      }, hours * 60 * 60 * 1000)
-    }
-
-    return () => {
-      if (timeout) clearTimeout(timeout)
-    }
-  }, [bookingComplete, bookingDuration])
-
-  // 👤 Load guests
   useEffect(() => {
     const load = async () => {
       try {
         const clients = await fetchGuest()
         setExistingClients(clients || [])
-      } catch (e) {
-        console.error("Error fetching guests", e)
+      } catch {
+        // non-blocking — guest list will just be empty
       }
     }
     void load()
   }, [])
 
-  // 👤 Load staff profile (if Staff/Receptionist)
+  // ── Load staff profile (hotel scope) ─────────────────────────────────────
+
   useEffect(() => {
-    try {
-      const storedRole = localStorage.getItem("role")
-      setUserRole(storedRole)
+    const init = async () => {
+      try {
+        const storedRole = localStorage.getItem("role")
+        setUserRole(storedRole)
 
-      const roles = safeParseRoles(localStorage.getItem("roles"))
-      const isStaffUser =
-        storedRole === "Staff" ||
-        storedRole === "Receptionist" ||
-        roles.includes("Staff") ||
-        roles.includes("Receptionist")
+        const roles = safeParseRoles(localStorage.getItem("roles"))
+        const isStaffUser =
+          storedRole === "Staff" ||
+          storedRole === "Receptionist" ||
+          roles.includes("Staff") ||
+          roles.includes("Receptionist")
 
-      if (!isStaffUser) {
-        setStaffLoading(false)
-        setStaffError(null)
-        setCurrentHotelId(null)
-        return
-      }
-
-      const hotelIdFromToken = localStorage.getItem("hotelId")
-      if (hotelIdFromToken && Number.isFinite(Number(hotelIdFromToken))) {
-        setCurrentHotelId(Number(hotelIdFromToken))
-        setStaffLoading(false)
-        setStaffError(null)
-        return
-      }
-
-      const loadStaff = async () => {
-        try {
-          setStaffLoading(true)
-          const staff: Staff = await fetchMyStaffProfile()
-          setCurrentHotelId(staff.hotelId ?? null)
-          setStaffError(null)
-        } catch (err) {
-          console.error("Failed to load staff profile", err)
-          setStaffError(err instanceof Error ? err.message : "Could not load your staff profile.")
-        } finally {
+        if (!isStaffUser) {
           setStaffLoading(false)
+          return
         }
-      }
 
-      void loadStaff()
-    } catch (err) {
-      console.error("RoomBookingPage init error:", err)
-      setStaffLoading(false)
-      setStaffError("Unexpected error while loading booking page. Please re-login.")
+        const hotelIdFromStorage = localStorage.getItem("hotelId")
+        if (hotelIdFromStorage && Number.isFinite(Number(hotelIdFromStorage))) {
+          setCurrentHotelId(Number(hotelIdFromStorage))
+          setStaffLoading(false)
+          return
+        }
+
+        const staff: Staff | null = await fetchMyStaffProfile()
+        if (staff) {
+          setCurrentHotelId(staff.hotelId ?? null)
+        } else {
+          setCurrentHotelId(null)
+        }
+        setStaffError(null)
+      } catch (err: unknown) {
+        setStaffError(
+          err instanceof Error
+            ? err.message
+            : "Could not load your staff profile. Please re-login."
+        )
+      } finally {
+        setStaffLoading(false)
+      }
     }
+    void init()
   }, [])
 
-  const filteredRoomClasses = useMemo(() => {
-    return roomClasses.filter((rc) => (currentHotelId == null ? true : rc.hotelId === currentHotelId))
-  }, [roomClasses, currentHotelId])
+  // ── Hourly booking expiry notification ───────────────────────────────────
+
+  useEffect(() => {
+    if (!confirmedBooking) return
+    const hours = getDurationHours(bookingDuration)
+    if (!hours) return
+    const timer = setTimeout(() => {
+      setHourlyNotification(`The ${hours}-hour booking has now ended.`)
+    }, hours * 60 * 60 * 1000)
+    return () => clearTimeout(timer)
+  }, [confirmedBooking, bookingDuration])
+
+  // ── Derived: filtered room classes by hotel ───────────────────────────────
+
+  const filteredRoomClasses = useMemo(
+    () =>
+      roomClasses.filter((rc) =>
+        currentHotelId == null ? true : rc.hotelId === currentHotelId
+      ),
+    [roomClasses, currentHotelId]
+  )
+
+  // ── Derived: rooms filtered by guest capacity ─────────────────────────────
+
+  const capacityFilteredRooms = useMemo(
+    () => availableRooms.filter((r) => (r.adultsCapacity ?? 0) >= guests),
+    [availableRooms, guests]
+  )
+
+  const excludedCount = availableRooms.length - capacityFilteredRooms.length
+
+  // ── Selected client ───────────────────────────────────────────────────────
+
+  const selectedClient = useMemo(
+    () => existingClients.find((c) => String(c.id) === selectedClientId) ?? null,
+    [existingClients, selectedClientId]
+  )
+
+  // ── Validation helpers ────────────────────────────────────────────────────
+
+  const isClientValid = useCallback((): boolean => {
+    if (clientTab === "existing") return selectedClientId.trim().length > 0
+    return newClient.firstName.trim().length > 0 && newClient.lastName.trim().length > 0
+  }, [clientTab, selectedClientId, newClient.firstName, newClient.lastName])
+
+  function clearStepError() {
+    setStepError(null)
+  }
+
+  function goToStep(step: number) {
+    clearStepError()
+    setCurrentStep(step)
+  }
+
+  // ── Build booking date/time ───────────────────────────────────────────────
+
+  function buildBookingDate(): Date {
+    const base = new Date(date)
+    if (needsTimePicker(bookingDuration) && checkInTime) {
+      const [h, m] = checkInTime.split(":").map(Number)
+      base.setHours(h, m, 0, 0)
+    }
+    return base
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // STEP 0 — Search
+  // ─────────────────────────────────────────────────────────────────────────
 
   const handleSearch = async () => {
-    if (!roomType || !date) {
-      alert("Missing room type or date.")
+    clearStepError()
+
+    if (!roomType) {
+      setStepError("Please select a room type.")
       return
     }
 
-    // ✅ Stay requires check-out
-    if (bookingDuration === "stay") {
-      if (!stayCheckOutDate) {
-        alert("Please select a check-out date for a stay.")
-        return
-      }
-      const inDate = new Date(date)
-      const outDate = new Date(stayCheckOutDate)
-      if (outDate.getTime() <= inDate.getTime()) {
-        alert("Check-out date must be after check-in date.")
-        return
-      }
+    if (bookingDuration === "stay" && !stayCheckOutDate) {
+      setStepError("Please select a check-out date for your stay.")
+      return
+    }
+
+    if (bookingDuration === "stay" && stayCheckOutDate && stayCheckOutDate <= date) {
+      setStepError("Check-out date must be after check-in date.")
+      return
     }
 
     if ((userRole === "Staff" || userRole === "Receptionist") && currentHotelId == null) {
-      alert("Your staff profile has no hotel assigned. Please contact an administrator.")
+      setStepError(
+        "Your staff profile has no hotel assigned. Please contact an administrator."
+      )
       return
     }
 
-    setIsLoading(true)
+    setIsSearching(true)
     try {
       const selectedClass = filteredRoomClasses.find((c) => c.name === roomType)
       if (!selectedClass) {
-        alert("Room type not found. Please re-select the room type.")
+        setStepError("Selected room type was not found. Please choose another.")
         setAvailableRooms([])
         setSelectedRoomClass(null)
         return
@@ -229,79 +478,93 @@ const RoomBookingPage: React.FC = () => {
 
       const rawRooms = await fetchAvailableRooms(selectedClass.roomClassID)
 
-      const mappedRooms = (rawRooms || []).map((room: any): Room => ({
-        roomId: room.roomId ?? room.roomID ?? room.id,
-        roomClassName: room.roomClassName ?? room.roomClass ?? room.roomClass?.name ?? roomType,
-        number: room.number ?? room.roomNumber ?? "",
-        adultsCapacity: (room.adultsCapacity ?? 0) + (room.childrenCapacity ?? 0),
-        hotelId: room.hotelId ?? room.hotelID ?? room.hotel?.id ?? selectedClass.hotelId,
-        pricePerNight: room.pricePerNight ?? room.price ?? 0,
-      }))
+      const mappedRooms: Room[] = (rawRooms || []).map(
+        (room: Record<string, unknown>): Room => ({
+          roomId: Number(room.roomId ?? room.roomID ?? room.id ?? 0),
+          roomClassName:
+            (room.roomClassName as string) ??
+            (room.roomClass as string) ??
+            roomType,
+          number: (room.number as string) ?? (room.roomNumber as string) ?? "",
+          adultsCapacity:
+            Number(room.adultsCapacity ?? 0) + Number(room.childrenCapacity ?? 0),
+          hotelId: Number(
+            room.hotelId ?? room.hotelID ?? selectedClass.hotelId ?? 0
+          ),
+          pricePerNight: Number(room.pricePerNight ?? room.price ?? 0),
+        })
+      )
 
       setAvailableRooms(mappedRooms)
       setSelectedRoom(null)
-      setCurrentStep(1)
-    } catch (error) {
-      console.error("Failed to load available rooms", error)
-      alert("Failed to load available rooms.")
+      goToStep(1)
+    } catch {
+      setStepError("Failed to load available rooms. Please check your connection and try again.")
     } finally {
-      setIsLoading(false)
+      setIsSearching(false)
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // STEP 1 — Room selection
+  // ─────────────────────────────────────────────────────────────────────────
+
   const handleRoomSelect = (roomId: number) => {
     setSelectedRoom(roomId)
-    setCurrentStep(2)
+    goToStep(2)
   }
 
-  const selectedClient = useMemo(
-    () => existingClients.find((c) => String(c.id) === String(selectedClientId)) ?? null,
-    [existingClients, selectedClientId]
-  )
-
-  const handleClientSelect = useCallback((clientId: string) => {
-    setSelectedClientId(clientId ?? "")
-  }, [])
-
-  const isClientFormValid = useCallback((): boolean => {
-    if (clientTab === "existing") return selectedClientId.trim().length > 0
-    return newClient.firstName.trim().length > 0 && newClient.lastName.trim().length > 0
-  }, [clientTab, selectedClientId, newClient.firstName, newClient.lastName, newClient.cin])
+  // ─────────────────────────────────────────────────────────────────────────
+  // STEP 2 — Submit booking
+  // ─────────────────────────────────────────────────────────────────────────
 
   const handleSubmitBooking = async () => {
-    // ✅ correct check (selectedRoom can’t be falsy-checked)
-    if (selectedRoom == null || !date || !isClientFormValid()) {
-      alert("Incomplete booking details.")
+    clearStepError()
+
+    if (selectedRoom == null) {
+      setStepError("No room selected. Please go back and select a room.")
+      return
+    }
+
+    if (!isClientValid()) {
+      setStepError(
+        clientTab === "existing"
+          ? "Please select an existing client."
+          : "First name and last name are required for a new client."
+      )
       return
     }
 
     if (bookingDuration === "stay" && !stayCheckOutDate) {
-      alert("Please select a check-out date for a stay.")
+      setStepError("Please go back and select a check-out date.")
       return
     }
 
-    const { checkInDateUtc, checkOutDateUtc } = calculateCheckInOut(date, bookingDuration, stayCheckOutDate)
     const selectedRoomData = availableRooms.find((r) => r.roomId === selectedRoom)
 
-    let hotelIdForRequest: number | null = selectedRoomData?.hotelId ?? null
+    let hotelIdForRequest: number | null =
+      selectedRoomData?.hotelId ?? selectedRoomClass?.hotelId ?? null
+
     if ((userRole === "Staff" || userRole === "Receptionist") && currentHotelId != null) {
       hotelIdForRequest = currentHotelId
     }
-    if (hotelIdForRequest == null) {
-      hotelIdForRequest = selectedRoomClass?.hotelId ?? null
-    }
-    if (hotelIdForRequest == null) {
-      alert("Cannot determine hotel. Please go back and select the room type again.")
+
+    if (!hotelIdForRequest) {
+      setStepError("Cannot determine hotel ID. Please go back to Search and try again.")
       return
     }
 
+    setIsSubmitting(true)
     try {
-      let clientData = { ...newClient }
+      let clientData = { firstName: "", lastName: "", cin: "" }
 
       if (clientTab === "existing") {
-        const existing = existingClients.find((c) => String(c.id) === String(selectedClientId))
+        const existing = existingClients.find(
+          (c) => String(c.id) === selectedClientId
+        )
         if (!existing) {
-          alert("Please select a valid existing client.")
+          setStepError("Selected client not found. Please re-select.")
+          setIsSubmitting(false)
           return
         }
         clientData = {
@@ -316,29 +579,34 @@ const RoomBookingPage: React.FC = () => {
           cin: newClient.cin,
         })
 
-        // ✅ refresh clients list so it appears next time
-        const clients = await fetchGuest()
-        setExistingClients(clients || [])
+        const refreshed = await fetchGuest()
+        setExistingClients(refreshed || [])
 
         clientData = {
-          firstName: newClient.firstName ?? "",
-          lastName: newClient.lastName ?? "",
-          cin: newClient.cin ?? "",
+          firstName: newClient.firstName,
+          lastName: newClient.lastName,
+          cin: newClient.cin,
         }
 
-        // Optional: switch to existing + auto-select newly created
-        if (created && (created as any).id) {
+        if (created && (created as { id?: unknown }).id) {
           setClientTab("existing")
-          setSelectedClientId(String((created as any).id))
+          setSelectedClientId(String((created as { id: unknown }).id))
         }
       }
+
+      const bookingDate = buildBookingDate()
+      const { checkInDateUtc, checkOutDateUtc } = calculateCheckInOut(
+        bookingDate,
+        bookingDuration,
+        stayCheckOutDate
+      )
 
       const bookingPayload: BookingPayload = {
         hotelId: hotelIdForRequest,
         checkInDateUtc,
         checkOutDateUtc,
         roomIds: [selectedRoom],
-        paymentMethod: 0,
+        paymentMethod,
         durationType: DURATION_TYPE_MAP[bookingDuration],
         guest: {
           firstName: clientData.firstName,
@@ -349,244 +617,383 @@ const RoomBookingPage: React.FC = () => {
 
       const result = await createBooking(bookingPayload)
 
-      setBookingReference(result?.bookingReference || `BK-${Math.floor(100000 + Math.random() * 900000)}`)
-
-      const apiGuestFirst = (result as any)?.data?.guestFirstName ?? (result as any)?.data?.GuestFirstName
-      const apiGuestLast = (result as any)?.data?.guestLastName ?? (result as any)?.data?.GuestLastName
-      const guestFullName = `${apiGuestFirst ?? clientData.firstName} ${apiGuestLast ?? clientData.lastName}`.trim()
-
-      setBookingGuestName(guestFullName)
-      setBookingComplete(true)
-      setCurrentStep(3)
-    } catch (error: unknown) {
-      console.error("Booking error", error)
-      const message = error instanceof Error ? error.message : typeof error === "string" ? error : "Booking failed, try again."
-      alert(message)
+      setConfirmedBooking(result)
+      setConfirmedGuestName(
+        `${clientData.firstName} ${clientData.lastName}`.trim()
+      )
+      goToStep(3)
+    } catch (err: unknown) {
+      setStepError(
+        err instanceof Error ? err.message : "Booking failed. Please try again."
+      )
+    } finally {
+      setIsSubmitting(false)
     }
   }
+
+  // ── Reset ─────────────────────────────────────────────────────────────────
 
   const handleNewBooking = () => {
     setCurrentStep(0)
     setRoomType("")
     setGuests(1)
     setDate(new Date())
+    setCheckInTime(nowAsTimeString())
     setStayCheckOutDate(undefined)
     setBookingDuration("overnight")
+    setPaymentMethod(0)
     setAvailableRooms([])
     setSelectedRoom(null)
     setSelectedRoomClass(null)
     setSelectedClientId("")
     setNewClient({ firstName: "", lastName: "", cin: "" })
-    setBookingComplete(false)
-    setBookingReference("")
-    setBookingGuestName("")
-    setNotification("")
+    setClientTab("existing")
+    setConfirmedBooking(null)
+    setConfirmedGuestName("")
+    setHourlyNotification("")
+    clearStepError()
   }
+
+  // ── Loading / error screens ───────────────────────────────────────────────
 
   if (loadingRoomClasses || staffLoading) {
     return (
-      <div className="p-6 flex justify-center items-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading booking data...</span>
+      <div className="p-6">
+        <Card className="max-w-sm mx-auto">
+          <CardContent className="flex items-center justify-center gap-3 py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <span className="text-muted-foreground">Loading booking data…</span>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   if (staffError) {
     return (
-      <div className="p-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Booking not available</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-red-600">{staffError}</p>
-          </CardContent>
-        </Card>
+      <div className="p-6 max-w-lg mx-auto">
+        <Alert variant="destructive">
+          <AlertTitle>Booking Not Available</AlertTitle>
+          <AlertDescription>{staffError}</AlertDescription>
+        </Alert>
       </div>
     )
   }
 
-  return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
-      <h2 className="text-3xl font-bold mb-6">Room Booking</h2>
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────────────
 
-      <div className="flex justify-between mb-8">
-        {["Search", "Select Room", "Client Details", "Confirmation"].map((step, index) => (
-          <div key={step} className="flex flex-col items-center">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= index ? "bg-blue-500 text-white" : "bg-gray-200"}`}>
-              {index + 1}
-            </div>
-            <span className="text-sm mt-1">{step}</span>
-          </div>
-        ))}
+  return (
+    <div className="p-6 space-y-6 max-w-4xl mx-auto">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Room Booking</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Walk through the steps below to create a new reservation.
+        </p>
       </div>
 
-      {/* STEP 0 */}
+      <StepIndicator current={currentStep} />
+
+      {/* ══════════════ STEP 0 — SEARCH ══════════════ */}
       {currentStep === 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Search for Available Rooms</CardTitle>
           </CardHeader>
 
-          <CardContent className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="roomType">Room Type</Label>
-              <Select value={roomType} onValueChange={setRoomType}>
-                <SelectTrigger id="roomType">
-                  <SelectValue placeholder="Select room type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredRoomClasses.map((roomClass) => (
-                    <SelectItem key={roomClass.roomClassID} value={roomClass.name}>
-                      {roomClass.name} ({roomClass.roomType}) - {roomClass.hotelName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <CardContent className="space-y-6">
+            {stepError && (
+              <Alert variant="destructive">
+                <AlertTitle>Missing Information</AlertTitle>
+                <AlertDescription>{stepError}</AlertDescription>
+              </Alert>
+            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="guests">Number of Guests</Label>
-              <Input id="guests" type="number" min={1} max={10} value={guests} onChange={(e) => setGuests(Number.parseInt(e.target.value) || 1)} />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Check-in Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? formatDateTime(date) : "Select date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={(d) => {
-                      if (!d) return
-                      const next = new Date(d)
-                      setDate(next)
-                      // ✅ If stay checkout becomes invalid after changing check-in, reset it
-                      if (bookingDuration === "stay" && stayCheckOutDate && stayCheckOutDate <= next) {
-                        setStayCheckOutDate(undefined)
-                      }
-                    }}
-                    initialFocus
-                    disabled={(d) => d < new Date()}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* ✅ Check-out date for Stay */}
-            {bookingDuration === "stay" && (
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Room Type */}
               <div className="space-y-2">
-                <Label>Check-out Date</Label>
+                <Label>
+                  Room Type <span className="text-destructive">*</span>
+                </Label>
+                <Select value={roomType} onValueChange={setRoomType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select room type…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredRoomClasses.map((rc) => (
+                      <SelectItem key={rc.roomClassID} value={rc.name}>
+                        {rc.name} ({rc.roomType}) — {rc.hotelName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Number of Guests */}
+              <div className="space-y-2">
+                <Label htmlFor="guests">Number of Guests</Label>
+                <Input
+                  id="guests"
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={guests}
+                  onChange={(e) =>
+                    setGuests(Math.max(1, parseInt(e.target.value) || 1))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Rooms below capacity will be excluded from results.
+                </p>
+              </div>
+
+              {/* Booking Duration */}
+              <div className="space-y-2">
+                <Label>Booking Duration</Label>
+                <Select
+                  value={bookingDuration}
+                  onValueChange={(val) => {
+                    const next = val as BookingDurationUI
+                    setBookingDuration(next)
+                    if (next !== "stay") setStayCheckOutDate(undefined)
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <div className="px-2 py-1 text-xs text-muted-foreground font-medium">
+                      Multi-night
+                    </div>
+                    <SelectItem value="stay">Stay (choose check-out date)</SelectItem>
+                    <Separator className="my-1" />
+                    <div className="px-2 py-1 text-xs text-muted-foreground font-medium">
+                      Overnight
+                    </div>
+                    <SelectItem value="overnight">Overnight (21:00 → 09:00)</SelectItem>
+                    <Separator className="my-1" />
+                    <div className="px-2 py-1 text-xs text-muted-foreground font-medium">
+                      Hourly
+                    </div>
+                    <SelectItem value="1h">1 Hour</SelectItem>
+                    <SelectItem value="2h">2 Hours</SelectItem>
+                    <SelectItem value="3h">3 Hours</SelectItem>
+                    <SelectItem value="4h">4 Hours</SelectItem>
+                    <SelectItem value="5h">5 Hours</SelectItem>
+                    <SelectItem value="6h">6 Hours</SelectItem>
+                    <SelectItem value="7h">7 Hours</SelectItem>
+                    <SelectItem value="8h">8 Hours</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Payment Method */}
+              <div className="space-y-2">
+                <Label>
+                  Payment Method <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={String(paymentMethod)}
+                  onValueChange={(v) => setPaymentMethod(Number(v))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map((pm) => (
+                      <SelectItem key={pm.value} value={String(pm.value)}>
+                        {pm.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Check-in Date */}
+              <div className="space-y-2">
+                <Label>
+                  Check-in Date <span className="text-destructive">*</span>
+                </Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !stayCheckOutDate && "text-muted-foreground")}>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !date && "text-muted-foreground"
+                      )}
+                    >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {stayCheckOutDate ? formatDateTime(stayCheckOutDate) : "Select check-out date"}
+                      {date ? formatDateTime(date) : "Select date"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
                     <Calendar
                       mode="single"
-                      selected={stayCheckOutDate}
-                      onSelect={(d) => d && setStayCheckOutDate(new Date(d))}
+                      selected={date}
+                      onSelect={(d) => {
+                        if (!d) return
+                        const next = new Date(d)
+                        setDate(next)
+                        if (
+                          bookingDuration === "stay" &&
+                          stayCheckOutDate &&
+                          stayCheckOutDate <= next
+                        ) {
+                          setStayCheckOutDate(undefined)
+                        }
+                      }}
                       initialFocus
                       disabled={(d) => {
                         const today = new Date()
-                        if (d < today) return true
-                        if (!date) return false
-                        return d <= date
+                        today.setHours(0, 0, 0, 0)
+                        return d < today
                       }}
                     />
                   </PopoverContent>
                 </Popover>
               </div>
-            )}
 
-            <div className="space-y-2">
-              <Label>Booking Duration</Label>
-              <Select
-                value={bookingDuration}
-                onValueChange={(val) => {
-                  const next = val as BookingDurationUI
-                  setBookingDuration(next)
-                  if (next !== "stay") setStayCheckOutDate(undefined)
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose duration" />
-                </SelectTrigger>
+              {/* Check-in Time (hourly + stay) */}
+              {needsTimePicker(bookingDuration) && (
+                <div className="space-y-2">
+                  <Label htmlFor="checkInTime">
+                    <Clock className="inline h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                    Check-in Time
+                    {bookingDuration !== "stay" && (
+                      <span className="text-muted-foreground ml-1 text-xs">
+                        (end time calculated automatically)
+                      </span>
+                    )}
+                  </Label>
+                  <Input
+                    id="checkInTime"
+                    type="time"
+                    value={checkInTime}
+                    onChange={(e) => setCheckInTime(e.target.value)}
+                    className="w-full"
+                  />
+                  {getDurationHours(bookingDuration) && checkInTime && (
+                    <p className="text-xs text-muted-foreground">
+                      {(() => {
+                        const [h, m] = checkInTime.split(":").map(Number)
+                        const hours = getDurationHours(bookingDuration) ?? 0
+                        const end = new Date()
+                        end.setHours(h + hours, m, 0, 0)
+                        return `Check-out at ${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`
+                      })()}
+                    </p>
+                  )}
+                </div>
+              )}
 
-                <SelectContent>
-                  <div className="px-2 py-1 text-xs text-muted-foreground">Stay (24h+)</div>
-                  <SelectItem value="stay">Stay (Choose check-out date)</SelectItem>
-
-                  <div className="my-1 h-px bg-muted" />
-
-                  <div className="px-2 py-1 text-xs text-muted-foreground">Overnight</div>
-                  <SelectItem value="overnight">Overnight (21:00 → 09:00)</SelectItem>
-
-                  <div className="my-1 h-px bg-muted" />
-
-                  <div className="px-2 py-1 text-xs text-muted-foreground">Hourly</div>
-                  <SelectItem value="1h">1 Hour</SelectItem>
-                  <SelectItem value="2h">2 Hours</SelectItem>
-                  <SelectItem value="3h">3 Hours</SelectItem>
-                  <SelectItem value="4h">4 Hours</SelectItem>
-                  <SelectItem value="5h">5 Hours</SelectItem>
-                  <SelectItem value="6h">6 Hours</SelectItem>
-                  <SelectItem value="7h">7 Hours</SelectItem>
-                  <SelectItem value="8h">8 Hours</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Check-out Date (stay only) */}
+              {bookingDuration === "stay" && (
+                <div className="space-y-2">
+                  <Label>
+                    Check-out Date <span className="text-destructive">*</span>
+                  </Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !stayCheckOutDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {stayCheckOutDate
+                          ? formatDateTime(stayCheckOutDate)
+                          : "Select check-out date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={stayCheckOutDate}
+                        onSelect={(d) => d && setStayCheckOutDate(new Date(d))}
+                        initialFocus
+                        disabled={(d) => {
+                          const today = new Date()
+                          today.setHours(0, 0, 0, 0)
+                          if (d < today) return true
+                          return d <= date
+                        }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
             </div>
           </CardContent>
 
           <CardFooter>
             <Button
+              className="w-full"
               onClick={handleSearch}
               disabled={
                 !roomType ||
-                !date ||
                 (bookingDuration === "stay" && !stayCheckOutDate) ||
-                isLoading ||
-                ((userRole === "Staff" || userRole === "Receptionist") && currentHotelId == null)
+                isSearching ||
+                ((userRole === "Staff" || userRole === "Receptionist") &&
+                  currentHotelId == null)
               }
-              className="w-full"
             >
-              {isLoading ? (
+              {isSearching ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Searching...
+                  Searching…
                 </>
               ) : (
-                "Search Available Rooms"
+                <>
+                  <Search className="mr-2 h-4 w-4" />
+                  Search Available Rooms
+                </>
               )}
             </Button>
           </CardFooter>
         </Card>
       )}
 
-      {/* STEP 1 */}
+      {/* ══════════════ STEP 1 — SELECT ROOM ══════════════ */}
       {currentStep === 1 && (
         <Card>
           <CardHeader>
-            <CardTitle>Available Rooms</CardTitle>
+            <CardTitle>Select a Room</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Select a room from the list below for {guests} guest{guests > 1 ? "s" : ""}
+              {capacityFilteredRooms.length === 0 && availableRooms.length === 0
+                ? "No rooms available for the selected criteria."
+                : `${capacityFilteredRooms.length} room${capacityFilteredRooms.length !== 1 ? "s" : ""} available for ${guests} guest${guests > 1 ? "s" : ""}`}
+              {excludedCount > 0 && (
+                <span className="ml-1 text-amber-600">
+                  ({excludedCount} room{excludedCount > 1 ? "s" : ""} excluded — insufficient capacity)
+                </span>
+              )}
             </p>
           </CardHeader>
+
           <CardContent>
-            {availableRooms.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No rooms available matching your criteria.</p>
-                <Button variant="outline" onClick={() => setCurrentStep(0)} className="mt-4">
+            {stepError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{stepError}</AlertDescription>
+              </Alert>
+            )}
+
+            {capacityFilteredRooms.length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-muted-foreground">
+                  {availableRooms.length > 0
+                    ? `All available rooms have insufficient capacity for ${guests} guests. Try reducing the guest count or choosing a different room type.`
+                    : "No rooms are available for the selected date and type."}
+                </p>
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => goToStep(0)}
+                >
                   Modify Search
                 </Button>
               </div>
@@ -595,190 +1002,359 @@ const RoomBookingPage: React.FC = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Room Number</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Capacity</TableHead>
-                      <TableHead>Price</TableHead>
-                      <TableHead>Action</TableHead>
+                      <TableHead className="font-semibold">Room</TableHead>
+                      <TableHead className="font-semibold">Type</TableHead>
+                      <TableHead className="font-semibold">Capacity</TableHead>
+                      <TableHead className="font-semibold text-right">Price</TableHead>
+                      <TableHead />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {availableRooms.map((room) => (
-                      <TableRow key={room.roomId} className={cn(selectedRoom === room.roomId && "bg-muted/50")}>
-                        <TableCell className="font-medium">{room.number}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{room.roomClassName}</Badge>
-                        </TableCell>
-                        <TableCell>{room.adultsCapacity} guests</TableCell>
-                        <TableCell className="font-medium">HTG {room.pricePerNight}</TableCell>
-                        <TableCell>
-                          <Button onClick={() => handleRoomSelect(room.roomId)} size="sm" variant={selectedRoom === room.roomId ? "default" : "outline"}>
-                            {selectedRoom === room.roomId ? "Selected" : "Select"}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {capacityFilteredRooms.map((room) => {
+                      const price = estimateRoomPrice(room, bookingDuration)
+                      return (
+                        <TableRow
+                          key={room.roomId}
+                          className={cn(
+                            "cursor-pointer hover:bg-muted/40",
+                            selectedRoom === room.roomId && "bg-primary/5"
+                          )}
+                          onClick={() => handleRoomSelect(room.roomId)}
+                        >
+                          <TableCell className="font-medium">
+                            {room.number || `#${room.roomId}`}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {room.roomClassName || selectedRoomClass?.name || "—"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {room.adultsCapacity} guest{room.adultsCapacity !== 1 ? "s" : ""}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="font-medium">{formatPrice(price.amount)}</div>
+                            <div className="text-xs text-muted-foreground">{price.suffix}</div>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant={selectedRoom === room.roomId ? "default" : "outline"}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleRoomSelect(room.roomId)
+                              }}
+                            >
+                              {selectedRoom === room.roomId ? (
+                                <>
+                                  <Check className="mr-1 h-3.5 w-3.5" />
+                                  Selected
+                                </>
+                              ) : (
+                                "Select"
+                              )}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </div>
             )}
           </CardContent>
+
           <CardFooter className="flex justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(0)}>
+            <Button variant="outline" onClick={() => goToStep(0)}>
               Back to Search
             </Button>
-            <Button onClick={() => selectedRoom != null && setCurrentStep(2)} disabled={selectedRoom == null}>
+            <Button
+              onClick={() => goToStep(2)}
+              disabled={selectedRoom == null}
+            >
               Continue to Client Details
             </Button>
           </CardFooter>
         </Card>
       )}
 
-      {/* STEP 2 */}
+      {/* ══════════════ STEP 2 — CLIENT DETAILS ══════════════ */}
       {currentStep === 2 && (
         <Card>
           <CardHeader>
             <CardTitle>Client Details</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Select an existing client or register a new one.
+            </p>
           </CardHeader>
-          <CardContent>
-            <Tabs value={clientTab} onValueChange={(v) => setClientTab(v as "existing" | "new")}>
+
+          <CardContent className="space-y-4">
+            {stepError && (
+              <Alert variant="destructive">
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{stepError}</AlertDescription>
+              </Alert>
+            )}
+
+            <Tabs
+              value={clientTab}
+              onValueChange={(v) => {
+                clearStepError()
+                setClientTab(v as "existing" | "new")
+              }}
+            >
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="existing">Existing Client</TabsTrigger>
                 <TabsTrigger value="new">New Client</TabsTrigger>
               </TabsList>
 
+              {/* ── Existing client ── */}
               <TabsContent value="existing" className="space-y-4 pt-4">
-                <div>
-                  <Label>Select Client</Label>
-                  <Select value={selectedClientId} onValueChange={handleClientSelect}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose existing client" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {existingClients.map((client) => (
-                        <SelectItem key={String(client.id)} value={String(client.id)}>
-                          {client.firstName} {client.lastName} {client.cin ? `- ${client.cin}` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-1.5">
+                  <Label>
+                    Select Client <span className="text-destructive">*</span>
+                  </Label>
+                  <ClientSearchPicker
+                    clients={existingClients}
+                    selectedId={selectedClientId}
+                    onSelect={setSelectedClientId}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Type a name or CIN to search through{" "}
+                    {existingClients.length} registered clients.
+                  </p>
                 </div>
 
                 {selectedClient && (
-                  <div className="border rounded-md p-4 bg-muted/50">
-                    <h4 className="font-medium mb-2">Selected Client</h4>
-                    <div className="space-y-1">
-                      <p>
-                        <span className="font-medium">Name:</span> {selectedClient.firstName} {selectedClient.lastName}
+                  <div className="rounded-md border p-4 bg-muted/40 space-y-1">
+                    <p className="text-sm font-medium">
+                      {selectedClient.firstName} {selectedClient.lastName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      CIN: {selectedClient.cin || "—"}
+                    </p>
+                    {selectedClient.email && (
+                      <p className="text-xs text-muted-foreground">
+                        {selectedClient.email}
                       </p>
-                      <p>
-                        <span className="font-medium">CIN:</span> {selectedClient.cin}
-                      </p>
-                    </div>
+                    )}
                   </div>
                 )}
               </TabsContent>
 
+              {/* ── New client ── */}
               <TabsContent value="new" className="space-y-4 pt-4">
-                <div>
-                  <Label htmlFor="clientFirstName">First Name</Label>
-                  <Input
-                    id="clientFirstName"
-                    placeholder="First Name"
-                    value={newClient.firstName}
-                    onChange={(e) => setNewClient({ ...newClient, firstName: e.target.value })}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="clientFirstName">
+                      First Name <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="clientFirstName"
+                      placeholder="e.g. Jean"
+                      value={newClient.firstName}
+                      onChange={(e) =>
+                        setNewClient((p) => ({ ...p, firstName: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="clientLastName">
+                      Last Name <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="clientLastName"
+                      placeholder="e.g. Dupont"
+                      value={newClient.lastName}
+                      onChange={(e) =>
+                        setNewClient((p) => ({ ...p, lastName: e.target.value }))
+                      }
+                    />
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="clientLastName">Last Name</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="clientCin">CIN (National ID)</Label>
                   <Input
-                    id="clientLastName"
-                    placeholder="Last Name"
-                    value={newClient.lastName}
-                    onChange={(e) => setNewClient({ ...newClient, lastName: e.target.value })}
+                    id="clientCin"
+                    placeholder="e.g. 001-123-456-7"
+                    value={newClient.cin}
+                    onChange={(e) =>
+                      setNewClient((p) => ({ ...p, cin: e.target.value }))
+                    }
                   />
-                </div>
-                <div>
-                  <Label htmlFor="clientCin">Cin</Label>
-                  <Input id="clientCin" placeholder="Cin" value={newClient.cin} onChange={(e) => setNewClient({ ...newClient, cin: e.target.value })} />
                 </div>
               </TabsContent>
             </Tabs>
+
+            {/* Booking summary recap */}
+            <div className="rounded-md border p-4 bg-muted/30 space-y-2 text-sm">
+              <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">
+                Booking Summary
+              </p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                <span className="text-muted-foreground">Room</span>
+                <span className="font-medium">
+                  {(() => {
+                    const r = availableRooms.find((r) => r.roomId === selectedRoom)
+                    return r ? `${r.number} (${r.roomClassName || selectedRoomClass?.name})` : "—"
+                  })()}
+                </span>
+                <span className="text-muted-foreground">Duration</span>
+                <span className="font-medium">{durationLabel(bookingDuration)}</span>
+                <span className="text-muted-foreground">Check-in</span>
+                <span className="font-medium">{formatDateTime(buildBookingDate())}</span>
+                {bookingDuration === "stay" && stayCheckOutDate && (
+                  <>
+                    <span className="text-muted-foreground">Check-out</span>
+                    <span className="font-medium">{formatDateTime(stayCheckOutDate)}</span>
+                  </>
+                )}
+                <span className="text-muted-foreground">Payment</span>
+                <span className="font-medium">
+                  {PAYMENT_METHODS.find((p) => p.value === paymentMethod)?.label ?? "—"}
+                </span>
+              </div>
+            </div>
           </CardContent>
 
           <CardFooter className="flex justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep(1)}>
+            <Button
+              variant="outline"
+              onClick={() => goToStep(1)}
+              disabled={isSubmitting}
+            >
               Back to Room Selection
             </Button>
-            <Button onClick={handleSubmitBooking} disabled={!isClientFormValid()}>
-              Complete Booking
+            <Button
+              onClick={handleSubmitBooking}
+              disabled={!isClientValid() || isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating Booking…
+                </>
+              ) : (
+                "Confirm Booking"
+              )}
             </Button>
           </CardFooter>
         </Card>
       )}
 
-      {/* STEP 3 */}
-      {currentStep === 3 && bookingComplete && (
+      {/* ══════════════ STEP 3 — CONFIRMATION ══════════════ */}
+      {currentStep === 3 && confirmedBooking && (
         <Card>
-          <CardHeader className="text-center">
-            <CheckCircle className="mx-auto h-12 w-12 text-green-500 mb-2" />
-            <CardTitle>Booking Confirmed!</CardTitle>
+          <CardHeader className="text-center pb-2">
+            <CheckCircle className="mx-auto h-14 w-14 text-green-500 mb-3" />
+            <CardTitle className="text-xl">Booking Confirmed</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              The reservation has been created successfully.
+            </p>
           </CardHeader>
 
           <CardContent className="space-y-4">
-            <div className="border rounded-md p-4 bg-muted/50">
-              <h4 className="font-medium mb-2">Booking Details</h4>
-              <div className="space-y-2">
-                <p>
-                  <span className="font-medium">Booking Reference:</span> {bookingReference}
-                </p>
-                {bookingGuestName && (
-                  <p>
-                    <span className="font-medium">Client:</span> {bookingGuestName}
-                  </p>
-                )}
-                <p>
-                  <span className="font-medium">Room:</span>{" "}
+            {/* Main details */}
+            <div className="rounded-md border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Booking Reference
+                </span>
+                <span className="font-bold text-lg tracking-wide">
+                  {confirmedBooking.confirmationNumber || confirmedBooking.bookingReference || "—"}
+                </span>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <span className="text-muted-foreground">Guest</span>
+                <span className="font-medium">{confirmedGuestName || confirmedBooking.guestName}</span>
+
+                <span className="text-muted-foreground">Hotel</span>
+                <span className="font-medium">
+                  {confirmedBooking.hotelName ?? selectedRoomClass?.hotelName ?? "—"}
+                </span>
+
+                <span className="text-muted-foreground">Room</span>
+                <span className="font-medium">
                   {(() => {
-                    const room = availableRooms.find((r) => r.roomId === selectedRoom)
-                    return room ? `${room.number} (${room.roomClassName})` : ""
+                    const r = availableRooms.find((r) => r.roomId === selectedRoom)
+                    return r
+                      ? `${r.number} — ${r.roomClassName || selectedRoomClass?.name}`
+                      : confirmedBooking.roomNumbers || "—"
                   })()}
-                </p>
-                <p>
-                  <span className="font-medium">Check-in:</span> {date ? formatDateTime(date) : ""}
-                </p>
-                {bookingDuration === "stay" && (
-                  <p>
-                    <span className="font-medium">Check-out:</span> {stayCheckOutDate ? formatDateTime(stayCheckOutDate) : ""}
-                  </p>
-                )}
-                <p>
-                  <span className="font-medium">Duration:</span> {durationLabel(bookingDuration)}
-                </p>
-                <p>
-                  <span className="font-medium">Guests:</span> {guests}
-                </p>
+                </span>
+
+                <span className="text-muted-foreground">Duration</span>
+                <span className="font-medium">{durationLabel(bookingDuration)}</span>
+
+                <span className="text-muted-foreground">Check-in</span>
+                <span className="font-medium">
+                  {confirmedBooking.checkInDateUtc
+                    ? formatDateTime(new Date(confirmedBooking.checkInDateUtc))
+                    : formatDateTime(buildBookingDate())}
+                </span>
+
+                <span className="text-muted-foreground">Check-out</span>
+                <span className="font-medium">
+                  {confirmedBooking.checkOutDateUtc
+                    ? formatDateTime(new Date(confirmedBooking.checkOutDateUtc))
+                    : "—"}
+                </span>
+
+                <span className="text-muted-foreground">Guests</span>
+                <span className="font-medium">{guests}</span>
+
+                <span className="text-muted-foreground">Payment</span>
+                <span className="font-medium">
+                  {PAYMENT_METHODS.find((p) => p.value === paymentMethod)?.label ?? "—"}
+                </span>
+
+                <span className="text-muted-foreground">Total Price</span>
+                <span className="font-semibold text-base">
+                  {confirmedBooking.totalPrice != null
+                    ? formatPrice(confirmedBooking.totalPrice)
+                    : "—"}
+                </span>
               </div>
             </div>
 
-            {getDurationHours(bookingDuration) && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                <p className="text-yellow-800 text-sm">
-                  This is a {durationLabel(bookingDuration).toLowerCase()} booking. A notification will appear when the time is up.
-                </p>
-              </div>
+            {/* Hourly reminder */}
+            {getDurationHours(bookingDuration) && !hourlyNotification && (
+              <Alert className="border-amber-200 bg-amber-50">
+                <Clock className="h-4 w-4 text-amber-600" />
+                <AlertTitle className="text-amber-800">Hourly Booking</AlertTitle>
+                <AlertDescription className="text-amber-700">
+                  This is a {durationLabel(bookingDuration).toLowerCase()} booking.
+                  You will be notified when the time is up.
+                </AlertDescription>
+              </Alert>
             )}
 
-            {notification && (
-              <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                <p className="text-red-800">{notification}</p>
-              </div>
+            {/* Expiry notification */}
+            {hourlyNotification && (
+              <Alert variant="destructive">
+                <AlertTitle>Booking Ended</AlertTitle>
+                <AlertDescription>{hourlyNotification}</AlertDescription>
+              </Alert>
             )}
           </CardContent>
 
-          <CardFooter className="flex justify-between">
-            <Button onClick={handleNewBooking} className="w-full">
-              Make Another Booking
+          <CardFooter className="flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() =>
+                navigate(
+                  `/bookings?ref=${confirmedBooking.confirmationNumber ?? confirmedBooking.bookingReference ?? ""}`
+                )
+              }
+            >
+              View in Bookings
+            </Button>
+            <Button className="flex-1" onClick={handleNewBooking}>
+              New Booking
             </Button>
           </CardFooter>
         </Card>

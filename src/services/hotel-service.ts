@@ -1,207 +1,133 @@
-import { Hotel, Room, Amenity, Image, RoomClass } from "@/types/hotel";
+import type { Hotel, Room, Amenity, Image, RoomClass } from "@/types/hotel"
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const BASE_URL = import.meta.env.VITE_API_BASE_URL
 
-// const getAuthHeaders = () => {
-//   const token = localStorage.getItem('token');
-//   if (!token) throw new Error("No auth token");
-//   return {
-//     'Authorization': `Bearer ${token}`,
-//   };
-// };
+// ─── Auth helper ──────────────────────────────────────────────────────────────
 
+function authHeaders(): Record<string, string> {
+  const token = localStorage.getItem("token")
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+// ─── Generic fetch with auth ──────────────────────────────────────────────────
 
 async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(url, {
-    headers: { Accept: 'application/json', ...options.headers },
-    ...options,
-  });
-
-  const raw = await res.text()
-  let json: any = null
-  try { json = raw ? JSON.parse(raw) : null; } catch {}
-
-  if (!res.ok) {
-    throw new Error(json?.message || json?.error || raw || `API error: ${res.status}`);
-
-  }
-  return (json ?? null ) as T;
-}
-
-
-export const addHotel = async (hotel: Omit<Hotel, 'id'>): Promise<Hotel> => {
-  const token = localStorage.getItem('token');
-  const response = await fetch(`${BASE_URL}/City/1/hotels`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify(hotel),
-  });
-
-  const raw = await response.text();
-  let json: any = null;
-  try { json = raw ? JSON.parse(raw) : null; } catch {}
-  if (!response.ok) {
-    throw new Error(json?.message || raw || "Failed to add hotel");
-  }
-
-  //const json = await response.json();
-  const data = json?.data ?? json;
-
-  //const id = Number(data?.id ?? data?.hotelId ?? data?.hotelID);
-  return {
-    id: Number(data.id ?? data.hotelId ?? data.hotelID),
-    name: data.name,
-    starRating: data.starRating,
-    description: data.description,
-    phoneNumber: data.phoneNumber,
-    ownerName: data.ownerName,
-    ownerID: data?.ownerID ?? data?.ownerId ?? data?.OwnerId,
-  } as Hotel;
-  //return response.json();
-};
-
-
-export const getHotels = async (): Promise<Hotel[]> => {
-  const response = await fetch(`${BASE_URL}/City/1/hotels`);
-
-  const raw = await response.text();
-  let json: any = null;
-  try { json = raw ? JSON.parse(raw): null; } catch{}
-
-  if (!response.ok) {
-    throw new Error(json?.message || raw || "Failed to fetch hotels");
-
-  }
-
-  //const json = await response.json();
-  //const hotels = json.data;
-  const hotels = (json?.data ?? json) as any[];
-  if (!Array.isArray(hotels)) {
-    console.error("Unexpected hotels response:", json);
-    throw new Error("Invalid hotels response format");
-  }
-
-  return hotels
-    .map((h: any) => {
-      const id = Number(h?.id ?? h?.hotelId ?? h?.hotelID);
-      return {
-        id,
-        name: h?.name ?? "Unnamed Hotel",
-        starRating: h?.starRating ?? 0,
-        description: h?.description ?? "",
-        phoneNumber: h?.phoneNumber ?? "N/A",
-        ownerName: h?.ownerName ?? "Unknow Owner",
-        ownerID: h?.ownerID ?? h?.ownerId,
-      } as Hotel;
-    })
-    .filter((h) => Number.isFinite(h.id) && h.id > 0);
-};
-
-
-export const deleteHotel = async (id: number): Promise<void> => {
-  const token = localStorage.getItem("token");
-
-  const res = await fetch(`${BASE_URL}/Hotel/${id}`, {
-    method: "DELETE",
     headers: {
       Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}`} : {}),
-
+      ...authHeaders(),
+      ...options.headers,
     },
-  });
+    ...options,
+  })
 
-  const raw = await res.text();
-  let json: any = null;
-  try { json = raw ? JSON.parse(raw) : null } catch {}
-
-  if(!res.ok) {
-    throw new Error(
-      json?.message ||
-      json?.error ||
-      raw ||
-      `Delete failed (${res.status})`
-    );
+  const raw = await res.text()
+  let json: unknown = null
+  try {
+    json = raw ? JSON.parse(raw) : null
+  } catch {
+    // non-JSON body
   }
-};
 
+  if (!res.ok) {
+    const msg =
+      (json as Record<string, string>)?.message ||
+      (json as Record<string, string>)?.error ||
+      raw ||
+      `API error (${res.status})`
+    throw new Error(msg)
+  }
 
-const getHotelById = (id: number): Promise<Hotel> =>
-  fetchJson(`${BASE_URL}/Hotel/${id}`);
+  return json as T
+}
 
-const updateHotel = (id: number, hotel: Partial<Hotel>): Promise<Hotel> =>
-  fetchJson(`${BASE_URL}/Hotel/${id}`, {
-    method: 'PUT',
-    headers: { "Content-Type": "application/json"},
+// ─── Hotels ───────────────────────────────────────────────────────────────────
+
+function normalizeHotel(h: Record<string, unknown>): Hotel {
+  return {
+    id: Number(h.id ?? h.hotelId ?? h.hotelID ?? 0),
+    name: (h.name as string) ?? "Unnamed Hotel",
+    starRating: Number(h.starRating ?? 0),
+    description: (h.description as string) ?? "",
+    phoneNumber: (h.phoneNumber as string) ?? "",
+    ownerName: (h.ownerName as string) ?? "Unknown Owner",
+    ownerID: Number(h.ownerID ?? h.ownerId ?? 0),
+  }
+}
+
+export const getHotels = async (): Promise<Hotel[]> => {
+  const raw = await fetchJson<unknown>(`${BASE_URL}/City/1/hotels`)
+  const list = (raw as Record<string, unknown>)?.data ?? raw
+  if (!Array.isArray(list)) throw new Error("Invalid hotels response format")
+  return (list as Record<string, unknown>[])
+    .map(normalizeHotel)
+    .filter((h) => h.id > 0)
+}
+
+export const addHotel = async (hotel: Omit<Hotel, "id">): Promise<Hotel> => {
+  const raw = await fetchJson<unknown>(`${BASE_URL}/City/1/hotels`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(hotel),
-  });
+  })
+  const data = (raw as Record<string, unknown>)?.data ?? raw
+  return normalizeHotel(data as Record<string, unknown>)
+}
 
+export const updateHotel = async (
+  id: number,
+  hotel: Partial<Omit<Hotel, "id">>
+): Promise<Hotel> => {
+  const raw = await fetchJson<unknown>(`${BASE_URL}/Hotel/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(hotel),
+  })
+  const data = (raw as Record<string, unknown>)?.data ?? raw
+  return normalizeHotel((data ?? {}) as Record<string, unknown>)
+}
 
-const getHotelRooms = (hotelId: number): Promise<Room[]> =>
-  fetchJson(`${BASE_URL}/Hotel/${hotelId}/rooms`);
+export const deleteHotel = async (id: number): Promise<void> => {
+  await fetchJson<unknown>(`${BASE_URL}/Hotel/${id}`, { method: "DELETE" })
+}
 
-const getHotelAmenities = (hotelId: number): Promise<Amenity[]> =>
-  fetchJson(`${BASE_URL}/${hotelId}/amenities`);
+// ─── Rooms ────────────────────────────────────────────────────────────────────
 
-const addHotelAmenity = (hotelId: number, amenity: Amenity): Promise<void> =>
-  fetchJson(`${BASE_URL}/${hotelId}/amenities`, {
-    method: 'POST',
+export const getHotelById = (id: number): Promise<Hotel> =>
+  fetchJson(`${BASE_URL}/Hotel/${id}`)
+
+export const getHotelRooms = (hotelId: number): Promise<Room[]> =>
+  fetchJson(`${BASE_URL}/Hotel/${hotelId}/rooms`)
+
+// ─── Amenities ────────────────────────────────────────────────────────────────
+
+export const getHotelAmenities = (hotelId: number): Promise<Amenity[]> =>
+  fetchJson(`${BASE_URL}/Hotel/${hotelId}/amenities`)
+
+export const addHotelAmenity = (
+  hotelId: number,
+  amenity: Amenity
+): Promise<void> =>
+  fetchJson(`${BASE_URL}/Hotel/${hotelId}/amenities`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(amenity),
-  });
+  })
 
-const removeHotelAmenity = (hotelId: number, amenityId: number): Promise<void> =>
-  fetch(`${BASE_URL}/${hotelId}/amenities/${amenityId}`, { method: 'DELETE' }).then((res) => {
-    if (!res.ok) throw new Error('Failed to delete amenity');
-  });
+export const removeHotelAmenity = (
+  hotelId: number,
+  amenityId: number
+): Promise<void> =>
+  fetchJson(`${BASE_URL}/Hotel/${hotelId}/amenities/${amenityId}`, {
+    method: "DELETE",
+  })
 
-const getHotelRating = (hotelId: number): Promise<number> =>
-  fetchJson(`${BASE_URL}/Hotel/${hotelId}/rating`);
+// ─── Images ───────────────────────────────────────────────────────────────────
 
-const uploadHotelImage = (hotelId: number, formData: FormData): Promise<void> =>
-  fetch(`${BASE_URL}/${hotelId}/upload-image`, {
-    method: 'POST',
-    body: formData,
-  }).then((res) => {
-    if (!res.ok) throw new Error('Image upload failed');
-  });
+export const getHotelImages = (hotelId: number): Promise<Image[]> =>
+  fetchJson(`${BASE_URL}/Hotel/${hotelId}/images`)
 
-const deleteHotelImage = (hotelId: number, publicId: string): Promise<void> =>
-  fetch(`${BASE_URL}/${hotelId}/delete-image/${publicId}`, {
-    method: 'DELETE',
-  }).then((res) => {
-    if (!res.ok) throw new Error('Failed to delete image');
-  });
+// ─── Room Classes ─────────────────────────────────────────────────────────────
 
-const getHotelImages = (hotelId: number): Promise<Image[]> =>
-  fetchJson(`${BASE_URL}/${hotelId}/images`);
-
-const getHotelRoomClasses = (hotelId: number): Promise<RoomClass[]> =>
-  fetchJson(`${BASE_URL}/${hotelId}/roomclasses`);
-
-const addHotelRoomClass = (hotelId: number, roomClass: RoomClass): Promise<void> =>
-  fetchJson(`${BASE_URL}/${hotelId}/roomclasses`, {
-    method: 'POST',
-    body: JSON.stringify(roomClass),
-  });
-
-const searchHotels = (query: string): Promise<Hotel[]> =>
-  fetchJson(`${BASE_URL}/search?query=${encodeURIComponent(query)}`);
-
-export const hotelService = {
-  getHotelById,
-  updateHotel,
-  deleteHotel,
-  getHotelRooms,
-  getHotelAmenities,
-  addHotelAmenity,
-  removeHotelAmenity,
-  getHotelRating,
-  uploadHotelImage,
-  deleteHotelImage,
-  getHotelImages,
-  getHotelRoomClasses,
-  addHotelRoomClass,
-  searchHotels,
-};
+export const getHotelRoomClasses = (hotelId: number): Promise<RoomClass[]> =>
+  fetchJson(`${BASE_URL}/Hotel/${hotelId}/roomclasses`)

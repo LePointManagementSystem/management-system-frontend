@@ -1,40 +1,51 @@
-import { useState } from 'react'
-import { Search } from 'lucide-react'
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Client } from '@/types/client';
-
-
-
-// Mock function to simulate database search
-const searchClients = async (query: string): Promise<Client[]> => {
-  // In a real application, this would be an API call to your backend
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-  const mockClients: Client[] = [
-    { id: '1', name: 'John Doe', email: 'john@example.com', phone: '123-456-7890', cin: '1238748937'},
-    { id: '2', name: 'Jane Smith', email: 'jane@example.com', phone: '098-765-4321', cin: '12389878937' },
-  ];
-  return mockClients.filter(client => 
-    client.name.toLowerCase().includes(query.toLowerCase()) ||
-    client.email.toLowerCase().includes(query.toLowerCase())
-  );
-};
+import { useState } from 'react';
+import { Loader2, Search } from 'lucide-react';
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Guest } from '@/types/client';
+import { fetchGuests } from '@/services/client-service';
 
 interface ClientSearchProps {
-  onClientSelect: (client: Client) => void;
+  onClientSelect: (client: Guest) => void;
 }
 
 const ClientSearch: React.FC<ClientSearchProps> = ({ onClientSelect }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Client[]>([]);
+  const [searchResults, setSearchResults] = useState<Guest[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSearch = async () => {
-    if (searchQuery.trim() === '') {
+    const query = searchQuery.trim();
+    if (!query) {
       setSearchResults([]);
       return;
     }
-    const results = await searchClients(searchQuery);
-    setSearchResults(results);
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const all = await fetchGuests();
+      const needle = query.toLowerCase();
+      const filtered = all.filter((g) =>
+        (g.firstName || '').toLowerCase().includes(needle) ||
+        (g.lastName || '').toLowerCase().includes(needle) ||
+        (`${g.firstName} ${g.lastName}`).toLowerCase().includes(needle) ||
+        (g.email || '').toLowerCase().includes(needle) ||
+        (g.cin || '').toLowerCase().includes(needle)
+      );
+      setSearchResults(filtered);
+    } catch (e: any) {
+      setError(e?.message ?? 'Search failed');
+      setSearchResults([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') handleSearch();
   };
 
   return (
@@ -42,30 +53,49 @@ const ClientSearch: React.FC<ClientSearchProps> = ({ onClientSelect }) => {
       <div className="flex space-x-2">
         <Input
           type="text"
-          placeholder="Search clients..."
+          placeholder="Search by name, email or CIN…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={loading}
         />
-        <Button onClick={handleSearch}>
-          <Search className="mr-2 h-4 w-4" /> Search
+        <Button onClick={handleSearch} disabled={loading}>
+          {loading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Search className="mr-2 h-4 w-4" />
+          )}
+          Search
         </Button>
       </div>
 
+      {error && <p className="text-sm text-red-500">{error}</p>}
+
       {searchResults.length > 0 && (
         <ul className="space-y-2">
-          {searchResults.map((client) => (
-            <li key={client.id} className="flex justify-between items-center p-2 bg-gray-100 rounded">
-              <span>{client.name} ({client.email})</span>
-              <Button onClick={() => onClientSelect(client)}>Select</Button>
+          {searchResults.map((guest) => (
+            <li
+              key={guest.id}
+              className="flex justify-between items-center p-2 bg-gray-100 rounded"
+            >
+              <span>
+                {guest.firstName} {guest.lastName}
+                {guest.email ? ` (${guest.email})` : ''}
+                {guest.cin ? ` • CIN: ${guest.cin}` : ''}
+              </span>
+              <Button size="sm" onClick={() => onClientSelect(guest)}>
+                Select
+              </Button>
             </li>
           ))}
         </ul>
       )}
 
-      {searchQuery && searchResults.length === 0 && <p>No results found.</p>}
+      {!loading && searchQuery && searchResults.length === 0 && !error && (
+        <p className="text-sm text-muted-foreground">No results found.</p>
+      )}
     </div>
   );
 };
 
 export default ClientSearch;
-
