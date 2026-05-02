@@ -2,7 +2,6 @@ import type { NotificationDto } from "@/types/notification";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-// Backend envelope supports { Data: ... } or { data: ... }
 type ApiEnvelope<T> = {
   succeeded?: boolean
   Succeeded?: boolean
@@ -129,6 +128,21 @@ export async function markAllNotificationsAsRead(): Promise<void> {
 
   const res = await fetch(`${BASE_URL}/Notification/mark-all-read?${q.toString()}`, {
     method: "PUT",
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  await unwrap<void>(res)
+}
+
+export async function deleteNotification(notificationId: number): Promise<void> {
+  const token = tokenOrThrow()
+  const hotelId = getOptionalHotelId()
+
+  const q = new URLSearchParams()
+  if (hotelId) q.set("hotelId", String(hotelId))
+
+  const res = await fetch(`${BASE_URL}/Notification/${notificationId}?${q.toString()}`, {
+    method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   })
 

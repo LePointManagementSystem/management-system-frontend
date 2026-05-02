@@ -15,7 +15,7 @@ import BookingsPage from "./pages/bookings-page";
 import SearchPage from "./pages/search-page";
 import CashTransactionsPage from "./pages/cash-transactions-page";
 import ReportsDashboardPage from "./pages/reports/reports-dashboard-page";
-// ✅ NEW
+import NotificationsPage from "./pages/notifications-page";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RequireRole from "./components/RequireRole";
 import UserAccountsPage from "./pages/user-accounts-page";
@@ -44,8 +44,8 @@ function App() {
             <Route path="/reports" element={<ReportsDashboardPage />} />
             <Route path="/room-booking" element={<RoomBookingPage />} />
             <Route path="/bookings" element={<BookingsPage />} />
-            {/* ✅ Petty cash */}
             <Route path="/cash" element={<CashTransactionsPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
 
             {/* Admin only */}
             <Route element={<RequireRole allowed={["Admin"]} />}>

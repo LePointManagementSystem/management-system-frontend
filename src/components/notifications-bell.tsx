@@ -1,6 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BadgeCheck, Bell, BellRing, Check, CheckCircle2, Loader2, XCircle } from "lucide-react";
+import {
+  BadgeCheck,
+  Bell,
+  BellRing,
+  Check,
+  CheckCircle2,
+  Loader2,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -8,7 +17,9 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 import type { NotificationDto } from "@/types/notification";
+import { NotificationType } from "@/types/notification";
 import {
+  deleteNotification,
   fetchNotifications,
   fetchUnreadCount,
   markAllNotificationsAsRead,
@@ -20,27 +31,41 @@ const HAITI_TIMEZONE = "America/Port-au-Prince";
 
 type NotificationKind = "confirmed" | "completed" | "cancelled" | "other";
 
-/** Prefer enum values when present; fallback to title parsing */
+/**
+ * Resolves the kind of a notification.
+ * Handles both string-serialized enum names (e.g. "BookingConfirmed") returned by
+ * the current backend (Type.ToString()) and numeric values if the API changes later.
+ * Falls back to title keyword matching as a last resort.
+ */
 function getKind(n: NotificationDto): NotificationKind {
-  const type = Number((n as any).type);
-  // In your project enum mapping:
-  // 1=BookingCancelled, 2=BookingConfirmed, 3=BookingCompleted
-  if (type === 1) return "cancelled";
-  if (type === 2) return "confirmed";
-  if (type === 3) return "completed";
+  const t = n.type;
 
-  const t = (n.title || "").toLowerCase();
-  if (t.includes("confirmed")) return "confirmed";
-  if (t.includes("completed")) return "completed";
-  if (t.includes("cancel")) return "cancelled";
+  // Primary path: backend currently serializes Type as the enum name string
+  if (typeof t === "string") {
+    const lower = t.toLowerCase();
+    if (lower.includes("confirmed")) return "confirmed";
+    if (lower.includes("completed")) return "completed";
+    if (lower.includes("cancel")) return "cancelled";
+  }
+
+  // Secondary path: handle if backend ever sends numeric values
+  const num = Number(t);
+  if (!Number.isNaN(num)) {
+    if (num === NotificationType.BookingConfirmed) return "confirmed";
+    if (num === NotificationType.BookingCompleted) return "completed";
+    if (num === NotificationType.BookingCancelled) return "cancelled";
+  }
+
+  // Tertiary fallback: title keyword parsing
+  const title = (n.title || "").toLowerCase();
+  if (title.includes("confirmed")) return "confirmed";
+  if (title.includes("completed")) return "completed";
+  if (title.includes("cancel")) return "cancelled";
+
   return "other";
 }
 
 function parseUtcDateFromLooseString(value: string): Date | null {
-  // Supports:
-  // - ISO strings
-  // - "YYYY-MM-DD HH:mm:ssZ"
-  // - "YYYY-MM-DD HH:mm:ss" (assume UTC)
   const trimmed = (value || "").trim();
   if (!trimmed) return null;
 
@@ -95,7 +120,6 @@ function formatBookingRef(ref?: string | null): string {
 function normalizeDurationLabel(raw?: string | null): string {
   const s = (raw || "").replace(/[()]/g, "").trim().toLowerCase();
   if (!s) return "";
-  // Support Hours1 / Hours2 / Hours4
   const m = s.match(/hours\s*(\d+)/) || s.match(/hours(\d+)/);
   if (m?.[1]) return `${m[1]}h`;
   if (s === "2h") return "2h";
@@ -104,10 +128,6 @@ function normalizeDurationLabel(raw?: string | null): string {
   return (raw || "").replace(/[()]/g, "").trim();
 }
 
-/**
- * Converts raw backend message into a professional 2-lines display.
- * Fixes the bug where check-out time was being cut to a date-only string.
- */
 function formatNotificationMessage(
   n: NotificationDto,
 ): { title: string; primary: string; secondary?: string } {
@@ -131,7 +151,6 @@ function formatNotificationMessage(
   const guestMatch = raw.match(/\bfor\s+(.+?)\s+-\s+Rooms?\b/i);
   const guest = guestMatch?.[1]?.trim();
 
-  // Rooms parsing: "#050", "##999", "#050, #051"
   const roomsMatch = raw.match(/\bRooms?\s+([#0-9,\s]+)/i);
   const roomsRaw = roomsMatch?.[1]?.trim();
 
@@ -149,14 +168,13 @@ function formatNotificationMessage(
       ? `Room ${rooms[0].replace(/^0+/, "") || rooms[0]}`
       : `Rooms ${rooms.map((r) => r.replace(/^0+/, "") || r).join(", ")}`;
 
-  // ✅ FIXED: capture FULL datetime (date + time + optional Z) for BOTH check-in and check-out
   const checkMatch = raw.match(
     /Check-in:\s*([0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9]{2}:[0-9]{2}:[0-9]{2}Z?)\s*,\s*Check-out:\s*([0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9]{2}:[0-9]{2}:[0-9]{2}Z?)\s*(\([^)]+\))?/i,
   );
 
   const checkInStr = checkMatch?.[1]?.trim();
   const checkOutStr = checkMatch?.[2]?.trim();
-  const duration = checkMatch?.[3]?.trim(); // includes parentheses
+  const duration = checkMatch?.[3]?.trim();
 
   const checkIn = checkInStr ? parseUtcDateFromLooseString(checkInStr) : null;
   const checkOut = checkOutStr ? parseUtcDateFromLooseString(checkOutStr) : null;
@@ -179,7 +197,8 @@ function formatNotificationMessage(
     }
 
     const primary = [who, where, when].filter(Boolean).join(" • ");
-    const secondary = [ref ? `Ref ${ref}` : null, dur ? dur : null].filter(Boolean).join(" • ") || undefined;
+    const secondary =
+      [ref ? `Ref ${ref}` : null, dur ? dur : null].filter(Boolean).join(" • ") || undefined;
 
     return { title, primary, secondary };
   }
@@ -194,10 +213,13 @@ function formatNotificationMessage(
     const reasonMatch = raw.match(/\bReason:\s*(.+)$/i);
     const reason = reasonMatch?.[1]?.trim();
 
-    const primary = [guest ? guest : null, roomsLabel || "Booking cancelled"].filter(Boolean).join(" • ");
-    const secondary = [ref ? `Ref ${ref}` : null, reason ? `Reason: ${reason}` : null]
+    const primary = [guest ? guest : null, roomsLabel || "Booking cancelled"]
       .filter(Boolean)
-      .join(" • ") || undefined;
+      .join(" • ");
+    const secondary =
+      [ref ? `Ref ${ref}` : null, reason ? `Reason: ${reason}` : null]
+        .filter(Boolean)
+        .join(" • ") || undefined;
 
     return { title, primary, secondary };
   }
@@ -207,6 +229,10 @@ function formatNotificationMessage(
   return { title, primary, secondary };
 }
 
+/**
+ * Returns a human-readable relative time string.
+ * Supports seconds, minutes, hours, days, weeks, and months.
+ */
 function timeAgo(isoUtc: string): string {
   const d = new Date(isoUtc);
   const diffMs = Date.now() - d.getTime();
@@ -217,7 +243,11 @@ function timeAgo(isoUtc: string): string {
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h`;
   const days = Math.floor(h / 24);
-  return `${days}d`;
+  if (days < 7) return `${days}d`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w`;
+  const months = Math.floor(days / 30);
+  return `${months}mo`;
 }
 
 function Pill(props: { label: string; active: boolean; onClick: () => void }) {
@@ -228,7 +258,9 @@ function Pill(props: { label: string; active: boolean; onClick: () => void }) {
       onClick={onClick}
       className={cn(
         "px-2.5 py-1 rounded-full text-[12px] border transition-colors",
-        active ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted border-border",
+        active
+          ? "bg-primary text-primary-foreground border-primary"
+          : "bg-background hover:bg-muted border-border",
       )}
     >
       {label}
@@ -236,10 +268,6 @@ function Pill(props: { label: string; active: boolean; onClick: () => void }) {
   );
 }
 
-/**
- * IMPORTANT: your Layout imports this name:
- *   import { NotificationsBell } from "@/components/notifications-bell";
- */
 export function NotificationsBell() {
   const navigate = useNavigate();
 
@@ -248,6 +276,7 @@ export function NotificationsBell() {
   const [items, setItems] = useState<NotificationDto[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const [kindFilter, setKindFilter] = useState<"all" | NotificationKind>("all");
 
@@ -259,7 +288,7 @@ export function NotificationsBell() {
       const c = await fetchUnreadCount();
       setUnreadCount(c);
     } catch {
-      // silent
+      // silent — badge stays at last known value
     }
   };
 
@@ -278,29 +307,40 @@ export function NotificationsBell() {
     }
   };
 
-  // Keep unread count live
+  // Keep unread count live (every 15s)
   useEffect(() => {
     refreshCount();
     const t = window.setInterval(refreshCount, 15000);
     return () => window.clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ When bookings change (cancel/complete/create), refresh unread count.
-  // This makes “Complete” notifications appear quickly if backend generates them.
+  // When bookings change, refresh unread count immediately
   useEffect(() => {
     const unsub = onBookingsChanged(() => void refreshCount());
     return unsub;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // When popover opens, load list
+  // When popover opens: reset filter, load list, refresh count
   useEffect(() => {
     if (open) {
+      setKindFilter("all");
       refreshList();
       refreshCount();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Auto-refresh list every 30s while popover is open
+  const openRef = useRef(open);
+  openRef.current = open;
+  useEffect(() => {
+    if (!open) return;
+    const t = window.setInterval(() => {
+      if (openRef.current) {
+        void refreshList();
+        void refreshCount();
+      }
+    }, 30000);
+    return () => window.clearInterval(t);
   }, [open]);
 
   const onMarkOne = async (n: NotificationDto) => {
@@ -309,12 +349,14 @@ export function NotificationsBell() {
       await markNotificationAsRead(n.notificationId);
       setItems((prev) =>
         prev.map((x) =>
-          x.notificationId === n.notificationId ? { ...x, isRead: true, readAtUtc: new Date().toISOString() } : x,
+          x.notificationId === n.notificationId
+            ? { ...x, isRead: true, readAtUtc: new Date().toISOString() }
+            : x,
         ),
       );
       setUnreadCount((c) => Math.max(0, c - 1));
     } catch {
-      // silent
+      // Non-blocking — user can still navigate; badge corrects on next poll
     }
   };
 
@@ -329,13 +371,28 @@ export function NotificationsBell() {
     }
   };
 
+  const onDelete = async (e: React.MouseEvent, n: NotificationDto) => {
+    e.stopPropagation();
+    setDeletingId(n.notificationId);
+    try {
+      await deleteNotification(n.notificationId);
+      setItems((prev) => prev.filter((x) => x.notificationId !== n.notificationId));
+      if (!n.isRead) setUnreadCount((c) => Math.max(0, c - 1));
+    } catch {
+      // silent — item stays visible if delete failed
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const filteredItems = useMemo(() => {
     if (kindFilter === "all") return items;
     return items.filter((n) => getKind(n) === kindFilter);
   }, [items, kindFilter]);
 
+  const hiddenCount = items.length - filteredItems.length;
+
   const openBookingFromNotification = (n: NotificationDto) => {
-    // Mark as read (don't block navigation)
     void onMarkOne(n);
 
     const id = typeof n.bookingId === "number" ? n.bookingId : Number(n.bookingId);
@@ -346,7 +403,6 @@ export function NotificationsBell() {
       return;
     }
 
-    // Fallback: if bookingId is missing, still go to bookings list
     navigate(`/bookings`);
   };
 
@@ -364,36 +420,71 @@ export function NotificationsBell() {
       </PopoverTrigger>
 
       <PopoverContent align="end" className="w-[380px] p-0">
+        {/* Header */}
         <div className="p-3 flex items-center justify-between">
           <div className="font-semibold">Notifications</div>
-
-          <Button variant="ghost" size="sm" onClick={onMarkAll} disabled={unreadCount === 0}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onMarkAll}
+            disabled={unreadCount === 0}
+          >
             <Check className="h-4 w-4 mr-2" />
             Mark all read
           </Button>
         </div>
 
-        {/* Filters */}
+        {/* Filter pills */}
         <div className="px-3 pb-3 flex items-center gap-2 flex-wrap">
           <Pill active={kindFilter === "all"} label="All" onClick={() => setKindFilter("all")} />
-          <Pill active={kindFilter === "confirmed"} label="Confirmed" onClick={() => setKindFilter("confirmed")} />
-          <Pill active={kindFilter === "completed"} label="Completed" onClick={() => setKindFilter("completed")} />
-          <Pill active={kindFilter === "cancelled"} label="Cancelled" onClick={() => setKindFilter("cancelled")} />
+          <Pill
+            active={kindFilter === "confirmed"}
+            label="Confirmed"
+            onClick={() => setKindFilter("confirmed")}
+          />
+          <Pill
+            active={kindFilter === "completed"}
+            label="Completed"
+            onClick={() => setKindFilter("completed")}
+          />
+          <Pill
+            active={kindFilter === "cancelled"}
+            label="Cancelled"
+            onClick={() => setKindFilter("cancelled")}
+          />
         </div>
 
         <Separator />
 
+        {/* Notification list */}
         <div className="max-h-[420px] overflow-auto">
           {loading && (
-            <div className="p-4 text-sm flex items-center gap-2">
+            <div className="p-4 text-sm flex items-center gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Loading...
+              Loading…
             </div>
           )}
 
-          {!loading && error && <div className="p-4 text-sm text-red-500">{error}</div>}
+          {!loading && error && (
+            <div className="p-4 text-sm text-red-500">{error}</div>
+          )}
 
-          {!loading && !error && filteredItems.length === 0 && (
+          {/* Filter produces zero results but list has items — guide the user */}
+          {!loading && !error && filteredItems.length === 0 && hiddenCount > 0 && (
+            <div className="p-4 text-sm text-muted-foreground">
+              No {kindFilter} notifications.{" "}
+              <button
+                type="button"
+                className="text-primary underline underline-offset-2"
+                onClick={() => setKindFilter("all")}
+              >
+                Show all ({items.length})
+              </button>
+            </div>
+          )}
+
+          {/* Truly empty */}
+          {!loading && !error && items.length === 0 && (
             <div className="p-4 text-sm text-muted-foreground">No notifications.</div>
           )}
 
@@ -411,14 +502,19 @@ export function NotificationsBell() {
                   : BellRing;
 
               const fm = formatNotificationMessage(n);
+              const isDeleting = deletingId === n.notificationId;
 
               return (
                 <div
                   key={n.notificationId}
-                  className={cn("p-3 cursor-pointer hover:bg-muted/50", !n.isRead && "bg-muted/30")}
+                  className={cn(
+                    "p-3 cursor-pointer hover:bg-muted/50 transition-opacity",
+                    !n.isRead && "bg-muted/30",
+                    isDeleting && "opacity-40 pointer-events-none",
+                  )}
                   onClick={() => openBookingFromNotification(n)}
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-3 min-w-0">
                       <div className={cn("mt-0.5 shrink-0", !n.isRead && "text-primary")}>
                         <Icon className="h-4 w-4" />
@@ -427,36 +523,78 @@ export function NotificationsBell() {
                       <div className="min-w-0">
                         <div className="text-sm font-medium truncate">{fm.title}</div>
 
-                        {fm.primary && <div className="text-xs text-muted-foreground mt-1 break-words">{fm.primary}</div>}
+                        {fm.primary && (
+                          <div className="text-xs text-muted-foreground mt-1 break-words">
+                            {fm.primary}
+                          </div>
+                        )}
 
                         {fm.secondary && (
-                          <div className="text-xs text-muted-foreground mt-1 break-words">{fm.secondary}</div>
+                          <div className="text-xs text-muted-foreground mt-1 break-words">
+                            {fm.secondary}
+                          </div>
                         )}
 
                         <div className="text-[11px] text-muted-foreground mt-2">
-                          {timeAgo(n.createdAtUtc)} · {n.isRead ? "Read" : "Unread"}
+                          {timeAgo(n.createdAtUtc)}
+                          {!n.isRead && (
+                            <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-primary align-middle" />
+                          )}
                         </div>
                       </div>
                     </div>
 
-                    {!n.isRead && (
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {!n.isRead && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void onMarkOne(n);
+                          }}
+                          title="Mark as read"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 shrink-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void onMarkOne(n);
-                        }}
-                        title="Mark as read"
+                        className="h-7 w-7 text-muted-foreground hover:text-red-500"
+                        onClick={(e) => void onDelete(e, n)}
+                        title="Delete notification"
+                        disabled={isDeleting}
                       >
-                        <Check className="h-4 w-4" />
+                        {isDeleting ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
                       </Button>
-                    )}
+                    </div>
                   </div>
                 </div>
               );
             })}
+        </div>
+
+        {/* Footer — link to full notifications page */}
+        <Separator />
+        <div className="p-2 text-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-xs text-muted-foreground"
+            onClick={() => {
+              setOpen(false);
+              navigate("/notifications");
+            }}
+          >
+            View all notifications
+          </Button>
         </div>
       </PopoverContent>
     </Popover>

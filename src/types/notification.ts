@@ -1,12 +1,8 @@
 export enum NotificationType {
-  BookingCreated = 0,
-  BookingCancelled = 1,
-  BookingConfirmed = 2,
-  BookingCompleted = 3,
-  RoomAvailable = 4,
-  RoomUnavailable = 5,
-  StaffAction = 6,
-  System = 7,
+  BookingConfirmed = 1,
+  BookingCompleted = 2,
+  BookingCancelled = 3,
+  System = 99,
 }
 
 export interface NotificationDto {
@@ -20,7 +16,7 @@ export interface NotificationDto {
   roomId?: number | null
   eventAtUtc?: string | null
 
-  type: NotificationType
+  type: NotificationType | string
   title: string
   message: string
 
