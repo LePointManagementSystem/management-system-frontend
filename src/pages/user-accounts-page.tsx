@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,6 +68,8 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function UserAccountsPage() {
+  const navigate = useNavigate();
+
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,19 +83,13 @@ export default function UserAccountsPage() {
   const strength = form.password ? getPasswordStrength(form.password) : null;
 
   const strengthLabel: Record<PasswordStrength, string> = {
-    weak:   "Weak",
-    medium: "Medium",
-    strong: "Strong",
+    weak: "Weak", medium: "Medium", strong: "Strong",
   };
   const strengthColor: Record<PasswordStrength, string> = {
-    weak:   "bg-red-500",
-    medium: "bg-yellow-500",
-    strong: "bg-green-500",
+    weak: "bg-red-500", medium: "bg-yellow-500", strong: "bg-green-500",
   };
   const strengthWidth: Record<PasswordStrength, string> = {
-    weak:   "w-1/3",
-    medium: "w-2/3",
-    strong: "w-full",
+    weak: "w-1/3", medium: "w-2/3", strong: "w-full",
   };
 
   const setField = (key: keyof FormState, value: string) => {
@@ -299,10 +296,10 @@ export default function UserAccountsPage() {
 
                 <ul className="text-xs text-muted-foreground space-y-0.5 pl-0.5">
                   {[
-                    { ok: form.password.length >= 8,   text: "At least 8 characters" },
-                    { ok: /[A-Z]/.test(form.password), text: "One uppercase letter" },
-                    { ok: /[a-z]/.test(form.password), text: "One lowercase letter" },
-                    { ok: /[0-9]/.test(form.password), text: "One number" },
+                    { ok: form.password.length >= 8,    text: "At least 8 characters" },
+                    { ok: /[A-Z]/.test(form.password),  text: "One uppercase letter" },
+                    { ok: /[a-z]/.test(form.password),  text: "One lowercase letter" },
+                    { ok: /[0-9]/.test(form.password),  text: "One number" },
                   ].map(({ ok, text }) => (
                     <li key={text} className={`flex items-center gap-1.5 ${ok ? "text-green-600" : ""}`}>
                       <span className="font-mono">{ok ? "✓" : "·"}</span> {text}
@@ -389,7 +386,7 @@ export default function UserAccountsPage() {
         </Dialog>
       </div>
 
-      {/* Persistent success banner */}
+      {/* Success banner */}
       {createdUser && (
         <Alert className="border-green-200 bg-green-50 text-green-900">
           <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -407,7 +404,7 @@ export default function UserAccountsPage() {
               size="sm"
               variant="outline"
               className="mt-1 border-green-400 text-green-800 hover:bg-green-100 gap-1"
-              onClick={() => (window.location.href = "/staff")}
+              onClick={() => navigate("/staff")}
             >
               Go to Staff page <ArrowRight className="h-3.5 w-3.5" />
             </Button>
@@ -450,12 +447,13 @@ export default function UserAccountsPage() {
               <div>
                 <p className="font-medium">
                   Create a Staff profile{" "}
-                  <a
-                    href="/staff"
+                  <button
+                    type="button"
                     className="text-primary underline underline-offset-2 text-sm ml-1 hover:text-primary/80"
+                    onClick={() => navigate("/staff")}
                   >
                     → Go to Staff page
-                  </a>
+                  </button>
                 </p>
                 <p className="text-sm text-muted-foreground mt-0.5">
                   Link the user to a hotel and complete their HR profile (phone, position…).
