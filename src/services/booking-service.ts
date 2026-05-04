@@ -20,6 +20,7 @@ export type BookingDto = {
   durationType: string;
   status: string;
   guestName: string;
+  guestCIN?: string | null;
   guestCin?: string | null;
   roomNumbers: string;
 
@@ -55,6 +56,7 @@ type ApiBookingDto = {
   guestFirstName?: string | null;
   guestLastName?: string | null;
   guestCin?: string | null;
+  guestCIN?: string | null;
   cancellationReason?: string | null;
   cancelledAtUtc?: string | null;
   cancelledByUserId?: string | null;
@@ -124,7 +126,8 @@ function normalizeBooking(b: ApiBookingDto): BookingDto {
     durationType: b.durationType ?? "",
     status: b.status,
     guestName,
-    guestCin: b.guestCin ?? null,
+    guestCin: b.guestCIN ?? b.guestCin ?? null,
+    guestCIN: b.guestCIN ?? b.guestCin ?? null,
     roomNumbers,
     cancellationReason: b.cancellationReason ?? null,
     cancelledAtUtc: b.cancelledAtUtc ?? null,
