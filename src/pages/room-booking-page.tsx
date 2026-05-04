@@ -47,6 +47,8 @@ import { fetchAvailableRooms } from "@/services/room-service"
 import { useRoomClasses } from "@/hooks/use-room-classes"
 import { addGuest, fetchGuest } from "@/services/client-service"
 import { createBooking } from "@/services/booking-service"
+  import { listCashSessions } from "@/services/cash-sessions-service"
+  import { createCashTransaction } from "@/services/cash-transactions-service"
 import { formatHaitiLongDateTime } from "@/utils/datetime"
 import { calculateCheckInOut, type BookingDurationUI } from "@/utils/booking-helpers"
 import { fetchMyStaffProfile } from "@/services/staff-service"
@@ -617,11 +619,40 @@ const RoomBookingPage: React.FC = () => {
 
       const result = await createBooking(bookingPayload)
 
-      setConfirmedBooking(result)
-      setConfirmedGuestName(
-        `${clientData.firstName} ${clientData.lastName}`.trim()
-      )
-      goToStep(3)
+        // ── Auto Petty Cash: si paiement en Cash, créer une transaction IN automatiquement
+        if (paymentMethod === 0) {
+          try {
+            const sessionsResult = await listCashSessions({
+              hotelId: hotelIdForRequest,
+              page: 1,
+              pageSize: 10,
+            })
+            const activeSession = sessionsResult.items.find((s) => !s.isClosed)
+            if (activeSession) {
+              const guestFullName = `${clientData.firstName} ${clientData.lastName}`.trim()
+              const finalAmount = result.afterDiscountedPrice ?? result.totalPrice
+              await createCashTransaction({
+                hotelId: hotelIdForRequest,
+                cashSessionId: activeSession.cashSessionId,
+                type: 1,
+                currency: activeSession.currency,
+                shift: activeSession.shift,
+                amount: finalAmount,
+                note: `Booking ${result.confirmationNumber} — ${guestFullName}`,
+                category: "Booking",
+                reference: result.confirmationNumber,
+              })
+            }
+          } catch {
+            // La transaction petty cash a échoué silencieusement — le booking reste confirmé
+          }
+        }
+
+        setConfirmedBooking(result)
+        setConfirmedGuestName(
+          `${clientData.firstName} ${clientData.lastName}`.trim()
+        )
+        goToStep(3)
     } catch (err: unknown) {
       setStepError(
         err instanceof Error ? err.message : "Booking failed. Please try again."

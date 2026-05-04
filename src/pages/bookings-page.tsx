@@ -103,7 +103,7 @@ function normalizeBookingRef(ref?: string | null): string | null {
 }
 
 function formatPrice(amount: number): string {
-  return `$${amount.toLocaleString("en-US", {
+  return `HTG ${amount.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
