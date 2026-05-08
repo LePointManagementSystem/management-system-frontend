@@ -1,13 +1,14 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export type CashTransactionType = 1 | 2; // 1 = In, 2 = Out
-export type CurrencyCode = 1 | 2; // 1 = HTG, 2 = USD
-export type CashShift = 1 | 2; // 1 = Morning, 2 = Afternoon
+export type CurrencyCode = 1 | 2;        // 1 = HTG, 2 = USD
+export type CashShift = 1 | 2;           // 1 = Morning, 2 = Afternoon
 
 export type CashTransactionDto = {
   cashTransactionId: number;
   hotelId: number;
   actorUserId: string;
+  actorUserName?: string | null;
   cashSessionId?: number | null;
   type: CashTransactionType;
   currency: CurrencyCode;
@@ -15,12 +16,12 @@ export type CashTransactionDto = {
   note: string;
   category?: string | null;
   reference?: string | null;
-  shift?: CashShift | null; // ✅ new (backend may return it)
+  shift?: CashShift | null;
   createdAtUtc: string;
 };
 
 export type CreateCashTransactionPayload = {
-  hotelId: number; // for Staff we can send 0, backend will enforce scope
+  hotelId: number;
   cashSessionId?: number | null;
   type: CashTransactionType;
   currency: CurrencyCode;
@@ -28,7 +29,7 @@ export type CreateCashTransactionPayload = {
   note: string;
   category?: string | null;
   reference?: string | null;
-  shift?: CashShift; // ✅ new
+  shift?: CashShift;
 };
 
 type ApiEnvelope<T> = {
@@ -56,12 +57,7 @@ export function getOptionalHotelId(): number | null {
 async function unwrap<T>(res: Response): Promise<T> {
   const text = await res.text();
   let json: any = null;
-
-  try {
-    json = text ? JSON.parse(text) : null;
-  } catch {
-    // non-json
-  }
+  try { json = text ? JSON.parse(text) : null; } catch { /* non-json */ }
 
   if (!res.ok) {
     const msg = json?.message || json?.Message || text || `Request failed (${res.status})`;
@@ -87,60 +83,46 @@ export function currencyLabel(c: CurrencyCode): string {
 
 export function shiftLabel(s?: CashShift | null): string {
   if (s === 2) return "Afternoon";
-  return "Morning"; // default
+  return "Morning";
 }
 
-/**
- * Backend: POST /api/CashTransactions
- */
 export async function createCashTransaction(payload: CreateCashTransactionPayload): Promise<CashTransactionDto> {
   const token = tokenOrThrow();
-
   const res = await fetch(`${BASE_URL}/CashTransactions`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-
   return await unwrap<CashTransactionDto>(res);
 }
 
 export type CashTransactionsQuery = {
-  hotelId?: number; // ✅ optional (Staff can omit; Admin/Manager must pass)
+  hotelId?: number;
   fromUtc?: string;
   toUtc?: string;
   type?: CashTransactionType;
   currency?: CurrencyCode;
   shift?: CashShift;
+  cashSessionId?: number;
   page?: number;
   pageSize?: number;
 };
 
-/**
- * Backend: GET /api/CashTransactions?hotelId=...&fromUtc=...&toUtc=...&type=...&currency=...&shift=...
- */
 export async function fetchCashTransactions(q: CashTransactionsQuery): Promise<CashTransactionDto[]> {
   const token = tokenOrThrow();
-
   const params = new URLSearchParams();
 
-  // ✅ Only set hotelId if provided (Admin/Manager). Staff can omit; backend uses token scope.
   if (q.hotelId && q.hotelId > 0) params.set("hotelId", String(q.hotelId));
-
   if (q.fromUtc) params.set("fromUtc", q.fromUtc);
-  if (q.toUtc) params.set("toUtc", q.toUtc);
-  if (q.type) params.set("type", String(q.type));
+  if (q.toUtc)   params.set("toUtc",   q.toUtc);
+  if (q.type)     params.set("type",     String(q.type));
   if (q.currency) params.set("currency", String(q.currency));
-  if (q.shift) params.set("shift", String(q.shift));
+  if (q.shift)    params.set("shift",    String(q.shift));
+  if (q.cashSessionId) params.set("cashSessionId", String(q.cashSessionId));
 
-  params.set("page", String(q.page ?? 1));
-  params.set("pageSize", String(q.pageSize ?? 100));
-
-  // Anti-cache
-  params.set("t", String(Date.now()));
+  params.set("page",     String(q.page     ?? 1));
+  params.set("pageSize", String(q.pageSize ?? 200));
+  params.set("t", String(Date.now())); // anti-cache
 
   const res = await fetch(`${BASE_URL}/CashTransactions?${params.toString()}`, {
     headers: { Authorization: `Bearer ${token}` },
