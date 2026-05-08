@@ -47,6 +47,8 @@ import { fetchAvailableRooms } from "@/services/room-service"
 import { useRoomClasses } from "@/hooks/use-room-classes"
 import { addGuest, fetchGuest } from "@/services/client-service"
 import { createBooking } from "@/services/booking-service"
+import { listCashSessions } from "@/services/cash-sessions-service"
+import { createCashTransaction } from "@/services/cash-transactions-service"
 import { formatHaitiLongDateTime } from "@/utils/datetime"
 import { calculateCheckInOut, type BookingDurationUI } from "@/utils/booking-helpers"
 import { fetchMyStaffProfile } from "@/services/staff-service"
@@ -69,9 +71,12 @@ const DURATION_TYPE_MAP: Record<BookingDurationUI, number> = {
 }
 
 const PAYMENT_METHODS = [
-  { value: 0, label: "Cash" },
-  { value: 1, label: "Credit / Debit Card" },
-  { value: 2, label: "Mobile Money (Moncash)" },
+  { value: 5, label: "Cash" },
+  { value: 0, label: "Visa" },
+  { value: 1, label: "MasterCard" },
+  { value: 2, label: "PayPal" },
+  { value: 3, label: "Bank Transfer" },
+  { value: 4, label: "Moncash" },
 ] as const
 
 const WIZARD_STEPS = ["Search", "Select Room", "Client Details", "Confirmation"]
@@ -280,7 +285,7 @@ const RoomBookingPage: React.FC = () => {
   const [checkInTime, setCheckInTime] = useState<string>(nowAsTimeString())
   const [stayCheckOutDate, setStayCheckOutDate] = useState<Date | undefined>(undefined)
   const [bookingDuration, setBookingDuration] = useState<BookingDurationUI>("overnight")
-  const [paymentMethod, setPaymentMethod] = useState<number>(0)
+  const [paymentMethod, setPaymentMethod] = useState<number>(5)
   const [isSearching, setIsSearching] = useState(false)
 
   // ── Step 1: Room selection ───────────────────────────────────────────────
@@ -617,11 +622,36 @@ const RoomBookingPage: React.FC = () => {
 
       const result = await createBooking(bookingPayload)
 
-      setConfirmedBooking(result)
-      setConfirmedGuestName(
-        `${clientData.firstName} ${clientData.lastName}`.trim()
-      )
-      goToStep(3)
+        // ── Auto Petty Cash : si paiement Cash (valeur 5), créer une entrée IN automatiquement
+        if (paymentMethod === 5) {
+          try {
+            const sessionsResult = await listCashSessions({ hotelId: hotelIdForRequest, page: 1, pageSize: 10 })
+            const activeSession = sessionsResult.items.find((s) => !s.isClosed)
+            if (activeSession) {
+              const guestFullName = `${clientData.firstName} ${clientData.lastName}`.trim()
+              const finalAmount = result.afterDiscountedPrice ?? result.totalPrice
+              await createCashTransaction({
+                hotelId: hotelIdForRequest,
+                cashSessionId: activeSession.cashSessionId,
+                type: 1,
+                currency: activeSession.currency,
+                shift: activeSession.shift,
+                amount: finalAmount,
+                note: `Booking ${result.confirmationNumber} — ${guestFullName}`,
+                category: "Booking",
+                reference: result.confirmationNumber,
+              })
+            }
+          } catch {
+            // Échec silencieux — le booking reste confirmé même si la petty cash échoue
+          }
+        }
+
+        setConfirmedBooking(result)
+        setConfirmedGuestName(
+          `${clientData.firstName} ${clientData.lastName}`.trim()
+        )
+        goToStep(3)
     } catch (err: unknown) {
       setStepError(
         err instanceof Error ? err.message : "Booking failed. Please try again."

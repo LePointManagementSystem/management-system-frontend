@@ -43,6 +43,8 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { onBookingsChanged } from "@/utils/events";
+import { listCashSessions } from "@/services/cash-sessions-service";
+import { createCashTransaction } from "@/services/cash-transactions-service";
 import { exportBookingsExcel } from "@/services/reporting-service";
 import {
   cancelBooking,
@@ -103,13 +105,34 @@ function normalizeBookingRef(ref?: string | null): string | null {
 }
 
 function formatPrice(amount: number): string {
-  return `$${amount.toLocaleString("en-US", {
+  return `HTG ${amount.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
 }
 
-function formatCancelledBy(id?: string | null): string {
+function formatPaymentMethod(pm?: string | null): string {
+    if (!pm) return "—";
+    const map: Record<string, string> = {
+      Cash: "Cash", Visa: "Visa", MasterCard: "MasterCard",
+      PayPal: "PayPal", BankTransfer: "Bank Transfer",
+      CashOnDelivery: "Moncash / Cash on Delivery",
+    };
+    return map[pm] ?? pm;
+  }
+
+  function formatDurationType(dt?: string | null): string {
+    if (!dt) return "—";
+    const map: Record<string, string> = {
+      Hours1: "1 Heure", Hours2: "2 Heures", Hours3: "3 Heures",
+      Hours4: "4 Heures", Hours5: "5 Heures", Hours6: "6 Heures",
+      Hours7: "7 Heures", Hours8: "8 Heures",
+      Overnight: "Nuit (21h→09h)", Stay: "Séjour multi-nuits",
+    };
+    return map[dt] ?? dt;
+  }
+
+  function formatCancelledBy(id?: string | null): string {
   if (!id) return "—";
   // Avoid exposing raw GUIDs in the UI
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(id)) return "Staff member";
@@ -394,11 +417,40 @@ export default function BookingsPage() {
     setActionError(null);
     try {
       await cancelBooking(activeBooking.bookingId, reason);
-      await load();
-      closeDialog();
-      showSuccess(
-        `Booking ${formatBookingRef(activeBooking.confirmationNumber)} has been cancelled.`
-      );
+
+        // ── Auto Petty Cash OUT : si le booking était payé en Cash, créer un remboursement OUT
+        if (activeBooking.paymentMethod === "Cash") {
+          try {
+            const sessionsResult = await listCashSessions({
+              hotelId: activeBooking.hotelId,
+              page: 1,
+              pageSize: 10,
+            });
+            const activeSession = sessionsResult.items.find((s) => !s.isClosed);
+            if (activeSession) {
+              const refundAmount = activeBooking.afterDiscountedPrice ?? activeBooking.totalPrice;
+              await createCashTransaction({
+                hotelId: activeBooking.hotelId,
+                cashSessionId: activeSession.cashSessionId,
+                type: 2,
+                currency: activeSession.currency,
+                shift: activeSession.shift,
+                amount: refundAmount,
+                note: `Annulation Booking ${activeBooking.confirmationNumber} — ${activeBooking.guestName}`,
+                category: "Remboursement",
+                reference: activeBooking.confirmationNumber,
+              });
+            }
+          } catch {
+            // Échec silencieux — l'annulation reste effective même si la petty cash échoue
+          }
+        }
+
+        await load();
+        closeDialog();
+        showSuccess(
+          `Booking ${formatBookingRef(activeBooking.confirmationNumber)} has been cancelled.`
+        );
     } catch (err: unknown) {
       setActionError(
         err instanceof Error ? err.message : "Failed to cancel booking."
@@ -883,7 +935,7 @@ export default function BookingsPage() {
                 {activeBooking.durationType && (
                   <DetailField
                     label="Duration Type"
-                    value={activeBooking.durationType}
+                    value={formatDurationType(activeBooking.durationType)}
                   />
                 )}
                 <DetailField
@@ -896,7 +948,7 @@ export default function BookingsPage() {
                 />
                 <DetailField
                   label="Payment Method"
-                  value={activeBooking.paymentMethod || "—"}
+                  value={formatPaymentMethod(activeBooking.paymentMethod)}
                 />
               </div>
 
