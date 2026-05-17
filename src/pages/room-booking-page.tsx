@@ -45,7 +45,7 @@ import type { BookingDto } from "@/services/booking-service"
 
 import { fetchAvailableRooms } from "@/services/room-service"
 import { useRoomClasses } from "@/hooks/use-room-classes"
-import { addGuest, fetchGuest } from "@/services/client-service"
+import { addGuest, fetchGuests } from "@/services/client-service"
 import { createBooking } from "@/services/booking-service"
 import { listCashSessions } from "@/services/cash-sessions-service"
 import { createCashTransaction } from "@/services/cash-transactions-service"
@@ -56,7 +56,6 @@ import type { Staff } from "@/types/staff"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/** Must match backend BookingStatus enum numeric values — do NOT change order */
 const DURATION_TYPE_MAP: Record<BookingDurationUI, number> = {
   "2h": 0,
   "4h": 1,
@@ -106,7 +105,6 @@ function durationLabel(duration: BookingDurationUI): string {
   return `${h} Hour${h > 1 ? "s" : ""}`
 }
 
-/** True when user needs to pick the check-in time (hourly + stay, not overnight) */
 function needsTimePicker(duration: BookingDurationUI): boolean {
   return duration !== "overnight"
 }
@@ -130,10 +128,10 @@ function estimateRoomPrice(room: Room, duration: BookingDurationUI): { amount: n
   }
   const hours = getDurationHours(duration) ?? 1
   const estimated = Math.round((base / 24) * hours)
-  return { amount: estimated, suffix: `for ${hours}h` }
+  // Bug3 FIX: suffix "for Xh" → "~Xh (estimé)" pour indiquer que c'est une approximation
+  return { amount: estimated, suffix: `~${hours}h (estimé)` }
 }
 
-/** Now formatted as "HH:MM" */
 function nowAsTimeString(): string {
   const now = new Date()
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
@@ -144,9 +142,7 @@ function nowAsTimeString(): string {
 function StepIndicator({ current }: { current: number }) {
   return (
     <div className="relative flex items-start justify-between mb-8">
-      {/* background connector */}
       <div className="absolute top-4 left-[16px] right-[16px] h-0.5 bg-border" />
-      {/* filled connector */}
       <div
         className="absolute top-4 left-[16px] h-0.5 bg-primary transition-all duration-300"
         style={{ width: `calc(${(current / (WIZARD_STEPS.length - 1)) * 100}% - 2px)` }}
@@ -274,11 +270,9 @@ function ClientSearchPicker({
 const RoomBookingPage: React.FC = () => {
   const navigate = useNavigate()
 
-  // ── Wizard state ─────────────────────────────────────────────────────────
   const [currentStep, setCurrentStep] = useState(0)
   const [stepError, setStepError] = useState<string | null>(null)
 
-  // ── Step 0: Search form ──────────────────────────────────────────────────
   const [roomType, setRoomType] = useState("")
   const [guests, setGuests] = useState(1)
   const [date, setDate] = useState<Date>(new Date())
@@ -288,55 +282,46 @@ const RoomBookingPage: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<number>(5)
   const [isSearching, setIsSearching] = useState(false)
 
-  // ── Step 1: Room selection ───────────────────────────────────────────────
   const [availableRooms, setAvailableRooms] = useState<Room[]>([])
   const [selectedRoom, setSelectedRoom] = useState<number | null>(null)
   const [selectedRoomClass, setSelectedRoomClass] = useState<RoomClass | null>(null)
 
-  // ── Step 2: Client ───────────────────────────────────────────────────────
   const [clientTab, setClientTab] = useState<"existing" | "new">("existing")
   const [selectedClientId, setSelectedClientId] = useState("")
   const [newClient, setNewClient] = useState({ firstName: "", lastName: "", cin: "" })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // ── Step 3: Confirmation ─────────────────────────────────────────────────
   const [confirmedBooking, setConfirmedBooking] = useState<BookingDto | null>(null)
   const [confirmedGuestName, setConfirmedGuestName] = useState("")
   const [hourlyNotification, setHourlyNotification] = useState("")
 
-  // ── Data ─────────────────────────────────────────────────────────────────
   const [existingClients, setExistingClients] = useState<Guest[]>([])
   const { roomClasses, loading: loadingRoomClasses } = useRoomClasses()
 
-  // ── Staff / hotel scope ──────────────────────────────────────────────────
   const [currentHotelId, setCurrentHotelId] = useState<number | null>(null)
   const [staffLoading, setStaffLoading] = useState(true)
   const [staffError, setStaffError] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
 
-  // ── Load guests list ─────────────────────────────────────────────────────
-
   useEffect(() => {
     const load = async () => {
       try {
-        const clients = await fetchGuest()
+        const clients = await fetchGuests()
         setExistingClients(clients || [])
       } catch {
-        // non-blocking — guest list will just be empty
+        // non-blocking
       }
     }
     void load()
   }, [])
 
-  // ── Load staff profile (hotel scope) ─────────────────────────────────────
-
   useEffect(() => {
     const init = async () => {
       try {
-        const storedRole = localStorage.getItem("role")
+        const storedRole = sessionStorage.getItem("role")
         setUserRole(storedRole)
 
-        const roles = safeParseRoles(localStorage.getItem("roles"))
+        const roles = safeParseRoles(sessionStorage.getItem("roles"))
         const isStaffUser =
           storedRole === "Staff" ||
           storedRole === "Receptionist" ||
@@ -348,7 +333,7 @@ const RoomBookingPage: React.FC = () => {
           return
         }
 
-        const hotelIdFromStorage = localStorage.getItem("hotelId")
+        const hotelIdFromStorage = sessionStorage.getItem("hotelId")
         if (hotelIdFromStorage && Number.isFinite(Number(hotelIdFromStorage))) {
           setCurrentHotelId(Number(hotelIdFromStorage))
           setStaffLoading(false)
@@ -375,8 +360,6 @@ const RoomBookingPage: React.FC = () => {
     void init()
   }, [])
 
-  // ── Hourly booking expiry notification ───────────────────────────────────
-
   useEffect(() => {
     if (!confirmedBooking) return
     const hours = getDurationHours(bookingDuration)
@@ -387,8 +370,6 @@ const RoomBookingPage: React.FC = () => {
     return () => clearTimeout(timer)
   }, [confirmedBooking, bookingDuration])
 
-  // ── Derived: filtered room classes by hotel ───────────────────────────────
-
   const filteredRoomClasses = useMemo(
     () =>
       roomClasses.filter((rc) =>
@@ -397,8 +378,6 @@ const RoomBookingPage: React.FC = () => {
     [roomClasses, currentHotelId]
   )
 
-  // ── Derived: rooms filtered by guest capacity ─────────────────────────────
-
   const capacityFilteredRooms = useMemo(
     () => availableRooms.filter((r) => (r.adultsCapacity ?? 0) >= guests),
     [availableRooms, guests]
@@ -406,14 +385,10 @@ const RoomBookingPage: React.FC = () => {
 
   const excludedCount = availableRooms.length - capacityFilteredRooms.length
 
-  // ── Selected client ───────────────────────────────────────────────────────
-
   const selectedClient = useMemo(
     () => existingClients.find((c) => String(c.id) === selectedClientId) ?? null,
     [existingClients, selectedClientId]
   )
-
-  // ── Validation helpers ────────────────────────────────────────────────────
 
   const isClientValid = useCallback((): boolean => {
     if (clientTab === "existing") return selectedClientId.trim().length > 0
@@ -429,8 +404,6 @@ const RoomBookingPage: React.FC = () => {
     setCurrentStep(step)
   }
 
-  // ── Build booking date/time ───────────────────────────────────────────────
-
   function buildBookingDate(): Date {
     const base = new Date(date)
     if (needsTimePicker(bookingDuration) && checkInTime) {
@@ -440,9 +413,7 @@ const RoomBookingPage: React.FC = () => {
     return base
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // STEP 0 — Search
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Step 0 ────────────────────────────────────────────────────────────────
 
   const handleSearch = async () => {
     clearStepError()
@@ -451,17 +422,14 @@ const RoomBookingPage: React.FC = () => {
       setStepError("Please select a room type.")
       return
     }
-
     if (bookingDuration === "stay" && !stayCheckOutDate) {
       setStepError("Please select a check-out date for your stay.")
       return
     }
-
     if (bookingDuration === "stay" && stayCheckOutDate && stayCheckOutDate <= date) {
       setStepError("Check-out date must be after check-in date.")
       return
     }
-
     if ((userRole === "Staff" || userRole === "Receptionist") && currentHotelId == null) {
       setStepError(
         "Your staff profile has no hotel assigned. Please contact an administrator."
@@ -510,18 +478,14 @@ const RoomBookingPage: React.FC = () => {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // STEP 1 — Room selection
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Step 1 ────────────────────────────────────────────────────────────────
 
   const handleRoomSelect = (roomId: number) => {
     setSelectedRoom(roomId)
     goToStep(2)
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // STEP 2 — Submit booking
-  // ─────────────────────────────────────────────────────────────────────────
+  // ── Step 2 ────────────────────────────────────────────────────────────────
 
   const handleSubmitBooking = async () => {
     clearStepError()
@@ -530,7 +494,6 @@ const RoomBookingPage: React.FC = () => {
       setStepError("No room selected. Please go back and select a room.")
       return
     }
-
     if (!isClientValid()) {
       setStepError(
         clientTab === "existing"
@@ -539,7 +502,6 @@ const RoomBookingPage: React.FC = () => {
       )
       return
     }
-
     if (bookingDuration === "stay" && !stayCheckOutDate) {
       setStepError("Please go back and select a check-out date.")
       return
@@ -584,7 +546,7 @@ const RoomBookingPage: React.FC = () => {
           cin: newClient.cin,
         })
 
-        const refreshed = await fetchGuest()
+        const refreshed = await fetchGuests()
         setExistingClients(refreshed || [])
 
         clientData = {
@@ -622,36 +584,33 @@ const RoomBookingPage: React.FC = () => {
 
       const result = await createBooking(bookingPayload)
 
-        // ── Auto Petty Cash : si paiement Cash (valeur 5), créer une entrée IN automatiquement
-        if (paymentMethod === 5) {
-          try {
-            const sessionsResult = await listCashSessions({ hotelId: hotelIdForRequest, page: 1, pageSize: 10 })
-            const activeSession = sessionsResult.items.find((s) => !s.isClosed)
-            if (activeSession) {
-              const guestFullName = `${clientData.firstName} ${clientData.lastName}`.trim()
-              const finalAmount = result.afterDiscountedPrice ?? result.totalPrice
-              await createCashTransaction({
-                hotelId: hotelIdForRequest,
-                cashSessionId: activeSession.cashSessionId,
-                type: 1,
-                currency: activeSession.currency,
-                shift: activeSession.shift,
-                amount: finalAmount,
-                note: `Booking ${result.confirmationNumber} — ${guestFullName}`,
-                category: "Booking",
-                reference: result.confirmationNumber,
-              })
-            }
-          } catch {
-            // Échec silencieux — le booking reste confirmé même si la petty cash échoue
+      if (paymentMethod === 5) {
+        try {
+          const sessionsResult = await listCashSessions({ hotelId: hotelIdForRequest, page: 1, pageSize: 10 })
+          const activeSession = sessionsResult.items.find((s) => !s.isClosed)
+          if (activeSession) {
+            const guestFullName = `${clientData.firstName} ${clientData.lastName}`.trim()
+            const finalAmount = result.afterDiscountedPrice ?? result.totalPrice
+            await createCashTransaction({
+              hotelId: hotelIdForRequest,
+              cashSessionId: activeSession.cashSessionId,
+              type: 1,
+              currency: activeSession.currency,
+              shift: activeSession.shift,
+              amount: finalAmount,
+              note: `Booking ${result.confirmationNumber} — ${guestFullName}`,
+              category: "Booking",
+              reference: result.confirmationNumber,
+            })
           }
+        } catch {
+          // Échec silencieux
         }
+      }
 
-        setConfirmedBooking(result)
-        setConfirmedGuestName(
-          `${clientData.firstName} ${clientData.lastName}`.trim()
-        )
-        goToStep(3)
+      setConfirmedBooking(result)
+      setConfirmedGuestName(`${clientData.firstName} ${clientData.lastName}`.trim())
+      goToStep(3)
     } catch (err: unknown) {
       setStepError(
         err instanceof Error ? err.message : "Booking failed. Please try again."
@@ -660,8 +619,6 @@ const RoomBookingPage: React.FC = () => {
       setIsSubmitting(false)
     }
   }
-
-  // ── Reset ─────────────────────────────────────────────────────────────────
 
   const handleNewBooking = () => {
     setCurrentStep(0)
@@ -683,8 +640,6 @@ const RoomBookingPage: React.FC = () => {
     setHourlyNotification("")
     clearStepError()
   }
-
-  // ── Loading / error screens ───────────────────────────────────────────────
 
   if (loadingRoomClasses || staffLoading) {
     return (
@@ -753,7 +708,16 @@ const RoomBookingPage: React.FC = () => {
                   <SelectContent>
                     {filteredRoomClasses.map((rc) => (
                       <SelectItem key={rc.roomClassID} value={rc.name}>
-                        {rc.name} ({rc.roomType}) — {rc.hotelName}
+                        {/* UX4 FIX: n'affiche le type entre parenthèses que s'il n'est pas déjà dans le nom */}
+                        {rc.name}
+                        {rc.roomType && !rc.name.toLowerCase().includes(rc.roomType.toLowerCase()) && (
+                          <span className="text-muted-foreground ml-1">
+                            ({rc.roomType})
+                          </span>
+                        )}
+                        {rc.hotelName && (
+                          <span className="text-muted-foreground ml-1">— {rc.hotelName}</span>
+                        )}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -885,7 +849,7 @@ const RoomBookingPage: React.FC = () => {
                 </Popover>
               </div>
 
-              {/* Check-in Time (hourly + stay) */}
+              {/* Check-in Time */}
               {needsTimePicker(bookingDuration) && (
                 <div className="space-y-2">
                   <Label htmlFor="checkInTime">
@@ -1035,13 +999,17 @@ const RoomBookingPage: React.FC = () => {
                       <TableHead className="font-semibold">Room</TableHead>
                       <TableHead className="font-semibold">Type</TableHead>
                       <TableHead className="font-semibold">Capacity</TableHead>
-                      <TableHead className="font-semibold text-right">Price</TableHead>
+                      {/* UX5 FIX: en-tête prix avec devise explicite */}
+                      <TableHead className="font-semibold text-right">Price (HTG)</TableHead>
                       <TableHead />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {capacityFilteredRooms.map((room) => {
                       const price = estimateRoomPrice(room, bookingDuration)
+                      const className = room.roomClassName || selectedRoomClass?.name || ""
+                      const classType = selectedRoomClass?.roomType ?? ""
+
                       return (
                         <TableRow
                           key={room.roomId}
@@ -1055,8 +1023,9 @@ const RoomBookingPage: React.FC = () => {
                             {room.number || `#${room.roomId}`}
                           </TableCell>
                           <TableCell>
+                            {/* UX4 FIX: n'affiche le type que s'il n'est pas déjà dans le nom de la classe */}
                             <Badge variant="outline">
-                              {room.roomClassName || selectedRoomClass?.name || "—"}
+                              {className || classType || "—"}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -1138,7 +1107,6 @@ const RoomBookingPage: React.FC = () => {
                 <TabsTrigger value="new">New Client</TabsTrigger>
               </TabsList>
 
-              {/* ── Existing client ── */}
               <TabsContent value="existing" className="space-y-4 pt-4">
                 <div className="space-y-1.5">
                   <Label>
@@ -1172,7 +1140,6 @@ const RoomBookingPage: React.FC = () => {
                 )}
               </TabsContent>
 
-              {/* ── New client ── */}
               <TabsContent value="new" className="space-y-4 pt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
@@ -1216,7 +1183,7 @@ const RoomBookingPage: React.FC = () => {
               </TabsContent>
             </Tabs>
 
-            {/* Booking summary recap */}
+            {/* Booking summary */}
             <div className="rounded-md border p-4 bg-muted/30 space-y-2 text-sm">
               <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">
                 Booking Summary
@@ -1284,7 +1251,6 @@ const RoomBookingPage: React.FC = () => {
           </CardHeader>
 
           <CardContent className="space-y-4">
-            {/* Main details */}
             <div className="rounded-md border p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-muted-foreground">
@@ -1350,7 +1316,6 @@ const RoomBookingPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Hourly reminder */}
             {getDurationHours(bookingDuration) && !hourlyNotification && (
               <Alert className="border-amber-200 bg-amber-50">
                 <Clock className="h-4 w-4 text-amber-600" />
@@ -1362,7 +1327,6 @@ const RoomBookingPage: React.FC = () => {
               </Alert>
             )}
 
-            {/* Expiry notification */}
             {hourlyNotification && (
               <Alert variant="destructive">
                 <AlertTitle>Booking Ended</AlertTitle>

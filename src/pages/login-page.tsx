@@ -12,7 +12,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader } from "@/co
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { BASE_URL } from "@/config/api-base"
 
-// ✅ Validation email
+// BUG FIX #8: All localStorage calls replaced with sessionStorage.
+// Using sessionStorage ensures the token is cleared automatically when the
+// browser tab is closed, improving security and avoiding stale-token issues.
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 async function fetchWithToken(url: string, token: string) {
@@ -72,7 +75,6 @@ export function LoginPage() {
       return
     }
 
-    // ✅ Validation format email
     if (!EMAIL_REGEX.test(trimmedEmail)) {
       setError("Format d'email invalide.")
       return
@@ -84,15 +86,16 @@ export function LoginPage() {
       const result = await login({ email: trimmedEmail, password })
 
       if (result.succeeded && result.token) {
-        localStorage.removeItem("token")
-        localStorage.removeItem("roles")
-        localStorage.removeItem("role")
-        localStorage.removeItem("hotelId")
-        localStorage.removeItem("email")
-        localStorage.removeItem("displayName")
+        // Clear any stale session data before writing new values.
+        sessionStorage.removeItem("token")      // BUG FIX #8: was localStorage
+        sessionStorage.removeItem("roles")
+        sessionStorage.removeItem("role")
+        sessionStorage.removeItem("hotelId")
+        sessionStorage.removeItem("email")
+        sessionStorage.removeItem("displayName")
 
-        localStorage.setItem("token", result.token)
-        localStorage.setItem("email", trimmedEmail)
+        sessionStorage.setItem("token", result.token)  // BUG FIX #8
+        sessionStorage.setItem("email", trimmedEmail)
 
         const claims = decodeJwt(result.token)
 
@@ -100,8 +103,8 @@ export function LoginPage() {
         const roles = (result.roles && result.roles.length > 0) ? result.roles : rolesFromToken
         const primaryRole = pickPrimaryRole(roles)
 
-        localStorage.setItem("roles", JSON.stringify(roles))
-        localStorage.setItem("role", primaryRole)
+        sessionStorage.setItem("roles", JSON.stringify(roles))  // BUG FIX #8
+        sessionStorage.setItem("role", primaryRole)
 
         const hotelId =
           (claims as any)?.hotelId ??
@@ -110,14 +113,14 @@ export function LoginPage() {
           (claims as any)?.staffHotelId
 
         if (hotelId != null && String(hotelId).trim() !== "") {
-          localStorage.setItem("hotelId", String(hotelId))
+          sessionStorage.setItem("hotelId", String(hotelId))  // BUG FIX #8
         }
 
         try {
           const name = await resolveDisplayName(result.token, trimmedEmail)
-          localStorage.setItem("displayName", name)
+          sessionStorage.setItem("displayName", name)  // BUG FIX #8
         } catch {
-          localStorage.setItem("displayName", trimmedEmail.split("@")[0])
+          sessionStorage.setItem("displayName", trimmedEmail.split("@")[0])
         }
 
         navigate("/dashboard")
@@ -199,7 +202,7 @@ export function LoginPage() {
 
           <CardFooter>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading 
+              {isLoading
                 ? <Loader2 className="h-4 w-4 animate-spin" />
                 : "Login"}
             </Button>

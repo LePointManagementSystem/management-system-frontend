@@ -8,11 +8,11 @@ export type Owner = {
     phonenumber?: string
 }
 
+// BUG FIX #8: Changed localStorage → sessionStorage.
 export async function getOwners(): Promise<Owner[]> {
+    const token = sessionStorage.getItem("token") // BUG FIX #8: was localStorage
 
-    const token = localStorage.getItem("token")
-
-    const res = await fetch(`${BASE_URL}/Owner`,{
+    const res = await fetch(`${BASE_URL}/Owner`, {
         headers: {
             Accept: "application/json",
             Authorization: `Bearer ${token}`,
@@ -28,5 +28,4 @@ export async function getOwners(): Promise<Owner[]> {
     }
 
     return (json?.data ?? json) as Owner[]
-
 }

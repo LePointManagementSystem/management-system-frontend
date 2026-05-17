@@ -49,7 +49,7 @@ export function GlobalSearch() {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const hotelId = useMemo(() => {
-    const raw = localStorage.getItem("hotelId");
+    const raw = sessionStorage.getItem("hotelId"); // BUG FIX #8: was localStorage
     const n = raw ? Number(raw) : NaN;
     return Number.isFinite(n) ? n : undefined;
   }, []);

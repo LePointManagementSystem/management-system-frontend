@@ -280,7 +280,7 @@ export function NotificationsBell() {
 
   const [kindFilter, setKindFilter] = useState<"all" | NotificationKind>("all");
 
-  const hasAuth = () => !!localStorage.getItem("token");
+  const hasAuth = () => !!sessionStorage.getItem("token") // BUG FIX #8: was localStorage;
 
   const refreshCount = async () => {
     if (!hasAuth()) return;

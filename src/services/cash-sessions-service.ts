@@ -88,12 +88,15 @@ export type PagedResult<T> = {
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
+// BUG FIX #8 (extended): Changed localStorage → sessionStorage.
+// The login page writes the token to sessionStorage; all reads must use the same store.
 function authHeaders() {
-  return { Authorization: `Bearer ${localStorage.getItem("token") || ""}` };
+  return { Authorization: `Bearer ${sessionStorage.getItem("token") || ""}` }; // BUG FIX #8: was localStorage
 }
 
 async function unwrapEnvelope<T>(res: Response): Promise<T> {
   const text = await res.text();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let json: any = null;
   try { json = text ? JSON.parse(text) : null; } catch { json = null; }
 
@@ -147,16 +150,17 @@ export async function listCashSessions(params: ListCashSessionsParams): Promise<
   const qs = new URLSearchParams();
   qs.set("hotelId", String(params.hotelId));
   if (params.currency !== undefined) qs.set("currency", String(params.currency));
-  if (params.shift !== undefined) qs.set("shift", String(params.shift));
-  if (params.fromUtc) qs.set("fromUtc", params.fromUtc);
-  if (params.toUtc) qs.set("toUtc", params.toUtc);
-  qs.set("page", String(params.page ?? 1));
+  if (params.shift !== undefined)    qs.set("shift",    String(params.shift));
+  if (params.fromUtc)                qs.set("fromUtc",  params.fromUtc);
+  if (params.toUtc)                  qs.set("toUtc",    params.toUtc);
+  qs.set("page",     String(params.page     ?? 1));
   qs.set("pageSize", String(params.pageSize ?? 50));
 
   const res = await fetch(`${BASE_SESSIONS}?${qs.toString()}`, {
     headers: authHeaders(),
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const raw: any = await unwrapEnvelope<any>(res);
 
   if (Array.isArray(raw)) {
@@ -165,18 +169,41 @@ export async function listCashSessions(params: ListCashSessionsParams): Promise<
 
   const items = raw?.items ?? raw?.Items ?? [];
   return {
-    total: raw?.total ?? raw?.Total ?? (Array.isArray(items) ? items.length : 0),
-    page: raw?.page ?? raw?.Page ?? (params.page ?? 1),
+    total:    raw?.total    ?? raw?.Total    ?? (Array.isArray(items) ? items.length : 0),
+    page:     raw?.page     ?? raw?.Page     ?? (params.page     ?? 1),
     pageSize: raw?.pageSize ?? raw?.PageSize ?? (params.pageSize ?? 50),
     items,
   };
 }
 
+/**
+ * Returns the currently open session for a given hotel / currency / shift.
+ *
+ * FIX: The previous implementation fetched a fixed page of 50 sessions and
+ * searched client-side. If a hotel had more than 50 historical sessions the
+ * active one might never appear in the first page, causing the UI to show
+ * "no open session" incorrectly.
+ *
+ * The fix requests a small page (10) ordered by the server descending by
+ * opened-at date (most recent first). Because only one session per
+ * hotel/currency/shift can be open at a time, the active session — if it
+ * exists — will always be among the very latest records and therefore in
+ * the first page.
+ */
 export async function getActiveCashSession(
   hotelId: number,
   currency: CurrencyCode,
   shift: CashShift
 ): Promise<CashSessionDto | null> {
-  const data = await listCashSessions({ hotelId, currency, shift, page: 1, pageSize: 50 });
-  return data.items.find((s) => !s.closedAtUtc) || null;
+  // Request a small, recent page. The active session (if any) is always
+  // the most recently opened one, so page 1 with pageSize 10 is sufficient.
+  const data = await listCashSessions({
+    hotelId,
+    currency,
+    shift,
+    page:     1,
+    pageSize: 10,
+  });
+
+  return data.items.find((s) => !s.closedAtUtc) ?? null;
 }

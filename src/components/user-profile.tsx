@@ -49,8 +49,9 @@ type ChangePasswordRequest = {
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL
 
+// BUG FIX #8: Changed localStorage → sessionStorage for token reads.
 async function apiRequest<T>(url: string, options: RequestInit): Promise<T> {
-  const token = localStorage.getItem("token")
+  const token = sessionStorage.getItem("token") // BUG FIX #8: was localStorage
   if (!token) throw new Error("No token found. Please log in again.")
 
   const res = await fetch(url, {
@@ -119,19 +120,16 @@ function validatePassword(pw: string): string | null {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 const UserProfile = () => {
-  // ── Loading state
   const [profile, setProfile]     = useState<ProfileView | null>(null)
   const [loading, setLoading]     = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  // ── Profile edit state
   const [editing, setEditing]         = useState(false)
   const [editForm, setEditForm]       = useState<{ firstName: string; lastName: string; email: string; phone: string }>({ firstName: "", lastName: "", email: "", phone: "" })
   const [saving, setSaving]           = useState(false)
   const [saveError, setSaveError]     = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
 
-  // ── Password change state
   const [pwSection, setPwSection]     = useState(false)
   const [pwForm, setPwForm]           = useState({ current: "", next: "", confirm: "" })
   const [showCurrent, setShowCurrent] = useState(false)
@@ -142,7 +140,6 @@ const UserProfile = () => {
   const [pwSuccess, setPwSuccess]     = useState(false)
   const [pwFieldErrors, setPwFieldErrors] = useState<{ current?: string; next?: string; confirm?: string }>({})
 
-  // ── Avatar initials
   const initials = useMemo(() => {
     if (!profile) return "U"
     const fn = profile.firstName.trim()
@@ -152,7 +149,6 @@ const UserProfile = () => {
     return (fn[0] + ln[0]).toUpperCase()
   }, [profile])
 
-  // ── Load profile on mount
   useEffect(() => {
     let mounted = true
     const load = async () => {
@@ -160,7 +156,6 @@ const UserProfile = () => {
       setLoadError(null)
 
       try {
-        // Primary: Staff/me — richer data (hotelName, joinDate)
         const staff = await fetchStaffMe()
         const view: ProfileView = {
           firstName: staff.firstName?.trim() ?? "",
@@ -168,22 +163,23 @@ const UserProfile = () => {
           email:     staff.email             ?? "",
           phone:     staff.phoneNumber       ?? "",
           hotelName: staff.hotelName         ?? (staff.hotelId ? `Hotel #${staff.hotelId}` : ""),
-          role:      staff.role              ?? localStorage.getItem("role") ?? "Staff",
+          // BUG FIX #8: Read role from sessionStorage.
+          role:      staff.role              ?? sessionStorage.getItem("role") ?? "Staff",
           joinDate:  staff.createdAtUtc      ?? "",
         }
         if (mounted) {
           setProfile(view)
           setEditForm({ firstName: view.firstName, lastName: view.lastName, email: view.email, phone: view.phone })
-          localStorage.setItem("displayName", `${view.firstName} ${view.lastName}`.trim() || "User")
-          if (view.email) localStorage.setItem("email", view.email)
+          // BUG FIX #8: Write display metadata to sessionStorage.
+          sessionStorage.setItem("displayName", `${view.firstName} ${view.lastName}`.trim() || "User")
+          if (view.email) sessionStorage.setItem("email", view.email)
         }
         return
       } catch {
-        // Staff/me failed (no staff profile or 403) — fall back to auth/me
+        // Staff/me failed — fall back to auth/me
       }
 
       try {
-        // Fallback: auth/me — now returns firstName, lastName, phoneNumber
         const auth = await fetchAuthMe()
         const view: ProfileView = {
           firstName: auth.firstName?.trim() ?? "",
@@ -191,7 +187,7 @@ const UserProfile = () => {
           email:     auth.email             ?? "",
           phone:     auth.phoneNumber       ?? "",
           hotelName: "",
-          role:      auth.roles?.[0] ?? localStorage.getItem("role") ?? "User",
+          role:      auth.roles?.[0] ?? sessionStorage.getItem("role") ?? "User", // BUG FIX #8
           joinDate:  "",
         }
         if (mounted) {
@@ -199,8 +195,8 @@ const UserProfile = () => {
           setEditForm({ firstName: view.firstName, lastName: view.lastName, email: view.email, phone: view.phone })
           const displayName = [view.firstName, view.lastName].filter(Boolean).join(" ").trim()
             || auth.userName || auth.email || "User"
-          localStorage.setItem("displayName", displayName)
-          if (view.email) localStorage.setItem("email", view.email)
+          sessionStorage.setItem("displayName", displayName) // BUG FIX #8
+          if (view.email) sessionStorage.setItem("email", view.email)
         }
       } catch (e: any) {
         if (mounted) setLoadError(e?.message || "Failed to load profile.")
@@ -213,7 +209,6 @@ const UserProfile = () => {
     return () => { mounted = false }
   }, [])
 
-  // ── Save profile changes
   const handleSave = async () => {
     if (!editForm.firstName.trim()) { setSaveError("First name is required."); return }
     if (!editForm.email.trim())     { setSaveError("Email is required."); return }
@@ -241,8 +236,8 @@ const UserProfile = () => {
       setProfile(newProfile)
       setEditing(false)
       setSaveSuccess(true)
-      localStorage.setItem("displayName", `${newProfile.firstName} ${newProfile.lastName}`.trim() || "User")
-      if (newProfile.email) localStorage.setItem("email", newProfile.email)
+      sessionStorage.setItem("displayName", `${newProfile.firstName} ${newProfile.lastName}`.trim() || "User") // BUG FIX #8
+      if (newProfile.email) sessionStorage.setItem("email", newProfile.email) // BUG FIX #8
 
       setTimeout(() => setSaveSuccess(false), 3000)
     } catch (e: any) {
@@ -258,7 +253,6 @@ const UserProfile = () => {
     if (profile) setEditForm({ firstName: profile.firstName, lastName: profile.lastName, email: profile.email, phone: profile.phone })
   }
 
-  // ── Change password
   const handleChangePassword = async () => {
     const errors: typeof pwFieldErrors = {}
     if (!pwForm.current.trim()) errors.current = "Current password is required."
@@ -285,7 +279,6 @@ const UserProfile = () => {
     }
   }
 
-  // ── Render: loading / error states
   if (loading) {
     return (
       <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
@@ -305,7 +298,6 @@ const UserProfile = () => {
 
   const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(" ") || "User"
 
-  // ── EDIT MODE ─────────────────────────────────────────────────────────────
   if (editing) {
     return (
       <div className="space-y-6">
@@ -379,18 +371,15 @@ const UserProfile = () => {
     )
   }
 
-  // ── VIEW MODE ─────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
 
-      {/* Success banner */}
       {saveSuccess && (
         <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
           Profile updated successfully.
         </div>
       )}
 
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">My Profile</h2>
         <Button variant="outline" size="sm" onClick={() => setEditing(true)} className="gap-2">
@@ -399,7 +388,6 @@ const UserProfile = () => {
         </Button>
       </div>
 
-      {/* Avatar + name + role */}
       <div className="flex flex-col items-center gap-3 py-2">
         <Avatar className="h-20 w-20 text-lg font-semibold">
           <AvatarFallback className="bg-primary/10 text-primary">{initials}</AvatarFallback>
@@ -412,7 +400,6 @@ const UserProfile = () => {
 
       <Separator />
 
-      {/* Info rows */}
       <div className="space-y-3">
         {profile.email && (
           <div className="flex items-center gap-3 text-sm">
@@ -445,7 +432,6 @@ const UserProfile = () => {
 
       <Separator />
 
-      {/* Change password section */}
       <div>
         <button
           type="button"
@@ -471,7 +457,6 @@ const UserProfile = () => {
               </div>
             )}
 
-            {/* Current password */}
             <div className="space-y-1.5">
               <Label htmlFor="pw-current">Current Password</Label>
               <div className="relative">
@@ -496,7 +481,6 @@ const UserProfile = () => {
               {pwFieldErrors.current && <p className="text-xs text-red-500">{pwFieldErrors.current}</p>}
             </div>
 
-            {/* New password */}
             <div className="space-y-1.5">
               <Label htmlFor="pw-new">New Password</Label>
               <div className="relative">
@@ -520,7 +504,6 @@ const UserProfile = () => {
               </div>
               {pwFieldErrors.next && <p className="text-xs text-red-500">{pwFieldErrors.next}</p>}
 
-              {/* Password strength hints */}
               {pwForm.next && (
                 <ul className="text-xs text-muted-foreground space-y-0.5 pl-0.5 mt-1">
                   {[
@@ -537,7 +520,6 @@ const UserProfile = () => {
               )}
             </div>
 
-            {/* Confirm new password */}
             <div className="space-y-1.5">
               <Label htmlFor="pw-confirm">Confirm New Password</Label>
               <div className="relative">

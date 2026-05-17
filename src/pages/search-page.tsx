@@ -42,7 +42,7 @@ export default function SearchPage() {
   const [staff, setStaff] = useState<StaffSearchResultDto[]>([]);
 
   const hotelId = useMemo(() => {
-    const raw = localStorage.getItem("hotelId");
+    const raw = sessionStorage.getItem("hotelId"); // BUG FIX #8: was localStorage
     const n = raw ? Number(raw) : NaN;
     return Number.isFinite(n) ? n : undefined;
   }, []);

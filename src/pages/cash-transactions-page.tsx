@@ -84,7 +84,7 @@ function fmtTime(utc: string): string {
 // ── Role helpers ──────────────────────────────────────────────────────────────
 
 function getStoredRole(): string {
-  return localStorage.getItem("role") ?? "";
+  return sessionStorage.getItem("role") ?? ""; // BUG FIX #8: was localStorage
 }
 
 function isAdminOrManager(role: string): boolean {
@@ -171,7 +171,7 @@ const DEFAULT_FORM: CreateFormState = {
 // ── Hotel fetch ───────────────────────────────────────────────────────────────
 
 async function fetchHotelsForAdmin(): Promise<Hotel[]> {
-  const token = localStorage.getItem("token") ?? "";
+  const token = sessionStorage.getItem("token") ?? ""; // BUG FIX #8: was localStorage
   const qs = new URLSearchParams({ pageSize: "500", pageNumber: "1", name: " " });
   const res = await fetch(`${BASE_URL}/Hotel/search?${qs.toString()}`, {
     headers: { Authorization: `Bearer ${token}` },

@@ -10,8 +10,10 @@ export interface CreateUserAccountRequest {
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
+// BUG FIX #8 (extended): Changed localStorage → sessionStorage.
+// The login page writes the token to sessionStorage; all reads must use the same store.
 export async function createUserAccount(payload: CreateUserAccountRequest) {
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token"); // BUG FIX #8: was localStorage
   if (!token) throw new Error("No auth token. Please log in again.");
 
   const res = await fetch(`${BASE_URL}/auth/register`, {

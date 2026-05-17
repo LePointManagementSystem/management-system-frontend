@@ -14,7 +14,6 @@ export interface LoginResponse {
   roles?: string[]
 }
 
-
 export interface AuthMeDto {
   id: string
   email: string
@@ -22,9 +21,10 @@ export interface AuthMeDto {
   roles: string[]
 }
 
-  
+// BUG FIX #8: Changed localStorage → sessionStorage.
+// Token is written to sessionStorage in login-page.tsx; reads must use the same store.
 function getTokenOrThrow(): string {
-  const token = localStorage.getItem("token")
+  const token = sessionStorage.getItem("token") // BUG FIX #8: was localStorage
   if (!token) throw new Error("No auth token found. Please log in again.")
   return token
 }
@@ -38,7 +38,6 @@ export const login = async (credentials: LoginCredentials): Promise<LoginRespons
       body: JSON.stringify(credentials),
     })
 
-    // 👉 Essayer de lire le body en JSON, sinon fallback texte
     const rawText = await response.text()
     let payload: any = null
     try {
@@ -56,7 +55,6 @@ export const login = async (credentials: LoginCredentials): Promise<LoginRespons
       return { succeeded: false, message: msg }
     }
 
-    // ✅ Supporte plusieurs formats possibles
     const root = payload?.data ?? payload
 
     const token: string | undefined = root?.token
@@ -75,7 +73,6 @@ export const login = async (credentials: LoginCredentials): Promise<LoginRespons
   }
 }
 
-// 🔹 Profil Identity du user connecté (GET /api/auth/me)
 export const fetchAuthMe = async (): Promise<AuthMeDto> => {
   const token = getTokenOrThrow()
 

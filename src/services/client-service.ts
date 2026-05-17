@@ -3,16 +3,29 @@ import { Guest } from "@/types/client";
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const GUESTS_URL = `${BASE_URL}/Guest`;
 
-function getToken(): string | null {
-  return localStorage.getItem("token");
+/**
+ * BUG FIX: Previously returned `null` silently.
+ * This caused requests to go out with `Authorization: Bearer null` (literally
+ * the string "null"), which is an invalid header that the server rejects with
+ * a cryptic 401 instead of a clear "please log in" message.
+ *
+ * Fix: throw immediately so the calling page can show a proper error message.
+ *
+ * BUG FIX #8 (extended): Changed localStorage → sessionStorage.
+ * The login page writes the token to sessionStorage; all reads must use the same store.
+ */
+function getToken(): string {
+  const token = sessionStorage.getItem("token"); // BUG FIX #8: was localStorage
+  if (!token) throw new Error("Not authenticated. Please log in again.");
+  return token;
 }
 
 function normalizeGuest(raw: Record<string, unknown>): Guest {
   return {
-    id: ((raw.id ?? raw.Id) as string) || undefined,
+    id:        ((raw.id        ?? raw.Id)        as string) || undefined,
     firstName: ((raw.firstName ?? raw.FirstName) as string) ?? "",
-    lastName: ((raw.lastName ?? raw.LastName) as string) ?? "",
-    cin: ((raw.cin ?? raw.cIN ?? raw.CIN) as string) ?? "",
+    lastName:  ((raw.lastName  ?? raw.LastName)  as string) ?? "",
+    cin:       ((raw.cin       ?? raw.cIN ?? raw.CIN) as string) ?? "",
   };
 }
 
@@ -28,11 +41,35 @@ export async function fetchGuests(): Promise<Guest[]> {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch guests (${response.status})`);
+    throw new Error(`Failed to fetch clients (${response.status})`);
   }
 
   const data = await response.json();
-  return (data as Record<string, unknown>[]).map(normalizeGuest);
+  const list = data?.data ?? data?.Data ?? data;
+  if (!Array.isArray(list)) return [];
+  return (list as Record<string, unknown>[]).map(normalizeGuest);
+}
+
+export async function fetchGuest(id: string): Promise<Guest | null> {
+  const token = getToken();
+
+  const response = await fetch(`${GUESTS_URL}/${id}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (response.status === 404) return null;
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch client (${response.status})`);
+  }
+
+  const data = await response.json();
+  const raw  = (data?.data ?? data?.Data ?? data) as Record<string, unknown>;
+  return normalizeGuest(raw);
 }
 
 export async function addGuest(guest: Omit<Guest, "id">): Promise<Guest> {
@@ -47,21 +84,28 @@ export async function addGuest(guest: Omit<Guest, "id">): Promise<Guest> {
     },
     body: JSON.stringify({
       firstName: guest.firstName,
-      lastName: guest.lastName,
-      cin: guest.cin,
+      lastName:  guest.lastName,
+      cin:       guest.cin,
     }),
   });
 
   if (response.status === 409) {
-    throw new Error("A guest with this CIN already exists.");
+    throw new Error("A client with this CIN already exists.");
   }
 
   if (!response.ok) {
-    throw new Error(`Failed to add guest (${response.status})`);
+    const text = await response.text();
+    try {
+      const parsed = JSON.parse(text);
+      throw new Error(parsed?.message ?? parsed?.error ?? `Failed to add client (${response.status})`);
+    } catch {
+      throw new Error(`Failed to add client (${response.status})`);
+    }
   }
 
   const data = await response.json();
-  return normalizeGuest(data as Record<string, unknown>);
+  const raw  = (data?.data ?? data?.Data ?? data) as Record<string, unknown>;
+  return normalizeGuest(raw);
 }
 
 export async function updateGuest(
@@ -78,17 +122,23 @@ export async function updateGuest(
     },
     body: JSON.stringify({
       firstName: guest.firstName,
-      lastName: guest.lastName,
-      cin: guest.cin,
+      lastName:  guest.lastName,
+      cin:       guest.cin,
     }),
   });
 
   if (response.status === 409) {
-    throw new Error("A guest with this CIN already exists.");
+    throw new Error("A client with this CIN already exists.");
   }
 
   if (!response.ok) {
-    throw new Error(`Failed to update guest (${response.status})`);
+    const text = await response.text();
+    try {
+      const parsed = JSON.parse(text);
+      throw new Error(parsed?.message ?? parsed?.error ?? `Failed to update client (${response.status})`);
+    } catch {
+      throw new Error(`Failed to update client (${response.status})`);
+    }
   }
 }
 
@@ -102,19 +152,13 @@ export async function deleteGuest(id: string): Promise<void> {
     },
   });
 
-  if (response.status === 409) {
-    const msg = await response.text();
-    throw new Error(
-      msg?.trim() ||
-        "This client has existing bookings and cannot be deleted. Please cancel or reassign their bookings first."
-    );
-  }
-
   if (!response.ok) {
-    throw new Error(`Failed to delete guest (${response.status})`);
+    const text = await response.text();
+    try {
+      const parsed = JSON.parse(text);
+      throw new Error(parsed?.message ?? parsed?.error ?? `Failed to delete client (${response.status})`);
+    } catch {
+      throw new Error(`Failed to delete client (${response.status})`);
+    }
   }
 }
-
-export const fetchGuest = fetchGuests;
-
-export type CreateGuestPayload = Omit<Guest, "id">;

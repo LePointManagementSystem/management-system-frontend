@@ -26,8 +26,10 @@ type ExportGuestsParams = {};
 type ExportStaffParams = {};
 type ExportHotelStructureParams = {};
 
+// BUG FIX #8 (extended): Changed localStorage → sessionStorage.
+// The login page writes the token to sessionStorage; all reads must use the same store.
 function tokenOrThrow(): string {
-  const t = localStorage.getItem("token");
+  const t = sessionStorage.getItem("token"); // BUG FIX #8: was localStorage
   if (!t) throw new Error("Not authenticated. Please log in again.");
   return t;
 }
@@ -99,7 +101,6 @@ async function exportExcel(
   const blob = await res.blob();
 
   const cd = res.headers.get("content-disposition");
-  // ✅ finalName est garanti string (pas null)
   const finalName = pickFilenameFromContentDisposition(cd) || fallbackFilename;
 
   downloadBlob(blob, finalName);

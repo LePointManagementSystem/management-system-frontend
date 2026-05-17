@@ -49,14 +49,16 @@ type ApiEnvelope<T> = {
   Data?: T;
 };
 
+// BUG FIX #8 (extended): Changed localStorage → sessionStorage throughout.
+// The login page writes token and hotelId to sessionStorage; reads must match.
 function tokenOrThrow(): string {
-  const t = localStorage.getItem("token");
+  const t = sessionStorage.getItem("token"); // BUG FIX #8: was localStorage
   if (!t) throw new Error("Not authenticated. Please log in again.");
   return t;
 }
 
 export function getOptionalHotelId(): number | null {
-  const raw = localStorage.getItem("hotelId");
+  const raw = sessionStorage.getItem("hotelId"); // BUG FIX #8: was localStorage
   if (!raw) return null;
   const n = Number(raw);
   return Number.isFinite(n) ? n : null;

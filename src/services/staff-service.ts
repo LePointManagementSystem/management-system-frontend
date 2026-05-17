@@ -3,8 +3,10 @@ import { Staff, StaffCreateRequest } from "@/types/staff";
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const STAFF_URL = `${BASE_URL}/staff`;
 
+// BUG FIX #8 (extended): Changed localStorage → sessionStorage.
+// The login page writes the token to sessionStorage; all reads must use the same store.
 function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token"); // BUG FIX #8: was localStorage
   return {
     Accept: "application/json",
     Authorization: `Bearer ${token}`,

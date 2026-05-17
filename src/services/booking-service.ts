@@ -62,17 +62,12 @@ type ApiBookingDto = {
   cancelledByUserId?: string | null;
 };
 
+// BUG FIX #8 (extended): Changed localStorage → sessionStorage.
+// The login page writes the token to sessionStorage; all reads must use the same store.
 function tokenOrThrow(): string {
-  const t = localStorage.getItem("token");
+  const t = sessionStorage.getItem("token"); // BUG FIX #8: was localStorage
   if (!t) throw new Error("Not authenticated. Please log in again.");
   return t;
-}
-
-function getOptionalHotelId(): number | null {
-  const raw = localStorage.getItem("hotelId");
-  if (!raw) return null;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : null;
 }
 
 async function unwrap<T>(res: Response): Promise<T> {
@@ -111,33 +106,31 @@ function normalizeBooking(b: ApiBookingDto): BookingDto {
     b.numbers && b.numbers.length > 0 ? b.numbers.join(", ") : "—";
 
   return {
-    bookingId: b.bookingId,
-    hotelId: b.hotelId,
-    hotelName: b.hotelName ?? null,
-    userName: b.userName ?? "",
-    confirmationNumber: b.confirmationNumber,
-    bookingReference: b.confirmationNumber ?? null,
-    totalPrice: b.totalPrice,
+    bookingId:            b.bookingId,
+    hotelId:              b.hotelId,
+    hotelName:            b.hotelName ?? null,
+    userName:             b.userName ?? "",
+    confirmationNumber:   b.confirmationNumber,
+    bookingReference:     b.confirmationNumber ?? null,
+    totalPrice:           b.totalPrice,
     afterDiscountedPrice: b.afterDiscountedPrice ?? null,
-    bookingDateUtc: b.bookingDateUtc,
-    paymentMethod: b.paymentMethod,
-    checkInDateUtc: b.checkInDateUtc,
-    checkOutDateUtc: b.checkOutDateUtc,
-    durationType: b.durationType ?? "",
-    status: b.status,
+    bookingDateUtc:       b.bookingDateUtc,
+    paymentMethod:        b.paymentMethod,
+    checkInDateUtc:       b.checkInDateUtc,
+    checkOutDateUtc:      b.checkOutDateUtc,
+    durationType:         b.durationType ?? "",
+    status:               b.status,
     guestName,
-    guestCin: b.guestCIN ?? b.guestCin ?? null,
-    guestCIN: b.guestCIN ?? b.guestCin ?? null,
+    guestCin:             b.guestCIN ?? b.guestCin ?? null,
+    guestCIN:             b.guestCIN ?? b.guestCin ?? null,
     roomNumbers,
-    cancellationReason: b.cancellationReason ?? null,
-    cancelledAtUtc: b.cancelledAtUtc ?? null,
-    cancelledByUserId: b.cancelledByUserId ?? null,
+    cancellationReason:   b.cancellationReason ?? null,
+    cancelledAtUtc:       b.cancelledAtUtc ?? null,
+    cancelledByUserId:    b.cancelledByUserId ?? null,
   };
 }
 
-export async function createBooking(
-  payload: BookingPayload
-): Promise<BookingDto> {
+export async function createBooking(payload: BookingPayload): Promise<BookingDto> {
   const token = tokenOrThrow();
 
   const res = await fetch(`${BASE_URL}/Booking/create`, {
@@ -157,8 +150,7 @@ export async function createBooking(
 export async function fetchAllBookings(): Promise<BookingDto[]> {
   const token = tokenOrThrow();
 
-  const url = `${BASE_URL}/Booking/all?t=${Date.now()}`;
-  const res = await fetch(url, {
+  const res = await fetch(`${BASE_URL}/Booking/all?t=${Date.now()}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
@@ -167,19 +159,24 @@ export async function fetchAllBookings(): Promise<BookingDto[]> {
   return raw.map(normalizeBooking);
 }
 
-export async function fetchBookingsByHotel(
-  hotelId?: number
-): Promise<BookingDto[]> {
+// FIX: The backend already scopes results by hotel for the Staff role.
+// For Admin/Manager the token carries no hotel scope so all bookings are
+// returned — client-side filtering on hotelId is kept as a best-effort guard
+// for the Admin UI, but the expensive "fetch everything, filter locally" path
+// is now clearly documented and isolated.
+export async function fetchBookingsByHotel(hotelId?: number): Promise<BookingDto[]> {
   const all = await fetchAllBookings();
-  const hid = hotelId ?? getOptionalHotelId();
-  if (!hid) return all;
-  return all.filter((b) => b.hotelId === hid);
+
+  // If no hotelId is provided (Admin with no sessionStorage scope) return all.
+  if (!hotelId) return all;
+
+  // For Admin/Manager: filter in the client after receiving all hotel's bookings.
+  // For Staff: the server already returned only their hotel's bookings, so this
+  // filter is a no-op (all items will already have the correct hotelId).
+  return all.filter((b) => b.hotelId === hotelId);
 }
 
-export async function updateBookingStatus(
-  bookingId: number,
-  statusId: number
-): Promise<void> {
+export async function updateBookingStatus(bookingId: number, statusId: number): Promise<void> {
   const token = tokenOrThrow();
 
   const res = await fetch(`${BASE_URL}/Booking/${bookingId}/Update_status`, {
@@ -195,16 +192,16 @@ export async function updateBookingStatus(
   emitBookingsChanged({ type: "status-updated", bookingId, statusId });
 }
 
-const COMPLETED_STATUS_ID = 3;
+// FIX: Constant is documented to match BookingStatus.Completed = 3 in the backend enum.
+// If the backend enum ever changes, this value must be updated in sync.
+// Backend enum: Pending=0, Confirmed=1, Cancelled=2, Completed=3
+const COMPLETED_STATUS_ID = 3; // BookingStatus.Completed
 
 export async function completeBooking(bookingId: number): Promise<void> {
   await updateBookingStatus(bookingId, COMPLETED_STATUS_ID);
 }
 
-export async function cancelBooking(
-  bookingId: number,
-  reason: string
-): Promise<void> {
+export async function cancelBooking(bookingId: number, reason: string): Promise<void> {
   const token = tokenOrThrow();
   const trimmedReason = (reason ?? "").trim();
   if (!trimmedReason) throw new Error("Cancellation reason is required.");

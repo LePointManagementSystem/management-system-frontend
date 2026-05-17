@@ -159,6 +159,8 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
                                             <SelectItem value="Standard">Standard</SelectItem>
                                             <SelectItem value="Deluxe">Deluxe</SelectItem>
                                             <SelectItem value="Suite">Suite</SelectItem>
+                                            {/* UX2: Ajout BeachFront */}
+                                            <SelectItem value="BeachFront">BeachFront</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -176,7 +178,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
                                 </div>
                                 <div className="grid grid-cols-4 items-center gap-4">
                                     <Label htmlFor="room-price" className="text-right">
-                                        Price
+                                        Price (HTG)
                                     </Label>
                                     <Input
                                         id="room-price"
@@ -218,7 +220,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
                         <TableHead>Room Number</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Capacity</TableHead>
-                        <TableHead>Price</TableHead>
+                        <TableHead>Price (HTG)</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Client</TableHead>
                         <TableHead>Actions</TableHead>
@@ -230,7 +232,8 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
                             <TableCell>{room.number}</TableCell>
                             <TableCell>{room.type}</TableCell>
                             <TableCell>{room.capacity}</TableCell>
-                            <TableCell>GHT{room.price}</TableCell>
+                            {/* Bug2 FIX: was HTG{room.price} (typo) → HTG + espace + toFixed(2) */}
+                            <TableCell>HTG {room.price.toFixed(2)}</TableCell>
                             <TableCell>{room.status}</TableCell>
                             <TableCell>{room.client ? room.client.name : 'N/A'}</TableCell>
                             <TableCell>
@@ -276,6 +279,8 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
                                                                 <SelectItem value="Standard">Standard</SelectItem>
                                                                 <SelectItem value="Deluxe">Deluxe</SelectItem>
                                                                 <SelectItem value="Suite">Suite</SelectItem>
+                                                                {/* UX2: Ajout BeachFront */}
+                                                                <SelectItem value="BeachFront">BeachFront</SelectItem>
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
@@ -293,7 +298,7 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
                                                     </div>
                                                     <div className="grid grid-cols-4 items-center gap-4">
                                                         <Label htmlFor="edit-room-price" className="text-right">
-                                                            Price
+                                                            Price (HTG)
                                                         </Label>
                                                         <Input
                                                             id="edit-room-price"
@@ -369,4 +374,3 @@ export const RoomManagement: React.FC<RoomManagementProps> = ({
 };
 
 export default RoomManagement;
-

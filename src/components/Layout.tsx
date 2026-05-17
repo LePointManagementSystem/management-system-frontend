@@ -28,6 +28,9 @@ interface LayoutProps {
 
 type Role = "Admin" | "Manager" | "Receptionist" | "Staff" | "HR" | "User";
 
+// BUG FIX #8 (extended): Changed localStorage → sessionStorage throughout.
+// Login page writes all session data to sessionStorage; reads must use the same store.
+// Logout clears BOTH sessionStorage and localStorage to remove any stale legacy data.
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const toggleSidebar = () => setIsSidebarOpen((v) => !v);
@@ -35,6 +38,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
+    // Clear sessionStorage (current store)
+    sessionStorage.removeItem("token");      // BUG FIX #8: was localStorage
+    sessionStorage.removeItem("role");
+    sessionStorage.removeItem("roles");
+    sessionStorage.removeItem("hotelId");
+    sessionStorage.removeItem("displayName");
+    sessionStorage.removeItem("email");
+    // Also clear localStorage so stale pre-fix tokens don't linger
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("roles");
@@ -44,10 +55,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     navigate("/login");
   };
 
-  const userRole = (localStorage.getItem("role") || "Staff") as Role;
+  const userRole = (sessionStorage.getItem("role") || "Staff") as Role; // BUG FIX #8
 
   const displayName = useMemo(
-    () => localStorage.getItem("displayName") || localStorage.getItem("email") || "User",
+    () => sessionStorage.getItem("displayName") || sessionStorage.getItem("email") || "User", // BUG FIX #8
     []
   );
 
