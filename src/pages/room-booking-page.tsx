@@ -53,6 +53,12 @@ import { formatHaitiLongDateTime } from "@/utils/datetime"
 import { calculateCheckInOut, type BookingDurationUI } from "@/utils/booking-helpers"
 import { fetchMyStaffProfile } from "@/services/staff-service"
 import type { Staff } from "@/types/staff"
+// FIX: Import getRoomClassPricings pour charger la grille de prix réelle
+import {
+  getRoomClassPricings,
+  type RoomClassPricingDto,
+  DURATION_TYPE_OPTIONS,
+} from "@/services/room-class-service"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -67,6 +73,20 @@ const DURATION_TYPE_MAP: Record<BookingDurationUI, number> = {
   "7h": 7,
   "8h": 8,
   stay: 9,
+}
+
+// FIX: Map inverse — valeur entière → BookingDurationUI label pour chercher dans DURATION_TYPE_OPTIONS
+const DURATION_VALUE_TO_UI: Record<number, BookingDurationUI> = {
+  0: "2h",
+  1: "4h",
+  2: "overnight",
+  3: "1h",
+  4: "3h",
+  5: "5h",
+  6: "6h",
+  7: "7h",
+  8: "8h",
+  9: "stay",
 }
 
 const PAYMENT_METHODS = [
@@ -113,23 +133,80 @@ function formatDateTime(date: Date): string {
   return formatHaitiLongDateTime(date)
 }
 
-function formatPrice(amount: number): string {
-  return `HTG ${amount.toLocaleString("en-US", {
+function formatPrice(amount: number, currency = "HTG"): string {
+  return `${currency} ${amount.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
 }
 
-/** Rough price estimate for the chosen duration */
-function estimateRoomPrice(room: Room, duration: BookingDurationUI): { amount: number; suffix: string } {
-  const base = room.pricePerNight ?? 0
-  if (duration === "stay" || duration === "overnight") {
-    return { amount: base, suffix: "/ night" }
+/**
+ * FIX: Remplace estimateRoomPrice() par getClassPrice().
+ *
+ * Ancienne logique : calculait un prix APPROXIMATIF basé sur room.pricePerNight
+ * (prix individuel de la chambre), ce qui donnait des estimations incorrectes
+ * pour le modèle haïtien (ex: "2h estimé" calculé comme pricePerNight/24*2).
+ *
+ * Nouvelle logique : lit directement la grille RoomClassPricing chargée depuis
+ * l'API pour la catégorie sélectionnée. Retourne le prix EXACT configuré par
+ * l'administrateur pour cette durée.
+ *
+ * Pour "Stay" avec plusieurs nuits : prix × nombre de jours.
+ */
+function getClassPrice(
+  pricings: RoomClassPricingDto[],
+  duration: BookingDurationUI,
+  nights: number
+): { amount: number; suffix: string; currency: string; found: boolean } {
+  const durationValue = DURATION_TYPE_MAP[duration]
+
+  // Cherche la ligne dans la grille correspondant à cette durée
+  const line = pricings.find((p) => {
+    // L'API retourne le label string (ex: "Hours2", "Overnight", "Stay")
+    // DURATION_TYPE_OPTIONS contient { value: number, label: string }
+    const opt = DURATION_TYPE_OPTIONS.find((o) => o.value === durationValue)
+    if (!opt) return false
+    // Correspond si durationType de l'API matche le nom de l'enum
+    return p.durationType === durationValueToApiLabel(durationValue)
+  })
+
+  if (!line) {
+    return { amount: 0, suffix: "non configuré", currency: "HTG", found: false }
   }
-  const hours = getDurationHours(duration) ?? 1
-  const estimated = Math.round((base / 24) * hours)
-  // Bug3 FIX: suffix "for Xh" → "~Xh (estimé)" pour indiquer que c'est une approximation
-  return { amount: estimated, suffix: `~${hours}h (estimé)` }
+
+  const currency = line.currency === "USD" ? "USD" : "HTG"
+
+  if (duration === "stay") {
+    const totalAmount = line.price * Math.max(1, nights)
+    return {
+      amount: totalAmount,
+      suffix: nights > 1 ? `${nights} nuit(s)` : "/ nuit",
+      currency,
+      found: true,
+    }
+  }
+
+  return { amount: line.price, suffix: durationLabel(duration), currency, found: true }
+}
+
+/**
+ * Convertit la valeur entière du BookingDurationType en label string
+ * tel que renvoyé par l'API (ex: 0 → "Hours2", 2 → "Overnight", 9 → "Stay").
+ */
+function durationValueToApiLabel(value: number): string {
+  const map: Record<number, string> = {
+    0: "Hours2",
+    1: "Hours4",
+    2: "Overnight",
+    3: "Hours1",
+    4: "Hours3",
+    5: "Hours5",
+    6: "Hours6",
+    7: "Hours7",
+    8: "Hours8",
+    9: "Stay",
+  }
+  return map[value] ?? ""
 }
 
 function nowAsTimeString(): string {
@@ -286,6 +363,10 @@ const RoomBookingPage: React.FC = () => {
   const [selectedRoom, setSelectedRoom] = useState<number | null>(null)
   const [selectedRoomClass, setSelectedRoomClass] = useState<RoomClass | null>(null)
 
+  // FIX: État pour la grille de prix de la catégorie sélectionnée
+  const [classRoomPricings, setClassRoomPricings] = useState<RoomClassPricingDto[]>([])
+  const [pricingsLoading, setPricingsLoading] = useState(false)
+
   const [clientTab, setClientTab] = useState<"existing" | "new">("existing")
   const [selectedClientId, setSelectedClientId] = useState("")
   const [newClient, setNewClient] = useState({ firstName: "", lastName: "", cin: "" })
@@ -390,6 +471,15 @@ const RoomBookingPage: React.FC = () => {
     [existingClients, selectedClientId]
   )
 
+  // FIX: Calcul du nombre de nuits pour le mode "Stay"
+  const stayNights = useMemo(() => {
+    if (bookingDuration !== "stay" || !stayCheckOutDate) return 1
+    const diff = Math.ceil(
+      (stayCheckOutDate.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
+    )
+    return Math.max(1, diff)
+  }, [bookingDuration, date, stayCheckOutDate])
+
   const isClientValid = useCallback((): boolean => {
     if (clientTab === "existing") return selectedClientId.trim().length > 0
     return newClient.firstName.trim().length > 0 && newClient.lastName.trim().length > 0
@@ -449,7 +539,14 @@ const RoomBookingPage: React.FC = () => {
 
       setSelectedRoomClass(selectedClass)
 
-      const rawRooms = await fetchAvailableRooms(selectedClass.roomClassID)
+      // FIX: Charger la grille de prix de cette catégorie en parallèle des chambres
+      setPricingsLoading(true)
+      const [rawRooms, pricings] = await Promise.all([
+        fetchAvailableRooms(selectedClass.roomClassID),
+        getRoomClassPricings(selectedClass.roomClassID).catch(() => [] as RoomClassPricingDto[]),
+      ])
+      setClassRoomPricings(pricings)
+      setPricingsLoading(false)
 
       const mappedRooms: Room[] = (rawRooms || []).map(
         (room: Record<string, unknown>): Room => ({
@@ -473,6 +570,7 @@ const RoomBookingPage: React.FC = () => {
       goToStep(1)
     } catch {
       setStepError("Failed to load available rooms. Please check your connection and try again.")
+      setPricingsLoading(false)
     } finally {
       setIsSearching(false)
     }
@@ -632,6 +730,7 @@ const RoomBookingPage: React.FC = () => {
     setAvailableRooms([])
     setSelectedRoom(null)
     setSelectedRoomClass(null)
+    setClassRoomPricings([])
     setSelectedClientId("")
     setNewClient({ firstName: "", lastName: "", cin: "" })
     setClientTab("existing")
@@ -708,7 +807,6 @@ const RoomBookingPage: React.FC = () => {
                   <SelectContent>
                     {filteredRoomClasses.map((rc) => (
                       <SelectItem key={rc.roomClassID} value={rc.name}>
-                        {/* UX4 FIX: n'affiche le type entre parenthèses que s'il n'est pas déjà dans le nom */}
                         {rc.name}
                         {rc.roomType && !rc.name.toLowerCase().includes(rc.roomType.toLowerCase()) && (
                           <span className="text-muted-foreground ml-1">
@@ -966,6 +1064,28 @@ const RoomBookingPage: React.FC = () => {
                 </span>
               )}
             </p>
+
+            {/* FIX: Afficher le prix de la catégorie pour la durée sélectionnée */}
+            {!pricingsLoading && classRoomPricings.length > 0 && (() => {
+              const priceInfo = getClassPrice(classRoomPricings, bookingDuration, stayNights)
+              return priceInfo.found ? (
+                <div className="mt-2 inline-flex items-center gap-2 rounded-md bg-primary/5 border border-primary/20 px-3 py-1.5 text-sm">
+                  <span className="text-muted-foreground">Prix pour</span>
+                  <span className="font-medium">{durationLabel(bookingDuration)}</span>
+                  <span className="text-muted-foreground">:</span>
+                  <span className="font-bold text-primary">
+                    {formatPrice(priceInfo.amount, priceInfo.currency)}
+                  </span>
+                  {bookingDuration === "stay" && stayNights > 1 && (
+                    <span className="text-xs text-muted-foreground">({stayNights} nuits)</span>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-2 text-xs text-amber-600">
+                  ⚠ Prix non configuré pour cette durée dans cette catégorie.
+                </div>
+              )
+            })()}
           </CardHeader>
 
           <CardContent>
@@ -999,14 +1119,19 @@ const RoomBookingPage: React.FC = () => {
                       <TableHead className="font-semibold">Room</TableHead>
                       <TableHead className="font-semibold">Type</TableHead>
                       <TableHead className="font-semibold">Capacity</TableHead>
-                      {/* UX5 FIX: en-tête prix avec devise explicite */}
-                      <TableHead className="font-semibold text-right">Price (HTG)</TableHead>
+                      {/* FIX: En-tête prix dynamique selon la devise de la grille */}
+                      <TableHead className="font-semibold text-right">
+                        {classRoomPricings.length > 0
+                          ? `Prix (${classRoomPricings[0]?.currency ?? "HTG"})`
+                          : "Price"}
+                      </TableHead>
                       <TableHead />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {capacityFilteredRooms.map((room) => {
-                      const price = estimateRoomPrice(room, bookingDuration)
+                      // FIX: Utiliser le prix réel de la grille au lieu d'une estimation
+                      const priceInfo = getClassPrice(classRoomPricings, bookingDuration, stayNights)
                       const className = room.roomClassName || selectedRoomClass?.name || ""
                       const classType = selectedRoomClass?.roomType ?? ""
 
@@ -1023,7 +1148,6 @@ const RoomBookingPage: React.FC = () => {
                             {room.number || `#${room.roomId}`}
                           </TableCell>
                           <TableCell>
-                            {/* UX4 FIX: n'affiche le type que s'il n'est pas déjà dans le nom de la classe */}
                             <Badge variant="outline">
                               {className || classType || "—"}
                             </Badge>
@@ -1032,8 +1156,20 @@ const RoomBookingPage: React.FC = () => {
                             {room.adultsCapacity} guest{room.adultsCapacity !== 1 ? "s" : ""}
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="font-medium">{formatPrice(price.amount)}</div>
-                            <div className="text-xs text-muted-foreground">{price.suffix}</div>
+                            {priceInfo.found ? (
+                              <>
+                                <div className="font-medium">
+                                  {formatPrice(priceInfo.amount, priceInfo.currency)}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {priceInfo.suffix}
+                                </div>
+                              </>
+                            ) : (
+                              <span className="text-xs text-muted-foreground italic">
+                                Non configuré
+                              </span>
+                            )}
                           </TableCell>
                           <TableCell>
                             <Button
@@ -1204,12 +1340,26 @@ const RoomBookingPage: React.FC = () => {
                   <>
                     <span className="text-muted-foreground">Check-out</span>
                     <span className="font-medium">{formatDateTime(stayCheckOutDate)}</span>
+                    <span className="text-muted-foreground">Nights</span>
+                    <span className="font-medium">{stayNights}</span>
                   </>
                 )}
                 <span className="text-muted-foreground">Payment</span>
                 <span className="font-medium">
                   {PAYMENT_METHODS.find((p) => p.value === paymentMethod)?.label ?? "—"}
                 </span>
+                {/* FIX: Afficher le vrai prix de la grille dans le résumé */}
+                {(() => {
+                  const priceInfo = getClassPrice(classRoomPricings, bookingDuration, stayNights)
+                  return priceInfo.found ? (
+                    <>
+                      <span className="text-muted-foreground font-medium">Estimated Price</span>
+                      <span className="font-bold text-base">
+                        {formatPrice(priceInfo.amount, priceInfo.currency)}
+                      </span>
+                    </>
+                  ) : null
+                })()}
               </div>
             </div>
           </CardContent>

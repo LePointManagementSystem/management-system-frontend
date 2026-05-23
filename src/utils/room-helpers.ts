@@ -1,26 +1,17 @@
-// BUG FIX: Removed duplicate `handleDeleteHotelHelper` export and its
-// associated `deleteHotel` import.
-//
-// The original file exported `handleDeleteHotelHelper` which was also exported
-// by `hotel-helpers.ts`. Having two different implementations of the same
-// function with the same name across the codebase creates ambiguity: callers
-// may accidentally import the wrong version, and the two implementations
-// behaved differently (this one had no optimistic rollback; hotel-helpers.ts
-// did). The canonical, correct implementation lives in `hotel-helpers.ts`.
-//
-// This file's responsibility is room management only.
+// room-helpers.ts
+// Responsabilité : gestion des chambres (Room) uniquement.
+// Le prix (PricePerNight) est retiré — il est géré par la grille RoomClassPricing
+// sur la RoomClass via POST /api/RoomClass/{roomClassId}/pricing.
 
 import { addRoom } from "../services/room-service";
-// BUG FIX: removed `import { deleteHotel } from "@/services/hotel-service"`
-// — deleteHotel belongs in hotel-helpers.ts, not here.
 
 export const handleAddRoomToHotelHelper = async (
   newRoom: {
     roomNumber: string;
     roomClassId: string;
-    price: number;
     adultsCapacity: number;
     childrenCapacity: number;
+    // REMOVED: price — géré sur la RoomClass via la grille RoomClassPricing
   },
   selectedHotelId: number | null,
   expandedRows: Set<number>,
@@ -31,8 +22,7 @@ export const handleAddRoomToHotelHelper = async (
   if (
     !newRoom.roomNumber.trim() ||
     newRoom.roomClassId === "" ||
-    newRoom.price <= 0 ||
-    newRoom.adultsCapacity < 0 ||
+    newRoom.adultsCapacity < 1 ||
     newRoom.childrenCapacity < 0 ||
     !selectedHotelId
   ) {
@@ -41,15 +31,12 @@ export const handleAddRoomToHotelHelper = async (
   }
 
   try {
-    await addRoom(
-      Number(newRoom.roomClassId),
-      {
-        number: newRoom.roomNumber,
-        adultsCapacity: newRoom.adultsCapacity,
-        childrenCapacity: newRoom.childrenCapacity,
-        pricePerNight: newRoom.price,
-      }
-    );
+    await addRoom(Number(newRoom.roomClassId), {
+      number: newRoom.roomNumber,
+      adultsCapacity: newRoom.adultsCapacity,
+      childrenCapacity: newRoom.childrenCapacity,
+      // REMOVED: pricePerNight
+    });
 
     alert("Room added successfully!");
 
@@ -59,8 +46,7 @@ export const handleAddRoomToHotelHelper = async (
     setNewRoom({
       roomNumber: "",
       roomClassId: "",
-      price: 0,
-      adultsCapacity: 0,
+      adultsCapacity: 1,
       childrenCapacity: 0,
     });
     setIsRoomDialogOpen(false);
@@ -70,6 +56,5 @@ export const handleAddRoomToHotelHelper = async (
   }
 };
 
-// BUG FIX: `handleDeleteHotelHelper` removed from this file.
-// Use `handleDeleteHotelHelper` from `@/utils/hotel-helpers` instead.
-// That version includes proper optimistic rollback on failure.
+// NOTE: `handleDeleteHotelHelper` est dans `hotel-helpers.ts`, pas ici.
+// Use `handleDeleteHotelHelper` from `@/utils/hotel-helpers` for hotel deletion.

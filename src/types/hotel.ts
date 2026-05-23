@@ -6,9 +6,9 @@ export interface Room {
   number: string
   adultsCapacity: number
   childrenCapacity?: number
-  pricePerNight?: number
+  // REMOVED: pricePerNight — le prix est sur la grille RoomClassPricing de la RoomClass.
   createdAtUtc?: string
-  hotelId?: number 
+  hotelId?: number
 }
 
 export interface Hotel {
@@ -20,7 +20,6 @@ export interface Hotel {
   ownerName: string;
   ownerID?: number;
 }
-
 
 export interface Amenity {
   id: number;
@@ -34,6 +33,17 @@ export interface Image {
   publicId: string;
 }
 
+/**
+ * Un tarif d'une catégorie de chambre pour un type de durée donné.
+ * Modèle haïtien : 1h, 2h, 3h, 4h, 5h, 6h, 7h, 8h, Nuit, Séjour (24h).
+ */
+export interface RoomClassPricing {
+  id: number;
+  durationType: number;      // valeur de l'enum BookingDurationType
+  durationLabel: string;     // libellé lisible, ex: "2 heures", "Nuit (Overnight)"
+  price: number;             // prix en HTG
+}
+
 export interface RoomClass {
   roomClassID: number;
   roomType: string;
@@ -41,6 +51,8 @@ export interface RoomClass {
   description: string;
   hotelName: string;
   hotelId: number;
+  /** Grille de prix par durée (peut être vide si non encore configurée). */
+  pricings: RoomClassPricing[];
 }
 
 export type AvailableRoom = {
@@ -49,7 +61,7 @@ export type AvailableRoom = {
   number: string;
   adultsCapacity: number;
   childrenCapacity: number;
-  pricePerNight: number;
+  // REMOVED: pricePerNight — le prix dépend du DurationType choisi à la réservation.
   createdAtUtc: string;
 };
 
@@ -65,5 +77,5 @@ export interface Booking {
   clientEmail: string;
   clientPhone: string;
   duration: BookingDuration;
-  numbers:[string];
+  numbers: [string];
 }

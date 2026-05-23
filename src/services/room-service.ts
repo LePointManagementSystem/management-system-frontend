@@ -10,13 +10,17 @@ function getAuthHeader(): string {
   return `Bearer ${token}`;
 }
 
+/**
+ * Ajoute une chambre à une catégorie.
+ * NOTE: PricePerNight retiré — le prix est géré par la grille RoomClassPricing
+ * sur la RoomClass (voir POST /api/RoomClass/{roomClassId}/pricing).
+ */
 export const addRoom = async (
   roomClassId: number,
   roomData: {
     number: string;
     adultsCapacity: number;
     childrenCapacity: number;
-    pricePerNight: number;
   }
 ) => {
   const res = await fetch(`${BASE_URL}/RoomClass/${roomClassId}/rooms`, {
@@ -103,7 +107,6 @@ export const fetchAvailableRooms = async (
   const result = await res.json();
 
   if (result.succeeded === false) {
-    // Backend signalled a business-level failure; treat as empty rather than crashing.
     return [];
   }
 
@@ -114,13 +117,16 @@ export const fetchAvailableRooms = async (
   return rooms;
 };
 
+/**
+ * Met à jour une chambre.
+ * NOTE: PricePerNight retiré — le prix est géré sur la RoomClass, pas la chambre individuelle.
+ */
 export const updateRoom = async (
   roomId: number,
   updatedRoomData: {
     number?: string;
     adultsCapacity?: number;
     childrenCapacity?: number;
-    pricePerNight?: number;
   }
 ) => {
   const res = await fetch(`${BASE_URL}/Room/${roomId}`, {
@@ -149,5 +155,70 @@ export const deleteRoom = async (roomId: number) => {
   if (!res.ok) {
     const error = await res.text();
     throw new Error(`Failed to delete room: ${error}`);
+  }
+};
+
+// =============================================================================
+// Pricing de catégorie (RoomClassPricing)
+// Permet de gérer la grille de prix : 1h, 2h, 3h, 4h, 5h, 6h, 7h, 8h, Nuit, Séjour
+// =============================================================================
+
+export const setRoomClassPricing = async (
+  roomClassId: number,
+  pricingData: { durationType: number; price: number }
+) => {
+  const res = await fetch(`${BASE_URL}/RoomClass/${roomClassId}/pricing`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: getAuthHeader(),
+    },
+    body: JSON.stringify(pricingData),
+  });
+
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(`Failed to set pricing: ${error}`);
+  }
+
+  const result = await res.json();
+  return result?.data ?? result;
+};
+
+export const getRoomClassPricings = async (roomClassId: number) => {
+  const token = sessionStorage.getItem("token");
+  const res = await fetch(`${BASE_URL}/RoomClass/${roomClassId}/pricing`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(`Failed to fetch pricings: ${error}`);
+  }
+
+  const result = await res.json();
+  const data = result?.data ?? result?.Data ?? result;
+  return Array.isArray(data) ? data : [];
+};
+
+export const deleteRoomClassPricing = async (
+  roomClassId: number,
+  pricingId: number
+) => {
+  const res = await fetch(
+    `${BASE_URL}/RoomClass/${roomClassId}/pricing/${pricingId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: getAuthHeader() },
+    }
+  );
+
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(`Failed to delete pricing: ${error}`);
   }
 };

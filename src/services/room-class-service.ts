@@ -16,6 +16,10 @@ function getAuthHeaders(): HeadersInit {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Room Classes CRUD
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const getRoomClasses = async (): Promise<RoomClass[]> => {
   const token = sessionStorage.getItem("token")
 
@@ -76,9 +80,6 @@ export const createRoomClass = async (
   return { roomClassID: id }
 }
 
-// FIX: fonction manquante — permet de modifier le nom, le type et la description
-// d'une catégorie existante. Le backend (PUT /api/RoomClass/{id}) existait déjà,
-// mais aucun service frontend ne l'appelait.
 export interface UpdateRoomClassPayload {
   name: string
   roomType: number
@@ -102,9 +103,6 @@ export const updateRoomClass = async (
   }
 }
 
-// FIX: fonction manquante — supprime une catégorie de chambre.
-// Le backend renvoie 409 si la catégorie contient encore des chambres ;
-// dans ce cas l'erreur est propagée à l'UI qui affiche un message explicite.
 export const deleteRoomClass = async (roomClassId: number): Promise<void> => {
   const response = await fetch(`${BASE_URL}/RoomClass/${roomClassId}`, {
     method: "DELETE",
@@ -136,4 +134,119 @@ export const addAmenityToRoomClass = async (
   if (!response.ok) {
     console.warn(`Failed to add amenity "${amenity}" to class ${roomClassId}: ${response.status}`)
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pricing — grille de tarification par catégorie
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Correspondance avec l'enum backend BookingDurationType :
+ *   Hours2=0, Hours4=1, Overnight=2, Hours1=3, Hours3=4,
+ *   Hours5=5, Hours6=6, Hours7=7, Hours8=8, Stay=9
+ */
+export const DURATION_TYPE_OPTIONS = [
+  { value: 3,  label: "1 heure" },
+  { value: 0,  label: "2 heures" },
+  { value: 4,  label: "3 heures" },
+  { value: 1,  label: "4 heures" },
+  { value: 5,  label: "5 heures" },
+  { value: 6,  label: "6 heures" },
+  { value: 7,  label: "7 heures" },
+  { value: 8,  label: "8 heures" },
+  { value: 2,  label: "Nuit (Overnight)" },
+  { value: 9,  label: "Séjour (Stay 24h)" },
+] as const
+
+/**
+ * Correspondance avec l'enum backend CurrencyCode :
+ *   HTG=1, USD=2
+ */
+export const CURRENCY_OPTIONS = [
+  { value: 1, label: "HTG" },
+  { value: 2, label: "USD" },
+] as const
+
+export interface RoomClassPricingDto {
+  pricingId: number
+  roomClassID: number
+  durationType: string   // ex: "Hours2", "Overnight", "Stay"
+  price: number
+  currency: string       // "HTG" ou "USD"
+}
+
+export interface RoomClassPricingRequest {
+  durationType: number   // valeur entière de l'enum BookingDurationType
+  price: number
+  currency: number       // valeur entière de l'enum CurrencyCode (HTG=1, USD=2)
+}
+
+/**
+ * Récupère la grille de tarification d'une catégorie.
+ * Retourne un tableau vide si aucun prix n'est encore configuré.
+ */
+export const getRoomClassPricings = async (
+  roomClassId: number
+): Promise<RoomClassPricingDto[]> => {
+  const response = await fetch(`${BASE_URL}/RoomClass/${roomClassId}/pricing`, {
+    headers: getAuthHeaders(),
+  })
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "")
+    throw new Error(text || `Failed to fetch pricing (${response.status})`)
+  }
+
+  const payload = await response.json()
+
+  const list =
+    Array.isArray(payload) ? payload
+    : Array.isArray(payload?.data) ? payload.data
+    : Array.isArray(payload?.result) ? payload.result
+    : []
+
+  return list.map((x: any) => ({
+    pricingId:   toNumber(x.pricingId   ?? x.PricingId),
+    roomClassID: toNumber(x.roomClassID ?? x.RoomClassID),
+    durationType: x.durationType ?? x.DurationType ?? "",
+    price:       toNumber(x.price ?? x.Price),
+    currency:    x.currency ?? x.Currency ?? "HTG",
+  }))
+}
+
+/**
+ * Remplace toute la grille de prix d'une catégorie (PUT atomique).
+ * Envoyer la liste complète des durées souhaitées —
+ * les durées absentes seront supprimées.
+ */
+export const setRoomClassPricings = async (
+  roomClassId: number,
+  pricings: RoomClassPricingRequest[]
+): Promise<RoomClassPricingDto[]> => {
+  const response = await fetch(`${BASE_URL}/RoomClass/${roomClassId}/pricing`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(pricings),
+  })
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "")
+    throw new Error(text || `Failed to save pricing (${response.status})`)
+  }
+
+  const payload = await response.json()
+
+  const list =
+    Array.isArray(payload) ? payload
+    : Array.isArray(payload?.data) ? payload.data
+    : Array.isArray(payload?.result) ? payload.result
+    : []
+
+  return list.map((x: any) => ({
+    pricingId:   toNumber(x.pricingId   ?? x.PricingId),
+    roomClassID: toNumber(x.roomClassID ?? x.RoomClassID),
+    durationType: x.durationType ?? x.DurationType ?? "",
+    price:       toNumber(x.price ?? x.Price),
+    currency:    x.currency ?? x.Currency ?? "HTG",
+  }))
 }

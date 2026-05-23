@@ -31,13 +31,6 @@ type Props = {
   onRoomChanged?: () => void
 }
 
-function formatHtg(amount: number): string {
-  return `HTG ${amount.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`
-}
-
 function formatDate(iso: string | undefined): string {
   if (!iso) return "—"
   try {
@@ -63,7 +56,7 @@ const RoomList: React.FC<Props> = ({ hotelId, onRoomChanged }) => {
     number: "",
     adultsCapacity: 1,
     childrenCapacity: 0,
-    pricePerNight: 0,
+    // REMOVED: pricePerNight — le prix est géré par la grille RoomClassPricing.
   })
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
@@ -102,7 +95,6 @@ const RoomList: React.FC<Props> = ({ hotelId, onRoomChanged }) => {
       number: room.number ?? "",
       adultsCapacity: room.adultsCapacity ?? 1,
       childrenCapacity: room.childrenCapacity ?? 0,
-      pricePerNight: room.pricePerNight ?? 0,
     })
     setEditError(null)
     setEditOpen(true)
@@ -117,10 +109,6 @@ const RoomList: React.FC<Props> = ({ hotelId, onRoomChanged }) => {
       setEditError("Room number is required.")
       return
     }
-    if (editForm.pricePerNight <= 0) {
-      setEditError("Price per night must be greater than 0.")
-      return
-    }
     if (editForm.adultsCapacity < 1) {
       setEditError("Adults capacity must be at least 1.")
       return
@@ -132,10 +120,8 @@ const RoomList: React.FC<Props> = ({ hotelId, onRoomChanged }) => {
         number: editForm.number.trim(),
         adultsCapacity: editForm.adultsCapacity,
         childrenCapacity: editForm.childrenCapacity,
-        pricePerNight: editForm.pricePerNight,
       })
 
-      // Update local state
       setRooms((prev) =>
         prev.map((r) =>
           r.roomId === editRoom.roomId
@@ -218,7 +204,7 @@ const RoomList: React.FC<Props> = ({ hotelId, onRoomChanged }) => {
               <TableHead>Class</TableHead>
               <TableHead>Adults</TableHead>
               <TableHead>Children</TableHead>
-              <TableHead className="text-right">Price / Night</TableHead>
+              {/* REMOVED: "Price / Night" — le prix est sur la grille RoomClassPricing */}
               <TableHead>Added</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -238,15 +224,10 @@ const RoomList: React.FC<Props> = ({ hotelId, onRoomChanged }) => {
                 </TableCell>
                 <TableCell>{room.adultsCapacity ?? "—"}</TableCell>
                 <TableCell>{room.childrenCapacity ?? "—"}</TableCell>
-                <TableCell className="text-right font-medium">
-                  {room.pricePerNight != null
-                    ? formatHtg(room.pricePerNight)
-                    : "—"}
-                </TableCell>
+                {/* REMOVED: price cell */}
                 <TableCell className="text-muted-foreground text-sm">
                   {formatDate(room.createdAtUtc)}
                 </TableCell>
-                {/* UX2: Actions */}
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">
                     <Button
@@ -277,7 +258,7 @@ const RoomList: React.FC<Props> = ({ hotelId, onRoomChanged }) => {
 
       {/* ══════ DIALOG: EDIT ROOM ══════ */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-[420px]">
+        <DialogContent className="sm:max-w-[380px]">
           <DialogHeader>
             <DialogTitle>Edit Room</DialogTitle>
             <DialogDescription>
@@ -306,25 +287,9 @@ const RoomList: React.FC<Props> = ({ hotelId, onRoomChanged }) => {
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="er-price">
-                  Price / Night (HTG) <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="er-price"
-                  type="number"
-                  min={0}
-                  step={50}
-                  value={editForm.pricePerNight}
-                  onChange={(e) =>
-                    setEditForm((p) => ({
-                      ...p,
-                      pricePerNight: parseFloat(e.target.value) || 0,
-                    }))
-                  }
-                />
-              </div>
+            {/* REMOVED: Price / Night field — géré sur la catégorie */}
+
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="er-adults">
                   Adults <span className="text-destructive">*</span>
